@@ -385,10 +385,10 @@ class MainWindow(QMainWindow):
             self.deriv_axes.set_xlabel(self.current_unit)
             if self.corrected_data is None:
                 dI = gaussian_filter1d(self.data[:,1],mode='nearest', sigma=1, order=1)
-                self.deriv_axes.plot(self.data[:,0], dI)
+                self.deriv_axes.plot(self.data[:,0], dI, color="crimson")
             else :
                 dI = gaussian_filter1d(self.corrected_data[:,1],mode='nearest', sigma=1, order=1)
-                self.deriv_axes.plot(self.corrected_data[:,0], dI)
+                self.deriv_axes.plot(self.corrected_data[:,0], dI, color="crimson")
             self.deriv_canvas.draw()
 
         else:
@@ -520,13 +520,17 @@ class MainWindow(QMainWindow):
             self.axes.set_xlabel(self.current_unit)
             self.axes.plot(x, y, label = 'data', markersize=1)
             #lt.plot(x, init, '--', label='initial fit')
-            self.axes.axvline(nu_min, color='crimson', ls='--')
+            self.axes.axvline(nu_min, color='green', ls='--')
+            self.deriv_axes.axvline(nu_min, color='green', ls='--')
+
             #self.axes.set_xlim([1200, nu_min+200])
 
             #plt.xlim([R1-plot_window, R1+plot_window])
             self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
             #self.axes.legend(frameon=False)
             self.canvas.draw()
+            self.deriv_canvas.draw()
+
             
             new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(nu_min,3), 'File':self.loaded_filename}, index=[0])
             self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
@@ -623,7 +627,9 @@ class MainWindow(QMainWindow):
                 nu_min = x_click
                 P = Raman_akahama(nu_min)
                 self.plot_data()
-                self.axes.axvline(nu_min, color='crimson', ls='--')
+                self.axes.axvline(nu_min, color='green', ls='--')
+                self.deriv_axes.axvline(nu_min, color='green', ls='--')
+
                 self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
                 #self.axes.legend(frameon=False)
                 self.canvas.draw()
