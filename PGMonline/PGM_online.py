@@ -633,6 +633,8 @@ class MainWindow(QMainWindow):
                 self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
                 #self.axes.legend(frameon=False)
                 self.canvas.draw()
+                self.deriv_canvas.draw()
+
                 new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(nu_min,3), 'File':self.loaded_filename}, index=[0])
                 self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
                 self.update_PvPm()
