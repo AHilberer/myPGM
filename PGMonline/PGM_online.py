@@ -34,7 +34,7 @@ from scipy.ndimage import uniform_filter1d
 from scipy.spatial import ConvexHull
 
 
-Setup_mode = False
+Setup_mode = True
 
 def Sm_model(x, c, a1, x1, sigma1):
     return c + a1*np.exp(-(x-x1)**2/(2*sigma1**2))
@@ -137,7 +137,6 @@ class MainWindow(QMainWindow):
         self.click_fit_button.clicked.connect(self.toggle_click_fit)
         FitBoxLayout.addWidget(self.click_fit_button)
         self.click_enabled = False
-        # associated connection in plot section setup
 
         FitBox.setLayout(FitBoxLayout)
         grid_layout.addWidget(FitBox)
@@ -250,7 +249,8 @@ class MainWindow(QMainWindow):
 # #? Create special startup config for debugging
 
         if Setup_mode :
-            latest_file_path= '/resources/Example_diam_Raman.asc'
+            #print(os.path.dirname(__file__))
+            latest_file_path= os.path.dirname(__file__)+'/resources/Example_diam_Raman.asc'
             with open(latest_file_path) as f:
                 lines = f.readlines()
                 if 'Date' in lines[0]:
@@ -576,24 +576,32 @@ class MainWindow(QMainWindow):
             fit_mode  = self.fit_type_selector.currentText()
             if fit_mode == 'Samarium':
                 self.Sm_fit(guess_peak=x_click)
+                self.toggle_click_fit()
+                self.click_fit_button.setChecked(False)
+
             elif fit_mode == 'Ruby':
                 self.Ruby_fit(guess_peak=x_click)
+                self.toggle_click_fit()
+                self.click_fit_button.setChecked(False)
+
             elif fit_mode == 'Raman':
                 nu_min = x_click
                 P = Raman_akahama(nu_min)
-
                 self.plot_data()
-                
                 self.axes.axvline(nu_min, color='crimson', ls='--')
-
                 self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
                 #self.axes.legend(frameon=False)
                 self.canvas.draw()
                 new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(nu_min,3), 'File':self.loaded_filename}, index=[0])
                 self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
                 self.update_PvPm()
+                self.toggle_click_fit()
+                self.click_fit_button.setChecked(False)
+
             else:
                 print('Not implemented')
+                self.toggle_click_fit()
+                self.click_fit_button.setChecked(False)
 
     def CHull_Bg(self):
         if self.corrected_data is None:
