@@ -32,6 +32,7 @@ from PyQt5.QtGui import QColor
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 from scipy.ndimage import uniform_filter1d
 from scipy.spatial import ConvexHull
+from scipy.ndimage import gaussian_filter1d
 
 
 Setup_mode = True
@@ -83,7 +84,7 @@ class MainWindow(QMainWindow):
 #? Setup Main window parameters
 
         self.setWindowTitle("PressureGaugeMonitor_Online")
-        self.setGeometry(100, 100, 800, 800)
+        self.setGeometry(100, 100, 800, 1000)
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
@@ -200,6 +201,26 @@ class MainWindow(QMainWindow):
         DataPlotBox.setLayout(DataPlotBoxLayout)
         grid_layout.addWidget(DataPlotBox)
 
+# #####################################################################################
+# #? Setup derivative plotting section
+
+        DataPlotBox = QGroupBox()
+        DataPlotBoxLayout = QVBoxLayout()
+
+        deriv_plot = MplCanvas(self)
+        self.deriv_axes = deriv_plot.axes
+        self.deriv_figure = deriv_plot.figure
+        self.deriv_canvas = FigureCanvas(self.deriv_figure)
+        self.deriv_axes.set_ylabel('Intensity')
+        self.deriv_axes.set_xlabel(self.current_unit)
+
+        deriv_toolbar = NavigationToolbar(self.deriv_canvas, self)
+        DataPlotBoxLayout.addWidget(self.deriv_canvas)
+        DataPlotBoxLayout.addWidget(deriv_toolbar)
+        self.deriv_canvas.mpl_connect('button_press_event', self.click_fit)
+
+        DataPlotBox.setLayout(DataPlotBoxLayout)
+        grid_layout.addWidget(DataPlotBox)
 
 # #####################################################################################
 # #? Setup PvPm table window
@@ -348,6 +369,7 @@ class MainWindow(QMainWindow):
 
     def plot_data(self):
         if hasattr(self, 'data'):
+            # spectral data
             self.axes.clear()
             self.axes.set_ylabel('Intensity')
             self.axes.set_xlabel(self.current_unit)
@@ -356,6 +378,19 @@ class MainWindow(QMainWindow):
             else :
                 self.axes.plot(self.corrected_data[:,0], self.corrected_data[:,1])
             self.canvas.draw()
+
+            # derivative data
+            self.deriv_axes.clear()
+            self.deriv_axes.set_ylabel(r'dI/d$\nu$')
+            self.deriv_axes.set_xlabel(self.current_unit)
+            if self.corrected_data is None:
+                dI = gaussian_filter1d(self.data[:,1],mode='nearest', sigma=1, order=1)
+                self.deriv_axes.plot(self.data[:,0], dI)
+            else :
+                dI = gaussian_filter1d(self.corrected_data[:,1],mode='nearest', sigma=1, order=1)
+                self.deriv_axes.plot(self.corrected_data[:,0], dI)
+            self.deriv_canvas.draw()
+
         else:
             self.data_label.setText("No data to plot")
     
