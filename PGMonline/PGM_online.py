@@ -250,7 +250,7 @@ class MainWindow(QMainWindow):
 # #? Create special startup config for debugging
 
         if Setup_mode :
-            latest_file_path= '/home/hilberera/Documents/Manips/2023-05_CDMX27_Ne_18/RAMAN/20230510/CDMX27-Ne-18-RAM0034.asc'
+            latest_file_path= '/resources/Example_diam_Raman.asc'
             with open(latest_file_path) as f:
                 lines = f.readlines()
                 if 'Date' in lines[0]:
@@ -263,8 +263,8 @@ class MainWindow(QMainWindow):
                     self.data = data.astype(np.float64)
                     self.normalize_data()
 
-            self.data_label.setText(f"Loaded file : {'CDMX27-Ne-18-RAM0034.asc'}")
-            self.loaded_filename = 'CDMX27-Ne-18-RAM0034.asc'
+            self.data_label.setText(f"Loaded file : {'Example_diam_Raman.asc'}")
+            self.loaded_filename = 'Example_diam_Raman.asc'
             self.plot_data()
 
 
@@ -539,8 +539,7 @@ class MainWindow(QMainWindow):
             options = QFileDialog.Options()
             options |= QFileDialog.DontUseNativeDialog
             file_name, _ = QFileDialog.getOpenFileName(self, "Save Table", self.dir_name, "All Files (*)", options=options)
-            self.PvPm_df = pd.read_csv(file_name, delimiter = ';', names=['Pm', 'P', 'lambda', 'File'])
-            #TODO implement a check for already existing labels within the csv file
+            self.PvPm_df = pd.read_csv(file_name, delimiter = ',', index_col=0)
 
             self.update_PvPm()
         else:
