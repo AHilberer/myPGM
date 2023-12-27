@@ -6,7 +6,6 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 from scipy.signal import find_peaks
 from scipy.optimize import curve_fit
-import csv
 import pandas as pd
 from PyQt5.QtWidgets import (QApplication,
                              QMainWindow,
