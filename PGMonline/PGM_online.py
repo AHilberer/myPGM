@@ -1,12 +1,11 @@
 import os
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('Qt5Agg')
+#matplotlib.use('Qt5Agg')
+import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 from scipy.optimize import curve_fit
-import csv
 import pandas as pd
 from PyQt5.QtWidgets import (QApplication,
                              QMainWindow,
@@ -750,6 +749,7 @@ class PvPmPlotWindow(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    app.setStyle('Fusion')
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
