@@ -30,7 +30,8 @@ from scipy.spatial import ConvexHull
 from scipy.ndimage import gaussian_filter1d
 
 from pressure_models import *
-
+from PvPm_plot_window import *
+from PvPm_table_window import *
 
 Setup_mode = True
 
@@ -674,71 +675,6 @@ class MplCanvas(FigureCanvas):
         super(MplCanvas, self).__init__(fig)
 
 #####################################################################################
-#? Define PvPm table class
 
-class PandasModel(QAbstractTableModel):
-    """A model to interface a Qt view with pandas dataframe"""
-
-    def __init__(self, dataframe: pd.DataFrame, parent=None):
-        QAbstractTableModel.__init__(self, parent)
-        self._dataframe = dataframe
-
-    def rowCount(self, parent=QModelIndex()) -> int:
-        if parent == QModelIndex():
-            return len(self._dataframe)
-        return 0
-
-    def columnCount(self, parent=QModelIndex()) -> int:
-        if parent == QModelIndex():
-            return len(self._dataframe.columns)
-        return 0
-
-    def data(self, index: QModelIndex, role=Qt.ItemDataRole):
-        if not index.isValid():
-            return None
-
-        if role == Qt.DisplayRole or role == Qt.EditRole:
-            return str(self._dataframe.iloc[index.row(), index.column()])
-
-        return None
-
-    def setData(self, index: QModelIndex, value, role=Qt.EditRole):
-        if role == Qt.EditRole:
-            self._dataframe.iloc[index.row(), index.column()] = value
-            self.dataChanged.emit(index,index)
-            return True
-        return False
-
-    def flags(self, index):
-        return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled
-
-    def headerData(self, section: int, orientation: Qt.Orientation, role: Qt.ItemDataRole):
-        if role == Qt.DisplayRole:
-            if orientation == Qt.Horizontal:
-                return str(self._dataframe.columns[section])
-            if orientation == Qt.Vertical:
-                return str(self._dataframe.index[section])
-        return None
 
 #####################################################################################
-#? Define PvPm plot class
-
-class PvPmPlotWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("PvPm Plot")
-        self.setGeometry(900, 550, 450, 350)
-        PmP_plot = MplCanvas(self)
-        self.axes = PmP_plot.axes
-        self.figure = PmP_plot.figure
-        self.canvas = FigureCanvas(self.figure)
-        self.axes.set_ylabel(r'$P$ (GPa)')
-        self.axes.set_xlabel(r"$P_m$ (bar)")
-        #self.axes.plot([0,1,2,3,4], [10,1,20,3,40])
-
-        # Create toolbar, passing canvas as first parament, parent (self, the MainWindow) as second.
-        toolbar = NavigationToolbar(self.canvas, self)
-
-        layout = QVBoxLayout(self)
-        layout.addWidget(toolbar)
-        layout.addWidget(self.canvas)
