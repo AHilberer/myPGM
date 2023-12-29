@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 from scipy.optimize import curve_fit
 import pandas as pd
@@ -20,9 +19,11 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QTableView,
                              QStyledItemDelegate,
                              QLineEdit,
-                             QMessageBox)
+                             QMessageBox, 
+                             QMenuBar,
+                             QMenu,
+                             QAction)
 
-from PyQt5.QtCore import QAbstractTableModel, Qt, QModelIndex
 from PyQt5.QtGui import QColor
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 from scipy.ndimage import uniform_filter1d
@@ -32,6 +33,7 @@ from scipy.ndimage import gaussian_filter1d
 from pressure_models import *
 from PvPm_plot_window import *
 from PvPm_table_window import *
+from plotting_canvas import *
 
 Setup_mode = True
 
@@ -47,6 +49,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        self._createMenuBar() #! doesnt work at all 
         self.corrected_data = None
         self.current_unit = r"$\lambda$ (nm)"
 
@@ -56,7 +59,8 @@ class MainWindow(QMainWindow):
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
-        
+
+
         # Use a QHBoxLayout for the main layout
         main_layout = QHBoxLayout(central_widget)
 
@@ -286,7 +290,14 @@ class MainWindow(QMainWindow):
             self.data_label.setText(f"Loaded file : {'Example_diam_Raman.asc'}")
             self.loaded_filename = 'Example_diam_Raman.asc'
             self.plot_data()
-
+    def _createMenuBar(self):
+        menuBar = self.menuBar()
+        # Creating menus using a QMenu object
+        fileMenu = QMenu("&File", self)
+        menuBar.addMenu(fileMenu)
+        # Creating menus using a title
+        editMenu = menuBar.addMenu("&Edit")
+        helpMenu = menuBar.addMenu("&Help")
 
 #####################################################################################
 #? Main window methods
@@ -662,19 +673,3 @@ class MainWindow(QMainWindow):
         self.corrected_data[:,1]=self.corrected_data[:,1]/max(self.corrected_data[:,1])
         self.plot_data()
 
-
-#####################################################################################
-#? Define plot canvas class
-
-class MplCanvas(FigureCanvas):
-    def __init__(self, parent=None):
-        fig = plt.Figure(tight_layout=True)
-        self.fig = fig
-        self.axes = fig.add_subplot(111)
-        plt.tight_layout()
-        super(MplCanvas, self).__init__(fig)
-
-#####################################################################################
-
-
-#####################################################################################
