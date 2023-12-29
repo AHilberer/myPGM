@@ -1,14 +1,10 @@
 import os
-import sys
 import numpy as np
-import matplotlib
-#matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 from scipy.optimize import curve_fit
 import pandas as pd
-from PyQt5.QtWidgets import (QApplication,
-                             QMainWindow,
+from PyQt5.QtWidgets import (QMainWindow,
                              QLabel,
                              QPushButton,
                              QFileDialog,
@@ -64,7 +60,6 @@ def Raman_akahama(nu, nu0=1334, K0=547, K0p=3.75):
     return P
 
 
-
 class EditableDelegate(QStyledItemDelegate):
     """A delegate that allows for cell editing"""
 
@@ -72,23 +67,42 @@ class EditableDelegate(QStyledItemDelegate):
         editor = QLineEdit(parent)
         return editor
 
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.corrected_data = None
         self.current_unit = r"$\lambda$ (nm)"
-#####################################################################################
-#? Setup Main window parameters
 
+        # Setup Main window parameters
         self.setWindowTitle("PressureGaugeMonitor_Online")
         self.setGeometry(100, 100, 800, 1000)
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
-        grid_layout = QVBoxLayout(central_widget)
         
+        # Use a QHBoxLayout for the main layout
+        main_layout = QHBoxLayout(central_widget)
+
+
+        # Create a new panel (NewPanelBox) on the left
+        new_panel_layout = QVBoxLayout()
+
+        # Setup new panel content (for illustration purposes)
+        new_panel_content = QGroupBox("New Panel Content")
+        new_panel_layout.addWidget(new_panel_content)
+
+        # Add the nested QVBoxLayout for the new panel to the main layout
+        main_layout.addLayout(new_panel_layout)
+
+        # Add a button to the new panel (for illustration purposes)
+        click_me_button = QPushButton("Click Me")
+        # Connect the button to a function (replace with your own functionality)
+
+
+        # Create a new panel (PanelBox) on the left
+        panel_layout = QVBoxLayout()
+
 #####################################################################################
 #? Setup file loading section
 
@@ -108,10 +122,11 @@ class MainWindow(QMainWindow):
         FileBoxLayout.addWidget(self.load_specific_button)
 
         FileBox.setLayout(FileBoxLayout)
-        grid_layout.addWidget(FileBox)
+        panel_layout.addWidget(FileBox)
 
-        
-#####################################################################################
+        # Setup Fitting section
+        FitBox = QGroupBox("Fitting")
+        #####################################################################################
 #? Setup Fitting section
 
 
@@ -139,8 +154,11 @@ class MainWindow(QMainWindow):
         self.click_enabled = False
 
         FitBox.setLayout(FitBoxLayout)
-        grid_layout.addWidget(FitBox)
-#####################################################################################
+        panel_layout.addWidget(FitBox)
+
+        # Setup Data correction section
+        CorrectionBox = QGroupBox("Data correction")
+        #####################################################################################
 #? Data correction section
 
         CorrectionBox = QGroupBox("Data correction")
@@ -161,9 +179,10 @@ class MainWindow(QMainWindow):
         CorrectionBoxLayout.addWidget(self.smoothing_factor, stretch=3)
 
         CorrectionBox.setLayout(CorrectionBoxLayout)
-        grid_layout.addWidget(CorrectionBox)
+        panel_layout.addWidget(CorrectionBox)
 
-# #####################################################################################
+        # Setup loaded file info section
+        #####################################################################################
 # #? Setup loaded file info section
 
         FileInfoBox = QGroupBox("File info")
@@ -177,9 +196,10 @@ class MainWindow(QMainWindow):
         FileInfoBoxLayout.addWidget(self.data_label)
 
         FileInfoBox.setLayout(FileInfoBoxLayout)
-        grid_layout.addWidget(FileInfoBox)
+        panel_layout.addWidget(FileInfoBox)
 
-# #####################################################################################
+        # Setup data plotting section
+        #####################################################################################
 # #? Setup data plotting section
 
         DataPlotBox = QGroupBox()
@@ -198,9 +218,9 @@ class MainWindow(QMainWindow):
         self.canvas.mpl_connect('button_press_event', self.click_fit)
 
         DataPlotBox.setLayout(DataPlotBoxLayout)
-        grid_layout.addWidget(DataPlotBox)
+        panel_layout.addWidget(DataPlotBox)
 
-# #####################################################################################
+#####################################################################################
 # #? Setup derivative plotting section
 
         DataPlotBox = QGroupBox()
@@ -219,9 +239,13 @@ class MainWindow(QMainWindow):
         self.deriv_canvas.mpl_connect('button_press_event', self.click_fit)
 
         DataPlotBox.setLayout(DataPlotBoxLayout)
-        grid_layout.addWidget(DataPlotBox)
+        panel_layout.addWidget(DataPlotBox)
 
-# #####################################################################################
+        # Add the nested QVBoxLayout to the main layout
+        main_layout.addLayout(panel_layout)
+
+
+#####################################################################################
 # #? Setup PvPm table window
 
         self.PvPmTable = QTableView()
@@ -262,7 +286,7 @@ class MainWindow(QMainWindow):
         PvPmBoxLayout.addWidget(self.PvPm_open_button)
 
         PvPmBox.setLayout(PvPmBoxLayout)
-        grid_layout.addWidget(PvPmBox)
+        panel_layout.addWidget(PvPmBox)
 
 
 # #####################################################################################
@@ -290,7 +314,6 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 #? Main window methods
-
 
     def smoothen(self):
         smooth_window = int(self.smoothing_factor.value()//1)
@@ -744,12 +767,3 @@ class PvPmPlotWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(toolbar)
         layout.addWidget(self.canvas)
-
-
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    app.setStyle('Fusion')
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
