@@ -22,8 +22,10 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QMessageBox, 
                              QMenuBar,
                              QMenu,
-                             QAction)
-
+                             QAction,
+                             QListWidget,
+                             QListWidgetItem)
+from PyQt5.QtCore import QFileInfo, Qt
 from PyQt5.QtGui import QColor
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 from scipy.ndimage import uniform_filter1d
@@ -49,9 +51,15 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self._createMenuBar() #! doesnt work at all 
-        self.corrected_data = None
-        self.current_unit = r"$\lambda$ (nm)"
+
+        menubar = self.menuBar()
+        help_menu = menubar.addMenu(' Help')
+        exit_menu = menubar.addMenu(' Exit')
+
+        exit_action = QAction(' Exit', self)
+        exit_action.triggered.connect(self.close)
+        exit_menu.addAction(exit_action)    
+        help_menu.addAction(exit_action) 
 
         # Setup Main window parameters
         self.setWindowTitle("PressureGaugeMonitor_Online")
@@ -66,46 +74,53 @@ class MainWindow(QMainWindow):
 
 
         # Create a new panel (NewPanelBox) on the left
-        new_panel_layout = QVBoxLayout()
+        left_panel_layout = QVBoxLayout()
 
         # Setup new panel content (for illustration purposes)
-        new_panel_content = QGroupBox("New Panel Content")
-        new_panel_layout.addWidget(new_panel_content)
+        
 
         # Add the nested QVBoxLayout for the new panel to the main layout
-        main_layout.addLayout(new_panel_layout)
-
-        # Add a button to the new panel (for illustration purposes)
-        click_me_button = QPushButton("Click Me")
-        # Connect the button to a function (replace with your own functionality)
+        main_layout.addLayout(left_panel_layout)
 
 
         # Create a new panel (PanelBox) on the left
-        panel_layout = QVBoxLayout()
+        right_panel_layout = QVBoxLayout()
 
 #####################################################################################
 #? Setup file loading section
 
-        FileBox = QGroupBox("File loading")
+        self.corrected_data = None
+        self.current_unit = r"$\lambda$ (nm)"
+
+
+        FileBox = QGroupBox("File management")
         FileBoxLayout = QHBoxLayout()
 
-        self.select_dir_button = QPushButton("Select Directory", self)
+        self.select_dir_button = QPushButton("Add Directory", self)
         self.select_dir_button.clicked.connect(self.select_directory)
         FileBoxLayout.addWidget(self.select_dir_button)
 
-        self.load_latest_button = QPushButton("Load Latest File", self)
-        self.load_latest_button.clicked.connect(self.load_latest_file)
-        FileBoxLayout.addWidget(self.load_latest_button)
+        self.add_button = QPushButton("Add single file", self)
+        self.add_button.clicked.connect(self.add_file)
+        FileBoxLayout.addWidget(self.add_button)
+
+        self.delete_button = QPushButton("Delete single file ", self)
+        self.delete_button.clicked.connect(self.delete_file)
+        FileBoxLayout.addWidget(self.delete_button)
         
-        self.load_specific_button = QPushButton("Load Specific File", self)
-        self.load_specific_button.clicked.connect(self.load_specific_file)
-        FileBoxLayout.addWidget(self.load_specific_button)
-
         FileBox.setLayout(FileBoxLayout)
-        panel_layout.addWidget(FileBox)
+        left_panel_layout.addWidget(FileBox)
 
-        # Setup Fitting section
-        FitBox = QGroupBox("Fitting")
+        self.list_widget = QListWidget(self)
+        left_panel_layout.addWidget(self.list_widget)
+        self.list_widget.itemClicked.connect(self.display_selected_file)
+
+
+
+
+
+
+
         #####################################################################################
 #? Setup Fitting section
 
@@ -134,10 +149,8 @@ class MainWindow(QMainWindow):
         self.click_enabled = False
 
         FitBox.setLayout(FitBoxLayout)
-        panel_layout.addWidget(FitBox)
+        right_panel_layout.addWidget(FitBox)
 
-        # Setup Data correction section
-        CorrectionBox = QGroupBox("Data correction")
         #####################################################################################
 #? Data correction section
 
@@ -159,9 +172,8 @@ class MainWindow(QMainWindow):
         CorrectionBoxLayout.addWidget(self.smoothing_factor, stretch=3)
 
         CorrectionBox.setLayout(CorrectionBoxLayout)
-        panel_layout.addWidget(CorrectionBox)
+        right_panel_layout.addWidget(CorrectionBox)
 
-        # Setup loaded file info section
         #####################################################################################
 # #? Setup loaded file info section
 
@@ -176,9 +188,8 @@ class MainWindow(QMainWindow):
         FileInfoBoxLayout.addWidget(self.data_label)
 
         FileInfoBox.setLayout(FileInfoBoxLayout)
-        panel_layout.addWidget(FileInfoBox)
+        right_panel_layout.addWidget(FileInfoBox)
 
-        # Setup data plotting section
         #####################################################################################
 # #? Setup data plotting section
 
@@ -198,7 +209,7 @@ class MainWindow(QMainWindow):
         self.canvas.mpl_connect('button_press_event', self.click_fit)
 
         DataPlotBox.setLayout(DataPlotBoxLayout)
-        panel_layout.addWidget(DataPlotBox)
+        right_panel_layout.addWidget(DataPlotBox)
 
 #####################################################################################
 # #? Setup derivative plotting section
@@ -219,10 +230,10 @@ class MainWindow(QMainWindow):
         self.deriv_canvas.mpl_connect('button_press_event', self.click_fit)
 
         DataPlotBox.setLayout(DataPlotBoxLayout)
-        panel_layout.addWidget(DataPlotBox)
+        right_panel_layout.addWidget(DataPlotBox)
 
         # Add the nested QVBoxLayout to the main layout
-        main_layout.addLayout(panel_layout)
+        main_layout.addLayout(right_panel_layout)
 
 
 #####################################################################################
@@ -266,7 +277,7 @@ class MainWindow(QMainWindow):
         PvPmBoxLayout.addWidget(self.PvPm_open_button)
 
         PvPmBox.setLayout(PvPmBoxLayout)
-        panel_layout.addWidget(PvPmBox)
+        right_panel_layout.addWidget(PvPmBox)
 
 
 # #####################################################################################
@@ -275,6 +286,13 @@ class MainWindow(QMainWindow):
         if Setup_mode :
             #print(os.path.dirname(__file__))
             latest_file_path= os.path.dirname(__file__)+'/resources/Example_diam_Raman.asc'
+
+            file_info = QFileInfo(latest_file_path)
+            file_name = file_info.fileName()
+            list_item = QListWidgetItem(file_name)
+            list_item.setData(Qt.UserRole, latest_file_path)
+            self.list_widget.addItem(list_item)
+
             with open(latest_file_path) as f:
                 lines = f.readlines()
                 if 'Date' in lines[0]:
@@ -290,18 +308,11 @@ class MainWindow(QMainWindow):
             self.data_label.setText(f"Loaded file : {'Example_diam_Raman.asc'}")
             self.loaded_filename = 'Example_diam_Raman.asc'
             self.plot_data()
-    def _createMenuBar(self):
-        menuBar = self.menuBar()
-        # Creating menus using a QMenu object
-        fileMenu = QMenu("&File", self)
-        menuBar.addMenu(fileMenu)
-        # Creating menus using a title
-        editMenu = menuBar.addMenu("&Edit")
-        helpMenu = menuBar.addMenu("&Help")
+
 
 #####################################################################################
 #? Main window methods
-
+    
     def smoothen(self):
         smooth_window = int(self.smoothing_factor.value()//1)
         self.corrected_data = np.column_stack((self.data[:,0],uniform_filter1d(self.data[:,1], size=smooth_window)))
@@ -315,63 +326,27 @@ class MainWindow(QMainWindow):
             self.dir_name = dir_name
             self.dir_label.setText(f"Selected directory: {dir_name}")
             
-    def load_specific_file(self):
-        if hasattr(self, 'dir_name'):
-            options = QFileDialog.Options()
-            options |= QFileDialog.DontUseNativeDialog
-            file_name, _ = QFileDialog.getOpenFileName(self, "Load Data", self.dir_name, "Text Files (*.asc);;All Files (*)", options=options)
-            if file_name:
-                with open(file_name) as f:
-                    lines = f.readlines()
-                    if 'Date' in lines[0]:
-                        data = np.loadtxt(file_name, skiprows=35, dtype=str)
-                        self.data = data.astype(np.float64)
-                        self.normalize_data()
-                        self.corrected_data = None
+    def add_file(self):
+        file_dialog = QFileDialog()
+        file_dialog.setFileMode(QFileDialog.ExistingFiles)
+        if file_dialog.exec_():
+            selected_files = file_dialog.selectedFiles()
+            for file in selected_files:
+                file_info = QFileInfo(file)
+                file_name = file_info.fileName()
 
-
-                    else:
-                        data = np.loadtxt(file_name, dtype=str)
-                        self.data = data.astype(np.float64)
-                        self.normalize_data()
-                        self.corrected_data = None
-
-                self.data_label.setText(f"Loaded file : {file_name[len(self.dir_name)+1:]}")
-                self.loaded_filename = file_name[len(self.dir_name)+1:]
-                self.plot_data()
-            else:
-                self.data_label.setText("No files in selected directory")
-        else:
-            self.data_label.setText("No directory selected")
+                list_item = QListWidgetItem(file_name)
+                list_item.setData(Qt.UserRole, file)
+                self.list_widget.addItem(list_item)
         
-    def load_latest_file(self):
-            if hasattr(self, 'dir_name'):
-                file_names = [f for f in os.listdir(self.dir_name) if os.path.isfile(os.path.join(self.dir_name, f)) and '.asc' in f]
-                if file_names:
-                    file_names.sort(key=lambda f: os.path.getmtime(os.path.join(self.dir_name, f)))
-                    latest_file_name = file_names[-1]
-                    latest_file_path = os.path.join(self.dir_name, latest_file_name)
-                    with open(latest_file_path) as f:
-                        lines = f.readlines()
-                        if 'Date' in lines[0]:
-                            data = np.loadtxt(latest_file_path, skiprows=35, dtype=str)
-                            self.data = data.astype(np.float64)
-                            self.corrected_data = None
-                            self.normalize_data()
+    def delete_file(self):
+        selected_item = self.list_widget.currentItem()
+        if selected_item is not None:
+            self.list_widget.takeItem(self.list_widget.row(selected_item))
 
-                        else:
-                            data = np.loadtxt(latest_file_path, dtype=str)
-                            self.data = data.astype(np.float64)
-                            self.corrected_data = None
-                            self.normalize_data()
-
-                    self.data_label.setText(f"Loaded file : {latest_file_name}")
-                    self.loaded_filename = latest_file_name
-                    self.plot_data()
-                else:
-                    self.data_label.setText("No files in selected directory")
-            else:
-                self.data_label.setText("No directory selected")
+    def display_selected_file(self, item):
+        file_path = item.data(Qt.UserRole)
+        print(f'Selected File: {file_path}')
 
     def normalize_data(self):
         self.data[:,1]=self.data[:,1]/max(self.data[:,1])
