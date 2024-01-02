@@ -23,9 +23,9 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QMenuBar,
                              QMenu,
                              QAction,
-                             QListWidget,
-                             QListWidgetItem)
-from PyQt5.QtCore import QFileInfo, Qt
+                             QListView,
+                             )
+from PyQt5.QtCore import QFileInfo, Qt, QAbstractListModel, QModelIndex, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QColor
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 from scipy.ndimage import uniform_filter1d
@@ -47,6 +47,42 @@ class EditableDelegate(QStyledItemDelegate):
         editor = QLineEdit(parent)
         return editor
 
+
+class MySpectrumItem:
+    def __init__(self, name, path):
+        self.name = name
+        self.path = path
+
+class CustomFileListModel(QAbstractListModel):
+    itemAdded = pyqtSignal()  # Signal emitted when an item is added
+    itemDeleted = pyqtSignal()  # Signal emitted when an item is deleted
+
+    def __init__(self, items=None, parent=None):
+        super().__init__(parent)
+        self.items = items or []
+
+    def rowCount(self, parent=QModelIndex()):
+        return len(self.items)
+
+    def data(self, index, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole:
+            return self.items[index.row()].name
+        elif role == Qt.UserRole:
+            return self.items[index.row()]
+
+
+    def addItem(self, item):
+        self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
+        self.items.append(item)
+        self.endInsertRows()
+        self.itemAdded.emit()  # Emit signal to notify the view
+
+    def deleteItem(self, index):
+        self.beginRemoveRows(QModelIndex(), index, index)
+        del self.items[index]
+        self.endRemoveRows()
+        self.itemDeleted.emit()  # Emit signal to notify the view
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -62,28 +98,21 @@ class MainWindow(QMainWindow):
         help_menu.addAction(exit_action) 
 
         # Setup Main window parameters
-        self.setWindowTitle("PressureGaugeMonitor_Online")
+        self.setWindowTitle("PressureGaugeMonitor_Offline")
         self.setGeometry(100, 100, 800, 1000)
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
 
-
         # Use a QHBoxLayout for the main layout
         main_layout = QHBoxLayout(central_widget)
 
 
-        # Create a new panel (NewPanelBox) on the left
+        # Create a new panel on the left
         left_panel_layout = QVBoxLayout()
-
-        # Setup new panel content (for illustration purposes)
-        
-
-        # Add the nested QVBoxLayout for the new panel to the main layout
         main_layout.addLayout(left_panel_layout)
 
-
-        # Create a new panel (PanelBox) on the left
+        # Create a new panel on the right
         right_panel_layout = QVBoxLayout()
 
 #####################################################################################
@@ -96,11 +125,7 @@ class MainWindow(QMainWindow):
         FileBox = QGroupBox("File management")
         FileBoxLayout = QHBoxLayout()
 
-        self.select_dir_button = QPushButton("Add Directory", self)
-        self.select_dir_button.clicked.connect(self.select_directory)
-        FileBoxLayout.addWidget(self.select_dir_button)
-
-        self.add_button = QPushButton("Add single file", self)
+        self.add_button = QPushButton("Add file", self)
         self.add_button.clicked.connect(self.add_file)
         FileBoxLayout.addWidget(self.add_button)
 
@@ -111,14 +136,24 @@ class MainWindow(QMainWindow):
         FileBox.setLayout(FileBoxLayout)
         left_panel_layout.addWidget(FileBox)
 
-        self.list_widget = QListWidget(self)
+        self.custom_model = CustomFileListModel()
+        self.list_widget = QListView(self)
+        self.list_widget.setModel(self.custom_model)
         left_panel_layout.addWidget(self.list_widget)
-        self.list_widget.itemClicked.connect(self.display_selected_file)
+        self.list_widget.clicked.connect(self.item_clicked)
 
 
+        #####################################################################################
+# #? Setup loaded file info section
 
+        FileInfoBox = QGroupBox("Current file info")
+        FileInfoBoxLayout = QVBoxLayout()
 
+        self.current_file_label = QLabel("No file selected", self)
+        FileInfoBoxLayout.addWidget(self.current_file_label)
 
+        FileInfoBox.setLayout(FileInfoBoxLayout)
+        right_panel_layout.addWidget(FileInfoBox)
 
 
         #####################################################################################
@@ -174,21 +209,6 @@ class MainWindow(QMainWindow):
         CorrectionBox.setLayout(CorrectionBoxLayout)
         right_panel_layout.addWidget(CorrectionBox)
 
-        #####################################################################################
-# #? Setup loaded file info section
-
-        FileInfoBox = QGroupBox("File info")
-        FileInfoBoxLayout = QVBoxLayout()
-
-        self.dir_label = QLabel("No directory selected", self)
-        FileInfoBoxLayout.addWidget(self.dir_label)
-        self.loaded_filename = None
-
-        self.data_label = QLabel("No data loaded", self)
-        FileInfoBoxLayout.addWidget(self.data_label)
-
-        FileInfoBox.setLayout(FileInfoBoxLayout)
-        right_panel_layout.addWidget(FileInfoBox)
 
         #####################################################################################
 # #? Setup data plotting section
@@ -289,9 +309,8 @@ class MainWindow(QMainWindow):
 
             file_info = QFileInfo(latest_file_path)
             file_name = file_info.fileName()
-            list_item = QListWidgetItem(file_name)
-            list_item.setData(Qt.UserRole, latest_file_path)
-            self.list_widget.addItem(list_item)
+            list_item = MySpectrumItem(file_name, latest_file_path)
+            self.custom_model.addItem(list_item)
 
             with open(latest_file_path) as f:
                 lines = f.readlines()
@@ -305,7 +324,6 @@ class MainWindow(QMainWindow):
                     self.data = data.astype(np.float64)
                     self.normalize_data()
 
-            self.data_label.setText(f"Loaded file : {'Example_diam_Raman.asc'}")
             self.loaded_filename = 'Example_diam_Raman.asc'
             self.plot_data()
 
@@ -318,14 +336,7 @@ class MainWindow(QMainWindow):
         self.corrected_data = np.column_stack((self.data[:,0],uniform_filter1d(self.data[:,1], size=smooth_window)))
         self.plot_data()
 
-    def select_directory(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        dir_name = QFileDialog.getExistingDirectory(self, "Select Directory", options=options)
-        if dir_name:
-            self.dir_name = dir_name
-            self.dir_label.setText(f"Selected directory: {dir_name}")
-            
+    @pyqtSlot()
     def add_file(self):
         file_dialog = QFileDialog()
         file_dialog.setFileMode(QFileDialog.ExistingFiles)
@@ -334,19 +345,25 @@ class MainWindow(QMainWindow):
             for file in selected_files:
                 file_info = QFileInfo(file)
                 file_name = file_info.fileName()
-
-                list_item = QListWidgetItem(file_name)
-                list_item.setData(Qt.UserRole, file)
-                self.list_widget.addItem(list_item)
-        
+                new_item = MySpectrumItem(file_name, file)
+                self.custom_model.addItem(new_item)
+    
+    @pyqtSlot()
     def delete_file(self):
-        selected_item = self.list_widget.currentItem()
-        if selected_item is not None:
-            self.list_widget.takeItem(self.list_widget.row(selected_item))
+        selected_index = self.list_widget.currentIndex()
+        if selected_index.isValid():
+            self.custom_model.deleteItem(selected_index.row())
+
+    @pyqtSlot(QModelIndex)
+    def item_clicked(self, index):
+        selected_item = self.custom_model.data(index, role=Qt.UserRole)
+        self.current_file_path = selected_item.path
+        self.current_file_label.setText(f"{self.current_file_path}")
 
     def display_selected_file(self, item):
-        file_path = item.data(Qt.UserRole)
-        print(f'Selected File: {file_path}')
+        FilePath = Qt.UserRole
+        self.current_file_path = item.data(FilePath)
+        self.current_file_label.setText(f"{self.current_file_path}")
 
     def normalize_data(self):
         self.data[:,1]=self.data[:,1]/max(self.data[:,1])
@@ -375,8 +392,6 @@ class MainWindow(QMainWindow):
                 self.deriv_axes.plot(self.corrected_data[:,0], dI, color="crimson")
             self.deriv_canvas.draw()
 
-        else:
-            self.data_label.setText("No data to plot")
     
     def update_fit_type(self):
         col1 = self.fit_type_selector.model().item(

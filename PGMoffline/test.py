@@ -1,89 +1,90 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QAction, QListWidget, QHBoxLayout, QFileDialog, QLabel, QListWidgetItem
-from PyQt5.QtCore import QFileInfo, Qt
+from PyQt5.QtCore import Qt, QAbstractListModel, QModelIndex, pyqtSignal, pyqtSlot
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QListView, QWidget, QPushButton, QLabel
+
+class CustomFileItem:
+    def __init__(self, name, size):
+        self.name = name
+        self.size = size
+
+class CustomFileListModel(QAbstractListModel):
+    itemAdded = pyqtSignal()  # Signal emitted when an item is added
+    itemDeleted = pyqtSignal()  # Signal emitted when an item is deleted
+
+    def __init__(self, items=None, parent=None):
+        super().__init__(parent)
+        self.items = items or []
+
+    def rowCount(self, parent=QModelIndex()):
+        return len(self.items)
+
+    def data(self, index, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole:
+            return self.items[index.row()].name
+        elif role == Qt.UserRole:
+            return self.items[index.row()]
+
+    def addItem(self, item):
+        self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
+        self.items.append(item)
+        self.endInsertRows()
+        self.itemAdded.emit()  # Emit signal to notify the view
+
+    def deleteItem(self, index):
+        self.beginRemoveRows(QModelIndex(), index, index)
+        del self.items[index]
+        self.endRemoveRows()
+        self.itemDeleted.emit()  # Emit signal to notify the view
 
 class MyWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Qt UI with Menu and Buttons")
-        self.setGeometry(100, 100, 600, 400)
+        self.setWindowTitle("Custom Model Example")
+        self.setGeometry(100, 100, 400, 300)
 
-        self.init_ui()
+        layoutWidget = QWidget(self)
+        self.setCentralWidget(layoutWidget)
 
-    def init_ui(self):
-        # Create Menu Bar
-        menubar = self.menuBar()
-        file_menu = menubar.addMenu('File')
-        exit_action = QAction('Exit', self)
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
+        layout = QVBoxLayout()
 
-        # Create central widget and layout
-        central_widget = QWidget(self)
-        self.setCentralWidget(central_widget)
+        custom_items = [CustomFileItem(f"File_{i}.txt", i * 100) for i in range(5)]
 
-        layout = QVBoxLayout(central_widget)
+        self.custom_model = CustomFileListModel(items=custom_items)
+        list_view = QListView(self)
+        list_view.setModel(self.custom_model)
+        list_view.clicked.connect(self.item_clicked)  # Connect the clicked signal to the slot
 
-        # Create three blocks with buttons
+        layout.addWidget(list_view)
 
-        # Block 1
-        block_widget_1 = QWidget(self)
-        block_layout_1 = QVBoxLayout(block_widget_1)
-        button_1 = QPushButton('Button 1', block_widget_1)
-        block_layout_1.addWidget(button_1)
-        layout.addWidget(block_widget_1)
+        add_button = QPushButton("Add Item", self)
+        add_button.clicked.connect(self.add_item)
+        layout.addWidget(add_button)
 
-        # Block 2
-        block_widget_2 = QWidget(self)
-        block_layout_2 = QVBoxLayout(block_widget_2)
+        delete_button = QPushButton("Delete Item", self)
+        delete_button.clicked.connect(self.delete_item)
+        layout.addWidget(delete_button)
 
-        self.list_widget = QListWidget(self)
-        self.list_widget.itemClicked.connect(self.display_selected_file)
-        block_layout_2.addWidget(self.list_widget)
+        self.selected_file_label = QLabel("Selected File: None", self)
+        layout.addWidget(self.selected_file_label)
 
-        self.selected_file_label = QLabel('Selected File: ', block_widget_2)
-        block_layout_2.addWidget(self.selected_file_label)
+        layoutWidget.setLayout(layout)
 
-        add_button = QPushButton('Add File', block_widget_2)
-        add_button.clicked.connect(self.add_file)
-        block_layout_2.addWidget(add_button)
+    @pyqtSlot(QModelIndex)
+    def item_clicked(self, index):
+        selected_item = self.custom_model.data(index, role=Qt.UserRole)
+        self.selected_file_label.setText(f"Selected File: {selected_item.name}, File Size: {selected_item.size} bytes")
 
-        delete_button = QPushButton('Delete File', block_widget_2)
-        delete_button.clicked.connect(self.delete_file)
-        block_layout_2.addWidget(delete_button)
+    @pyqtSlot()
+    def add_item(self):
+        new_item = CustomFileItem("New File", 500)
+        self.custom_model.addItem(new_item)
 
-        layout.addWidget(block_widget_2)
-
-        # Block 3
-        block_widget_3 = QWidget(self)
-        block_layout_3 = QVBoxLayout(block_widget_3)
-        button_3 = QPushButton('Button 3', block_widget_3)
-        block_layout_3.addWidget(button_3)
-        layout.addWidget(block_widget_3)
-
-    def add_file(self):
-        file_dialog = QFileDialog()
-        file_dialog.setFileMode(QFileDialog.ExistingFiles)
-        if file_dialog.exec_():
-            selected_files = file_dialog.selectedFiles()
-            for file in selected_files:
-                file_info = QFileInfo(file)
-                file_name = file_info.fileName()
-
-                list_item = QListWidgetItem(file_name)
-                list_item.setData(Qt.UserRole, file)
-                self.list_widget.addItem(list_item)
-
-    def delete_file(self):
-        selected_item = self.list_widget.currentItem()
-        if selected_item is not None:
-            self.list_widget.takeItem(self.list_widget.row(selected_item))
-            self.selected_file_label.setText('Selected File: ')
-
-    def display_selected_file(self, item):
-        file_path = item.data(Qt.UserRole)
-        self.selected_file_label.setText(f'Selected File: {file_path}')
+    @pyqtSlot()
+    def delete_item(self):
+        selected_index = self.centralWidget().layout().itemAt(0).widget().currentIndex()
+        if selected_index.isValid():
+            self.custom_model.deleteItem(selected_index.row())
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
