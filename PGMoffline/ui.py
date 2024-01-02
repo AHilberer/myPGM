@@ -96,10 +96,6 @@ class MainWindow(QMainWindow):
         FileBox = QGroupBox("File management")
         FileBoxLayout = QHBoxLayout()
 
-        self.select_dir_button = QPushButton("Add Directory", self)
-        self.select_dir_button.clicked.connect(self.select_directory)
-        FileBoxLayout.addWidget(self.select_dir_button)
-
         self.add_button = QPushButton("Add single file", self)
         self.add_button.clicked.connect(self.add_file)
         FileBoxLayout.addWidget(self.add_button)
@@ -118,7 +114,17 @@ class MainWindow(QMainWindow):
 
 
 
+        #####################################################################################
+# #? Setup loaded file info section
 
+        FileInfoBox = QGroupBox("File info")
+        FileInfoBoxLayout = QVBoxLayout()
+
+        self.current_file_label = QLabel("No file selected", self)
+        FileInfoBoxLayout.addWidget(self.current_file_label)
+
+        FileInfoBox.setLayout(FileInfoBoxLayout)
+        right_panel_layout.addWidget(FileInfoBox)
 
 
         #####################################################################################
@@ -174,21 +180,6 @@ class MainWindow(QMainWindow):
         CorrectionBox.setLayout(CorrectionBoxLayout)
         right_panel_layout.addWidget(CorrectionBox)
 
-        #####################################################################################
-# #? Setup loaded file info section
-
-        FileInfoBox = QGroupBox("File info")
-        FileInfoBoxLayout = QVBoxLayout()
-
-        self.dir_label = QLabel("No directory selected", self)
-        FileInfoBoxLayout.addWidget(self.dir_label)
-        self.loaded_filename = None
-
-        self.data_label = QLabel("No data loaded", self)
-        FileInfoBoxLayout.addWidget(self.data_label)
-
-        FileInfoBox.setLayout(FileInfoBoxLayout)
-        right_panel_layout.addWidget(FileInfoBox)
 
         #####################################################################################
 # #? Setup data plotting section
@@ -305,7 +296,6 @@ class MainWindow(QMainWindow):
                     self.data = data.astype(np.float64)
                     self.normalize_data()
 
-            self.data_label.setText(f"Loaded file : {'Example_diam_Raman.asc'}")
             self.loaded_filename = 'Example_diam_Raman.asc'
             self.plot_data()
 
@@ -318,13 +308,6 @@ class MainWindow(QMainWindow):
         self.corrected_data = np.column_stack((self.data[:,0],uniform_filter1d(self.data[:,1], size=smooth_window)))
         self.plot_data()
 
-    def select_directory(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        dir_name = QFileDialog.getExistingDirectory(self, "Select Directory", options=options)
-        if dir_name:
-            self.dir_name = dir_name
-            self.dir_label.setText(f"Selected directory: {dir_name}")
             
     def add_file(self):
         file_dialog = QFileDialog()
@@ -345,8 +328,8 @@ class MainWindow(QMainWindow):
             self.list_widget.takeItem(self.list_widget.row(selected_item))
 
     def display_selected_file(self, item):
-        file_path = item.data(Qt.UserRole)
-        print(f'Selected File: {file_path}')
+        self.current_file_path = item.data(Qt.UserRole)
+        self.current_file_label.setText(f"{self.current_file_path}")
 
     def normalize_data(self):
         self.data[:,1]=self.data[:,1]/max(self.data[:,1])
@@ -375,8 +358,6 @@ class MainWindow(QMainWindow):
                 self.deriv_axes.plot(self.corrected_data[:,0], dI, color="crimson")
             self.deriv_canvas.draw()
 
-        else:
-            self.data_label.setText("No data to plot")
     
     def update_fit_type(self):
         col1 = self.fit_type_selector.model().item(
