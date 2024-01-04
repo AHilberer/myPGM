@@ -52,6 +52,10 @@ class MySpectrumItem:
     def __init__(self, name, path):
         self.name = name
         self.path = path
+        self.data = None
+        self.corrected_data = None
+        self.current_unit = r"$\lambda$ (nm)"
+
 
 class CustomFileListModel(QAbstractListModel):
     itemAdded = pyqtSignal()  # Signal emitted when an item is added
@@ -69,7 +73,6 @@ class CustomFileListModel(QAbstractListModel):
             return self.items[index.row()].name
         elif role == Qt.UserRole:
             return self.items[index.row()]
-
 
     def addItem(self, item):
         self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
@@ -118,10 +121,6 @@ class MainWindow(QMainWindow):
 #####################################################################################
 #? Setup file loading section
 
-        self.corrected_data = None
-        self.current_unit = r"$\lambda$ (nm)"
-
-
         FileBox = QGroupBox("File management")
         FileBoxLayout = QHBoxLayout()
 
@@ -141,6 +140,8 @@ class MainWindow(QMainWindow):
         self.list_widget.setModel(self.custom_model)
         left_panel_layout.addWidget(self.list_widget)
         self.list_widget.clicked.connect(self.item_clicked)
+        self.current_selected_index = None
+        self.list_widget.selectionModel().selectionChanged.connect(self.selection_changed)
 
 
         #####################################################################################
@@ -310,31 +311,26 @@ class MainWindow(QMainWindow):
             file_info = QFileInfo(latest_file_path)
             file_name = file_info.fileName()
             list_item = MySpectrumItem(file_name, latest_file_path)
-            self.custom_model.addItem(list_item)
 
             with open(latest_file_path) as f:
                 lines = f.readlines()
                 if 'Date' in lines[0]:
                     data = np.loadtxt(latest_file_path, skiprows=35, dtype=str)
-                    self.data = data.astype(np.float64)
-                    self.normalize_data()
+                    list_item.data = data.astype(np.float64)
+                    #self.normalize_data()
 
                 else:
                     data = np.loadtxt(latest_file_path, dtype=str)
-                    self.data = data.astype(np.float64)
-                    self.normalize_data()
-
+                    list_item.data = data.astype(np.float64)
+                    #self.normalize_data()
+            
+            self.custom_model.addItem(list_item)
             self.loaded_filename = 'Example_diam_Raman.asc'
             self.plot_data()
 
 
 #####################################################################################
 #? Main window methods
-    
-    def smoothen(self):
-        smooth_window = int(self.smoothing_factor.value()//1)
-        self.corrected_data = np.column_stack((self.data[:,0],uniform_filter1d(self.data[:,1], size=smooth_window)))
-        self.plot_data()
 
     @pyqtSlot()
     def add_file(self):
@@ -359,39 +355,52 @@ class MainWindow(QMainWindow):
         selected_item = self.custom_model.data(index, role=Qt.UserRole)
         self.current_file_path = selected_item.path
         self.current_file_label.setText(f"{self.current_file_path}")
-
-    def display_selected_file(self, item):
-        FilePath = Qt.UserRole
-        self.current_file_path = item.data(FilePath)
-        self.current_file_label.setText(f"{self.current_file_path}")
+        self.plot_data()
+    
+    @pyqtSlot()
+    def selection_changed(self):
+        # Update the current_selected_index when the selection changes
+        selected_index = self.list_widget.currentIndex()
+        if selected_index.isValid():
+            self.current_selected_index = selected_index
+        else:
+            self.current_selected_index = None
 
     def normalize_data(self):
         self.data[:,1]=self.data[:,1]/max(self.data[:,1])
 
     def plot_data(self):
-        if hasattr(self, 'data'):
-            # spectral data
-            self.axes.clear()
-            self.axes.set_ylabel('Intensity')
-            self.axes.set_xlabel(self.current_unit)
-            if self.corrected_data is None:
-                self.axes.plot(self.data[:,0], self.data[:,1])
-            else :
-                self.axes.plot(self.corrected_data[:,0], self.corrected_data[:,1])
-            self.canvas.draw()
+        if self.current_selected_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+            if hasattr(current_spectrum, 'data'):
+                # spectral data
+                self.axes.clear()
+                self.axes.set_ylabel('Intensity')
+                self.axes.set_xlabel(current_spectrum.current_unit)
+                if current_spectrum.corrected_data is None:
+                    self.axes.plot(current_spectrum.data[:,0], current_spectrum.data[:,1])
+                else :
+                    self.axes.plot(current_spectrum.corrected_data[:,0], current_spectrum.corrected_data[:,1])
+                self.canvas.draw()
 
-            # derivative data
-            self.deriv_axes.clear()
-            self.deriv_axes.set_ylabel(r'dI/d$\nu$')
-            self.deriv_axes.set_xlabel(self.current_unit)
-            if self.corrected_data is None:
-                dI = gaussian_filter1d(self.data[:,1],mode='nearest', sigma=1, order=1)
-                self.deriv_axes.plot(self.data[:,0], dI, color="crimson")
-            else :
-                dI = gaussian_filter1d(self.corrected_data[:,1],mode='nearest', sigma=1, order=1)
-                self.deriv_axes.plot(self.corrected_data[:,0], dI, color="crimson")
-            self.deriv_canvas.draw()
+                # derivative data
+                self.deriv_axes.clear()
+                self.deriv_axes.set_ylabel(r'dI/d$\nu$')
+                self.deriv_axes.set_xlabel(current_spectrum.current_unit)
+                if current_spectrum.corrected_data is None:
+                    dI = gaussian_filter1d(current_spectrum.data[:,1],mode='nearest', sigma=1, order=1)
+                    self.deriv_axes.plot(current_spectrum.data[:,0], dI, color="crimson")
+                else :
+                    dI = gaussian_filter1d(current_spectrum.corrected_data[:,1],mode='nearest', sigma=1, order=1)
+                    self.deriv_axes.plot(current_spectrum.corrected_data[:,0], dI, color="crimson")
+                self.deriv_canvas.draw()
 
+    def smoothen(self):
+        if self.current_selected_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+            smooth_window = int(self.smoothing_factor.value()//1)
+            current_spectrum.corrected_data = np.column_stack((current_spectrum.data[:,0],uniform_filter1d(current_spectrum.data[:,1], size=smooth_window)))
+            self.plot_data()
     
     def update_fit_type(self):
         col1 = self.fit_type_selector.model().item(
