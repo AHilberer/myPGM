@@ -56,6 +56,8 @@ class MySpectrumItem:
         self.corrected_data = None
         self.current_unit = r"$\lambda$ (nm)"
 
+    def normalize_data(self):
+        self.data[:,1]=self.data[:,1]/max(self.data[:,1])
 
 class CustomFileListModel(QAbstractListModel):
     itemAdded = pyqtSignal()  # Signal emitted when an item is added
@@ -317,12 +319,12 @@ class MainWindow(QMainWindow):
                 if 'Date' in lines[0]:
                     data = np.loadtxt(latest_file_path, skiprows=35, dtype=str)
                     list_item.data = data.astype(np.float64)
-                    #self.normalize_data()
+                    list_item.normalize_data()
 
                 else:
                     data = np.loadtxt(latest_file_path, dtype=str)
                     list_item.data = data.astype(np.float64)
-                    #self.normalize_data()
+                    list_item.normalize_data()
             
             self.custom_model.addItem(list_item)
             self.loaded_filename = 'Example_diam_Raman.asc'
@@ -365,9 +367,6 @@ class MainWindow(QMainWindow):
             self.current_selected_index = selected_index
         else:
             self.current_selected_index = None
-
-    def normalize_data(self):
-        self.data[:,1]=self.data[:,1]/max(self.data[:,1])
 
     def plot_data(self):
         if self.current_selected_index is not None:
@@ -427,13 +426,14 @@ class MainWindow(QMainWindow):
            print('Not implemented')
 
     def Sm_fit(self, guess_peak=None):
-        if hasattr(self, 'data'):
-            if self.corrected_data is None:
-                x=self.data[:,0]
-                y=self.data[:,1]
+        if self.current_selected_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+            if current_spectrum.corrected_data is None:
+                x=current_spectrum.data[:,0]
+                y=current_spectrum.data[:,1]
             else :
-                x=self.corrected_data[:,0]
-                y=self.corrected_data[:,1]
+                x=current_spectrum.corrected_data[:,0]
+                y=current_spectrum.corrected_data[:,1]
 
             pk, prop = find_peaks(y, height = max(y)/2, width=10)
             #print([x[a] for a in pk])
@@ -469,13 +469,14 @@ class MainWindow(QMainWindow):
             self.update_PvPm()
 
     def Ruby_fit(self, guess_peak=None):
-        if hasattr(self, 'data'):
-            if self.corrected_data is None:
-                x=self.data[:,0]
-                y=self.data[:,1]
+        if self.current_selected_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+            if current_spectrum.corrected_data is None:
+                x=current_spectrum.data[:,0]
+                y=current_spectrum.data[:,1]
             else :
-                x=self.corrected_data[:,0]
-                y=self.corrected_data[:,1]
+                x=current_spectrum.corrected_data[:,0]
+                y=current_spectrum.corrected_data[:,1]
 
             pk, prop = find_peaks(y, height = max(y)/2, width=10)
             #print([x[a] for a in pk])
@@ -511,13 +512,14 @@ class MainWindow(QMainWindow):
             self.update_PvPm()
 
     def Raman_fit(self):
-        if hasattr(self, 'data'):
-            if self.corrected_data is None:
-                x=self.data[:,0]
-                y=self.data[:,1]
+        if self.current_selected_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+            if current_spectrum.corrected_data is None:
+                x=current_spectrum.data[:,0]
+                y=current_spectrum.data[:,1]
             else :
-                x=self.corrected_data[:,0]
-                y=self.corrected_data[:,1]
+                x=current_spectrum.corrected_data[:,0]
+                y=current_spectrum.corrected_data[:,1]
 
             grad = np.gradient(y)
             nu_min = x[np.argmin(grad)]
