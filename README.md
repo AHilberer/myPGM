@@ -1,4 +1,4 @@
-# PGM
+# PGM - Pressure Gauge Monitor
  
 ## Installation
 ### 1) Get a copy of the code:
