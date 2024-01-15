@@ -35,7 +35,7 @@ from scipy.ndimage import gaussian_filter1d
 from pressure_models import *
 from PvPm_plot_window import *
 from PvPm_table_window import *
-from plotting_canvas import *
+from plot_canvas import *
 
 Setup_mode = True
 
