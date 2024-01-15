@@ -54,6 +54,7 @@ class MySpectrumItem:
         self.path = path
         self.data = None
         self.corrected_data = None
+        self.current_smoothing = None
         self.current_unit = r"$\lambda$ (nm)"
 
     def normalize_data(self):
@@ -87,6 +88,7 @@ class CustomFileListModel(QAbstractListModel):
         del self.items[index]
         self.endRemoveRows()
         self.itemDeleted.emit()  # Emit signal to notify the view
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -328,6 +330,7 @@ class MainWindow(QMainWindow):
             
             self.custom_model.addItem(list_item)
             self.loaded_filename = 'Example_diam_Raman.asc'
+            list_item.current_smoothing = self.smoothing_factor.value()
             self.plot_data()
 
 
@@ -344,7 +347,23 @@ class MainWindow(QMainWindow):
                 file_info = QFileInfo(file)
                 file_name = file_info.fileName()
                 new_item = MySpectrumItem(file_name, file)
+
+                with open(file) as f:
+                    lines = f.readlines()
+                    if 'Date' in lines[0]:
+                        data = np.loadtxt(file, skiprows=35, dtype=str)
+                        new_item.data = data.astype(np.float64)
+                        new_item.normalize_data()
+
+                    else:
+                        data = np.loadtxt(file, dtype=str)
+                        new_item.data = data.astype(np.float64)
+                        new_item.normalize_data()
+                    new_item.current_smoothing = 1
                 self.custom_model.addItem(new_item)
+                self.loaded_filename = file_name
+                #self.plot_data()
+                
     
     @pyqtSlot()
     def delete_file(self):
@@ -357,6 +376,7 @@ class MainWindow(QMainWindow):
         selected_item = self.custom_model.data(index, role=Qt.UserRole)
         self.current_file_path = selected_item.path
         self.current_file_label.setText(f"{self.current_file_path}")
+        self.smoothing_factor.setValue(selected_item.current_smoothing)
         self.plot_data()
     
     @pyqtSlot()
@@ -398,6 +418,7 @@ class MainWindow(QMainWindow):
         if self.current_selected_index is not None:
             current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
             smooth_window = int(self.smoothing_factor.value()//1)
+            current_spectrum.current_smoothing = self.smoothing_factor.value()
             current_spectrum.corrected_data = np.column_stack((current_spectrum.data[:,0],uniform_filter1d(current_spectrum.data[:,1], size=smooth_window)))
             self.plot_data()
     
