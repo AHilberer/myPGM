@@ -2,7 +2,7 @@ import sys
 
 from PyQt5.QtWidgets import QApplication
 
-from ui import *
+from PGM_ui import *
 
 # Run the application
 if __name__ == '__main__':

@@ -55,7 +55,9 @@ class MySpectrumItem:
         self.data = None
         self.corrected_data = None
         self.current_smoothing = None
-        self.current_unit = r"$\lambda$ (nm)"
+        self.spectral_unit = r"$\lambda$ (nm)"
+        self.fitted_gauge = None
+        self.fit_result = None
 
     def normalize_data(self):
         self.data[:,1]=self.data[:,1]/max(self.data[:,1])
@@ -226,7 +228,7 @@ class MainWindow(QMainWindow):
         self.figure = spectrum_plot.figure
         self.canvas = FigureCanvas(self.figure)
         self.axes.set_ylabel('Intensity')
-        self.axes.set_xlabel(self.current_unit)
+        self.axes.set_xlabel('spectral unit')
 
         toolbar = NavigationToolbar(self.canvas, self)
         DataPlotBoxLayout.addWidget(self.canvas)
@@ -247,7 +249,7 @@ class MainWindow(QMainWindow):
         self.deriv_figure = deriv_plot.figure
         self.deriv_canvas = FigureCanvas(self.deriv_figure)
         self.deriv_axes.set_ylabel('Intensity')
-        self.deriv_axes.set_xlabel(self.current_unit)
+        self.deriv_axes.set_xlabel('spectral unit')
 
         deriv_toolbar = NavigationToolbar(self.deriv_canvas, self)
         DataPlotBoxLayout.addWidget(self.deriv_canvas)
@@ -329,7 +331,6 @@ class MainWindow(QMainWindow):
                     list_item.normalize_data()
             
             self.custom_model.addItem(list_item)
-            self.loaded_filename = 'Example_diam_Raman.asc'
             list_item.current_smoothing = self.smoothing_factor.value()
             self.plot_data()
 
@@ -361,8 +362,6 @@ class MainWindow(QMainWindow):
                         new_item.normalize_data()
                     new_item.current_smoothing = 1
                 self.custom_model.addItem(new_item)
-                self.loaded_filename = file_name
-                #self.plot_data()
                 
     
     @pyqtSlot()
@@ -377,7 +376,11 @@ class MainWindow(QMainWindow):
         self.current_file_path = selected_item.path
         self.current_file_label.setText(f"{self.current_file_path}")
         self.smoothing_factor.setValue(selected_item.current_smoothing)
+        if selected_item.fitted_gauge is not None:
+            self.fit_type_selector.setCurrentText(selected_item.fitted_gauge)
         self.plot_data()
+        if selected_item.fit_result is not None:
+            self.plot_fit(selected_item)
     
     @pyqtSlot()
     def selection_changed(self):
@@ -395,7 +398,7 @@ class MainWindow(QMainWindow):
                 # spectral data
                 self.axes.clear()
                 self.axes.set_ylabel('Intensity')
-                self.axes.set_xlabel(current_spectrum.current_unit)
+                self.axes.set_xlabel(current_spectrum.spectral_unit)
                 if current_spectrum.corrected_data is None:
                     self.axes.plot(current_spectrum.data[:,0], current_spectrum.data[:,1])
                 else :
@@ -405,7 +408,7 @@ class MainWindow(QMainWindow):
                 # derivative data
                 self.deriv_axes.clear()
                 self.deriv_axes.set_ylabel(r'dI/d$\nu$')
-                self.deriv_axes.set_xlabel(current_spectrum.current_unit)
+                self.deriv_axes.set_xlabel(current_spectrum.spectral_unit)
                 if current_spectrum.corrected_data is None:
                     dI = gaussian_filter1d(current_spectrum.data[:,1],mode='nearest', sigma=1, order=1)
                     self.deriv_axes.plot(current_spectrum.data[:,0], dI, color="crimson")
@@ -428,23 +431,33 @@ class MainWindow(QMainWindow):
         self.fit_type_selector.setStyleSheet("background-color: rgba{};	selection-background-color: k;".format(col1))
 
         fit_mode  = self.fit_type_selector.currentText()
-        if fit_mode == 'Samarium':
-            self.current_unit = r"$\lambda$ (nm)"
-        elif fit_mode == 'Ruby':
-            self.current_unit = r"$\lambda$ (nm)"
-        elif fit_mode == 'Raman':
-            self.current_unit = r"$\nu$ (cm$^{-1}$)"
-            
+        if self.current_selected_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+            if fit_mode == 'Samarium':
+                current_spectrum.spectral_unit = r"$\lambda$ (nm)"
+            elif fit_mode == 'Ruby':
+                current_spectrum.spectral_unit = r"$\lambda$ (nm)"
+            elif fit_mode == 'Raman':
+                current_spectrum.spectral_unit = r"$\nu$ (cm$^{-1}$)"
+            self.deriv_axes.set_xlabel(current_spectrum.spectral_unit)
+            self.axes.set_xlabel(current_spectrum.spectral_unit)
+            self.deriv_canvas.draw()
+            self.canvas.draw()
+
     def fit(self):
         fit_mode  = self.fit_type_selector.currentText()
-        if fit_mode == 'Samarium':
-            self.Sm_fit()
-        elif fit_mode == 'Ruby':
-            self.Ruby_fit()
-        elif fit_mode == 'Raman':
-            self.Raman_fit()
-        else:
-           print('Not implemented')
+        if self.current_selected_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+            current_spectrum.fitted_gauge = fit_mode
+
+            if fit_mode == 'Samarium':
+                self.Sm_fit()
+            elif fit_mode == 'Ruby':
+                self.Ruby_fit()
+            elif fit_mode == 'Raman':
+                self.Raman_fit()
+            else:
+                print('Not implemented')
 
     def Sm_fit(self, guess_peak=None):
         if self.current_selected_index is not None:
@@ -467,25 +480,15 @@ class MainWindow(QMainWindow):
             init = [Sm_model(wvl, *pinit) for wvl in x]
 
             popt, pcov = curve_fit(Sm_model, x, y, p0=pinit)
-            fit = [Sm_model(wvl, *popt) for wvl in x]
+
+            current_spectrum.fit_result = {"opti":popt,"cov":pcov}
+
+            self.plot_fit(current_spectrum)
 
             R1 = popt[2]
             P = SmPressure(R1)
-            #print('Fitted R1:', R1, 'nm')
-            #print(P)
-            self.axes.clear()
-            self.axes.set_ylabel('Intensity')
-            self.axes.set_xlabel(self.current_unit)
-            self.axes.plot(x, y, label = 'data', markersize=1)
-            #lt.plot(x, init, '--', label='initial fit')
-            self.axes.plot(x, fit, '-', label='best fit')
 
-            #plt.xlim([R1-plot_window, R1+plot_window])
-            self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
-            self.axes.legend(frameon=False)
-            self.canvas.draw()
-
-            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(R1,3), 'File':self.loaded_filename}, index=[0])
+            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(R1,3), 'File':current_spectrum.name}, index=[0])
             self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
             self.update_PvPm()
 
@@ -510,62 +513,78 @@ class MainWindow(QMainWindow):
             init = [Ruby_model(wvl, *pinit) for wvl in x]
 
             popt, pcov = curve_fit(Ruby_model, x, y, p0=pinit)
-            fit = [Ruby_model(wvl, *popt) for wvl in x]
+
+            current_spectrum.fit_result = {"opti":popt,"cov":pcov}
+
+            self.plot_fit(current_spectrum)
 
             R1 = np.max([popt[2], popt[5]])
             P = RubyPressure(R1)
-            #print('Fitted R1:', R1, 'nm')
-            #print(P)
-            self.axes.clear()
-            self.axes.set_ylabel('Intensity')
-            self.axes.set_xlabel(self.current_unit)
-            self.axes.plot(x, y, label = 'data', markersize=1)
-            #lt.plot(x, init, '--', label='initial fit')
-            self.axes.plot(x, fit, '-', label='best fit')
-
-            #plt.xlim([R1-plot_window, R1+plot_window])
-            self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
-            self.axes.legend(frameon=False)
-
-            self.canvas.draw()
-            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(R1,3), 'File':self.loaded_filename}, index=[0])
+            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(R1,3), 'File':current_spectrum.name}, index=[0])
             self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
             self.update_PvPm()
 
-    def Raman_fit(self):
+    def Raman_fit(self, guess_peak=None):
         if self.current_selected_index is not None:
             current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
-            if current_spectrum.corrected_data is None:
-                x=current_spectrum.data[:,0]
-                y=current_spectrum.data[:,1]
-            else :
-                x=current_spectrum.corrected_data[:,0]
-                y=current_spectrum.corrected_data[:,1]
+            if guess_peak == None:
+                if current_spectrum.corrected_data is None:
+                    x=current_spectrum.data[:,0]
+                    y=current_spectrum.data[:,1]
+                else :
+                    x=current_spectrum.corrected_data[:,0]
+                    y=current_spectrum.corrected_data[:,1]
 
-            grad = np.gradient(y)
-            nu_min = x[np.argmin(grad)]
+                grad = np.gradient(y)
+                nu_min = x[np.argmin(grad)]
+            else:
+                nu_min=guess_peak
             P = Raman_akahama(nu_min)
+            current_spectrum.fit_result = {"opti":nu_min,"cov":None}
 
-            self.axes.clear()
-            self.axes.set_ylabel('Intensity')
-            self.axes.set_xlabel(self.current_unit)
-            self.axes.plot(x, y, label = 'data', markersize=1)
-            #lt.plot(x, init, '--', label='initial fit')
-            self.axes.axvline(nu_min, color='green', ls='--')
-            self.deriv_axes.axvline(nu_min, color='green', ls='--')
-
-            #self.axes.set_xlim([1200, nu_min+200])
-
-            #plt.xlim([R1-plot_window, R1+plot_window])
-            self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
-            #self.axes.legend(frameon=False)
-            self.canvas.draw()
-            self.deriv_canvas.draw()
-
+            self.plot_fit(current_spectrum)
             
-            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(nu_min,3), 'File':self.loaded_filename}, index=[0])
+            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(nu_min,3), 'File':current_spectrum.name}, index=[0])
             self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
             self.update_PvPm()
+
+    def plot_fit(self, my_spectrum):
+        if my_spectrum.fit_result is not None:
+            if my_spectrum.corrected_data is None:
+                x=my_spectrum.data[:,0]
+                y=my_spectrum.data[:,1]
+            else :
+                x=my_spectrum.corrected_data[:,0]
+                y=my_spectrum.corrected_data[:,1]
+
+            if my_spectrum.fitted_gauge == 'Samarium':
+                fitted = [Sm_model(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
+                R1 = my_spectrum.fit_result['opti'][2]
+                P = SmPressure(R1)
+                self.axes.plot(x, fitted, '-', label='best fit')
+                self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
+                self.axes.legend(frameon=False)
+                self.canvas.draw()
+
+            elif my_spectrum.fitted_gauge == 'Ruby':
+                fitted = [Ruby_model(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
+                R1 = np.max([my_spectrum.fit_result['opti'][2], my_spectrum.fit_result['opti'][5]])
+                P = RubyPressure(R1)
+                self.axes.plot(x, fitted, '-', label='best fit')
+                self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
+                self.axes.legend(frameon=False)
+                self.canvas.draw()
+
+            elif my_spectrum.fitted_gauge == 'Raman':
+                self.axes.axvline(my_spectrum.fit_result['opti'], color='green', ls='--')
+                self.deriv_axes.axvline(my_spectrum.fit_result['opti'], color='green', ls='--')
+                P = Raman_akahama(my_spectrum.fit_result['opti'])
+                self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
+                self.canvas.draw()
+                self.deriv_canvas.draw()
+
+            else:
+                print('Not implemented')
 
     def toggle_PvPm(self):
         if self.PvPmTable.isVisible() or self.PvPmPlot.isVisible():
@@ -644,6 +663,8 @@ class MainWindow(QMainWindow):
         if self.click_enabled and event.button == 1 and event.inaxes:
             x_click, y_click = event.xdata, event.ydata
             fit_mode  = self.fit_type_selector.currentText()
+            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+            current_spectrum.fitted_gauge = fit_mode
             if fit_mode == 'Samarium':
                 self.Sm_fit(guess_peak=x_click)
                 self.toggle_click_fit()
@@ -656,19 +677,7 @@ class MainWindow(QMainWindow):
 
             elif fit_mode == 'Raman':
                 nu_min = x_click
-                P = Raman_akahama(nu_min)
-                self.plot_data()
-                self.axes.axvline(nu_min, color='green', ls='--')
-                self.deriv_axes.axvline(nu_min, color='green', ls='--')
-
-                self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
-                #self.axes.legend(frameon=False)
-                self.canvas.draw()
-                self.deriv_canvas.draw()
-
-                new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(nu_min,3), 'File':self.loaded_filename}, index=[0])
-                self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
-                self.update_PvPm()
+                self.Raman_fit(guess_peak = nu_min)
                 self.toggle_click_fit()
                 self.click_fit_button.setChecked(False)
 
@@ -678,12 +687,13 @@ class MainWindow(QMainWindow):
                 self.click_fit_button.setChecked(False)
 
     def CHull_Bg(self):
-        if self.corrected_data is None:
-            x=self.data[:,0]
-            y=self.data[:,1]
+        current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+        if current_spectrum.corrected_data is None:
+            x=current_spectrum.data[:,0]
+            y=current_spectrum.data[:,1]
         else :
-            x=self.corrected_data[:,0]
-            y=self.corrected_data[:,1]
+            x=current_spectrum.corrected_data[:,0]
+            y=current_spectrum.corrected_data[:,1]
         
         v = ConvexHull(np.column_stack((x,y))).vertices
         v = np.roll(v, -v.argmin())
@@ -691,7 +701,6 @@ class MainWindow(QMainWindow):
         bg = np.interp(x, x[anchors], y[anchors])
         corrected = y - bg
 
-        self.corrected_data = np.column_stack((x,corrected))
-        self.corrected_data[:,1]=self.corrected_data[:,1]/max(self.corrected_data[:,1])
+        current_spectrum.corrected_data = np.column_stack((x,corrected))
         self.plot_data()
 
