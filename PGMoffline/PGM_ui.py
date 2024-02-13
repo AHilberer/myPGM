@@ -24,6 +24,8 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QMenu,
                              QAction,
                              QListView,
+                             QTabWidget,
+                             QCheckBox
                              )
 from PyQt5.QtCore import QFileInfo, Qt, QAbstractListModel, QModelIndex, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QColor
@@ -96,16 +98,17 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-
         menubar = self.menuBar()
-        help_menu = menubar.addMenu(' Help')
+        param_menu = menubar.addMenu(' Parameters')
         exit_menu = menubar.addMenu(' Exit')
 
         exit_action = QAction(' Exit', self)
         exit_action.triggered.connect(self.close)
         exit_menu.addAction(exit_action)    
-        help_menu.addAction(exit_action) 
 
+        open_param_action = QAction('Open New Window', self)
+        open_param_action.triggered.connect(self.open_new_window)
+        param_menu.addAction(open_param_action)
         # Setup Main window parameters
         self.setWindowTitle("PressureGaugeMonitor_Offline")
         self.setGeometry(100, 100, 800, 1000)
@@ -337,6 +340,37 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 #? Main window methods
+
+    def open_new_window(self):
+        new_window = QWidget()
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        new_window.setWindowTitle("New Window")
+        new_window.setGeometry(200, 200, 400, 400)
+        tabs = QTabWidget()
+        tabs.addTab(self.generalTabUI(), "General")
+        tabs.addTab(self.networkTabUI(), "Network")
+        layout.addWidget(tabs)
+        new_window.show()
+
+    def generalTabUI(self):
+        """Create the General page UI."""
+        generalTab = QWidget()
+        layout = QVBoxLayout()
+        layout.addWidget(QCheckBox("General Option 1"))
+        layout.addWidget(QCheckBox("General Option 2"))
+        generalTab.setLayout(layout)
+        return generalTab
+
+    def networkTabUI(self):
+        """Create the Network page UI."""
+        networkTab = QWidget()
+        layout = QVBoxLayout()
+        layout.addWidget(QCheckBox("Network Option 1"))
+        layout.addWidget(QCheckBox("Network Option 2"))
+        networkTab.setLayout(layout)
+        return networkTab
+
 
     @pyqtSlot()
     def add_file(self):
