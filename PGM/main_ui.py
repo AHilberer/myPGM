@@ -99,7 +99,7 @@ class MainWindow(QMainWindow):
 
 
         # Setup Main window parameters
-        self.setWindowTitle("PressureGaugeMonitor_Offline")
+        self.setWindowTitle("PGM - PressureGaugeMonitor")
         self.setGeometry(100, 100, 800, 1000)
         #self.setWindowIcon(QIcon('resources/PGMicon.png'))
 
@@ -381,10 +381,14 @@ class MainWindow(QMainWindow):
         
         self.data = helpers.HPDataTable()
         
+
         self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
 
         #self.PvPmPlot = PvPmPlotWindow()
         self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
+
+        self.data.changed.connect(self.DataTableWindow.table_widget.updatetable)
+        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
 #####################################################################################
 # #? Setup PvPm section of main
 
@@ -440,9 +444,33 @@ class MainWindow(QMainWindow):
                 
     def add_current_fit(self):
         if self.current_selected_index is not None:
+            print('found item')
             current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
             if current_spectrum.fit_result is not None:
-                print('cool')
+                print('found fit res')
+                if current_spectrum.fitted_gauge == 'Samarium':
+                    R1 = current_spectrum.fit_result['opti'][2]
+                    P = SmPressure(R1)
+                
+                
+                elif current_spectrum.fitted_gauge == 'Ruby':
+                    R1 = np.max([current_spectrum.fit_result['opti'][2], current_spectrum.fit_result['opti'][5]])
+                    P = RubyPressure(R1)
+
+                elif current_spectrum.fitted_gauge == 'Raman':
+                    R1 = current_spectrum.fit_result['opti']
+                    P = Raman_akahama(current_spectrum.fit_result['opti'])
+                
+                new_point = helpers.HPData(Pm = 0, 
+	     		  					P = P,
+	      		  					x = R1,
+	       	 	  					T = 298,
+	      		  					x0 = 694.281,
+	      		  					T0 = 298, 
+	      		  					calib = self.calibrations['Ruby2020'],
+	      		  					file = current_spectrum.name)
+                print(new_point)
+                self.data.add(new_point)
 
     def toggle_params(self, checked):
         if self.ParamWindow.isVisible():
