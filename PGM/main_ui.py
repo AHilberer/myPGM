@@ -320,7 +320,13 @@ class MainWindow(QMainWindow):
 # #? Setup PvPm table window
         self.PvPmTableWindow = PvPmTableWindow()
 
+        self.PvPm_df = pd.DataFrame({'Pm':'', 'P':'', 'lambda':'', 'File':''}, index=[0])
 
+        self.PvPm_data_inst = PandasModel(self.PvPm_df)
+        delegate = EditableDelegate()
+        self.PvPm_data_inst.dataChanged.connect(self.plot_PvPm)
+        self.PvPmTableWindow.PvPmTable.setModel(self.PvPm_data_inst)
+        self.PvPmTableWindow.PvPmTable.setItemDelegate(delegate)
         
 
 # #####################################################################################
@@ -750,11 +756,11 @@ class MainWindow(QMainWindow):
                 print('Not implemented')
 
     def toggle_PvPm(self):
-        if self.PvPmTable.isVisible() or self.PvPmPlot.isVisible():
-            self.PvPmTable.hide()
+        if self.PvPmTableWindow.isVisible() or self.PvPmPlot.isVisible():
+            self.PvPmTableWindow.hide()
             self.PvPmPlot.hide()
         else:
-            self.PvPmTable.show()
+            self.PvPmTableWindow.show()
             self.PvPmPlot.show()
 
     def plot_PvPm(self):
@@ -783,7 +789,7 @@ class MainWindow(QMainWindow):
     def update_PvPm(self):
         self.PvPm_data_inst = PandasModel(self.PvPm_df)
         self.PvPm_data_inst.dataChanged.connect(self.plot_PvPm)
-        self.PvPmTable.setModel(self.PvPm_data_inst)
+        self.PvPmTableWindow.PvPmTable.setModel(self.PvPm_data_inst)
         self.plot_PvPm()
 
     def open_PvPm(self):
@@ -801,23 +807,6 @@ class MainWindow(QMainWindow):
             msg.setWindowTitle("Error")
             msg.exec_()
 
-
-    def predict_from_lambda(self, item):
-        row = item.row()
-        col = item.column()
-        if col == 2:
-            if (self.PvPmTable.item(row, 2) != None) and (self.PvPmTable.item(row, 2).text() != ''):
-                fit_mode  = self.fit_type_selector.currentText()
-                lambda_test = float(self.PvPmTable.item(row, 2).text().strip())
-                if fit_mode == 'Samarium':
-                    P = SmPressure(lambda_test)
-                elif fit_mode == 'Ruby':
-                    P = RubyPressure(lambda_test)
-                elif fit_mode == 'Raman':
-                    P = Raman_akahama(lambda_test)
-                else:
-                    print('Not implemented')
-                self.PvPmTable.setItem(row, 1, QTableWidgetItem(str(round(P,2))))
 
     def toggle_click_fit(self):
         self.click_enabled = not self.click_enabled

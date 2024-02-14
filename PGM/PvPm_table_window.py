@@ -4,12 +4,21 @@ from PyQt5.QtWidgets import (QWidget,
                              QGroupBox,
                              QTabWidget,
                              QCheckBox,
-                             QTableView
+                             QTableView,
+                             QStyledItemDelegate,
+                             QLineEdit,
+                             QPushButton,
+                             QHBoxLayout,
+                             QFrame
                              )
 from PyQt5.QtCore import QAbstractTableModel, Qt, QModelIndex
 
 
-
+class MyQSeparator(QFrame):
+	def __init__(self):
+		super().__init__()
+		self.setFrameShape(QFrame.HLine)
+		self.setFrameShadow(QFrame.Sunken)
 
 #? Define PvPm table class
 
@@ -64,19 +73,26 @@ class EditableDelegate(QStyledItemDelegate):
         editor = QLineEdit(parent)
         return editor
 
-class PvPmTableWindow(Qwidget):
+class PvPmTableWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('PvPm table')
         self.setGeometry(900, 100, 450, 400)
-        self.PvPmTable = QTableView()
-            
-        self.PvPm_df = pd.DataFrame({'Pm':'', 'P':'', 'lambda':'', 'File':''}, index=[0])
+        self.layout = QVBoxLayout()
 
-        self.PvPm_data_inst = PandasModel(self.PvPm_df)
-        delegate = EditableDelegate()
-        self.PvPm_data_inst.dataChanged.connect(self.plot_PvPm)
-        self.PvPmTable.setModel(self.PvPm_data_inst)
-        self.PvPmTable.setItemDelegate(delegate)
+        ButtonBoxLayout = QHBoxLayout()
+
+        self.test1 = QPushButton("+")
+        self.test2 = QPushButton("-")
+        ButtonBoxLayout.addWidget(self.test1)
+        ButtonBoxLayout.addWidget(self.test2)
+
+        self.layout.addLayout(ButtonBoxLayout)
+
+        self.layout.addWidget(MyQSeparator())
+        self.PvPmTable = QTableView()
         self.PvPmTable.setAlternatingRowColors(True)
         self.PvPmTable.setSelectionBehavior(QTableView.SelectRows)
+        self.layout.addWidget(self.PvPmTable)
+        self.setLayout(self.layout)
+        
