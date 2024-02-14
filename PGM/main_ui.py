@@ -369,18 +369,8 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 # #? Setup PvPm table and plotwindow
-        #self.PvPmTableWindow = PvPmTableWindow()
 
-        #self.PvPm_df = pd.DataFrame({'Pm':'', 'P':'', 'lambda':'', 'File':''}, index=[0])
-
-        #self.PvPm_data_inst = PandasModel(self.PvPm_df)
-        #delegate = EditableDelegate()
-        #self.PvPm_data_inst.dataChanged.connect(self.plot_PvPm)
-        #self.PvPmTableWindow.PvPmTable.setModel(self.PvPm_data_inst)
-        #self.PvPmTableWindow.PvPmTable.setItemDelegate(delegate)
-        
-        self.data = helpers.HPDataTable()
-        
+        self.data = helpers.HPDataTable()       
 
         self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
 
