@@ -20,10 +20,11 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QMessageBox, 
                              QAction,
                              QListView,
-                             QGridLayout
+                             QGridLayout,
+                             QStyle,
                              )
 from PyQt5.QtCore import QFileInfo, Qt, QAbstractListModel, QModelIndex, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QColor, QIcon
+from PyQt5.QtGui import QColor
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 from scipy.ndimage import uniform_filter1d
@@ -142,19 +143,30 @@ class MainWindow(QMainWindow):
         FileBoxLayout = QGridLayout()
 
         self.add_button = QPushButton("Add file", self)
+        pixmapi = getattr(QStyle, 'SP_FileIcon')
+        icon = self.style().standardIcon(pixmapi)
+        self.add_button.setIcon(icon)
         self.add_button.clicked.connect(self.add_file)
         FileBoxLayout.addWidget(self.add_button, 0,0)
 
-        self.delete_button = QPushButton("Delete single file ", self)
+        self.delete_button = QPushButton("Delete file ", self)
+        pixmapi = getattr(QStyle, 'SP_DialogDiscardButton')
+        icon = self.style().standardIcon(pixmapi)
+        self.delete_button.setIcon(icon)
         self.delete_button.clicked.connect(self.delete_file)
         FileBoxLayout.addWidget(self.delete_button, 0,1)
         
         self.selectdir_button = QPushButton("Select directory", self)
+        pixmapi = getattr(QStyle, 'SP_DirIcon')
+        icon = self.style().standardIcon(pixmapi)
+        self.selectdir_button.setIcon(icon)
         self.selectdir_button.clicked.connect(self.select_directory)
-
         FileBoxLayout.addWidget(self.selectdir_button, 1,0)
 
         self.loadlatest_button = QPushButton("Load latest", self)
+        pixmapi = getattr(QStyle, 'SP_BrowserReload')
+        icon = self.style().standardIcon(pixmapi)
+        self.loadlatest_button.setIcon(icon)
         self.loadlatest_button.clicked.connect(self.load_latest_file)
         FileBoxLayout.addWidget(self.loadlatest_button, 1,1)
 
