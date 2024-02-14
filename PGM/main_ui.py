@@ -870,11 +870,6 @@ class MainWindow(QMainWindow):
             msg.setWindowTitle("Error")
             msg.exec_()
 
-    def update_PvPm(self):
-        self.PvPm_data_inst = PandasModel(self.PvPm_df)
-        self.PvPm_data_inst.dataChanged.connect(self.plot_PvPm)
-        self.PvPmTableWindow.PvPmTable.setModel(self.PvPm_data_inst)
-        self.plot_PvPm()
 
     def open_PvPm(self):
         if hasattr(self, 'dir_name'):
