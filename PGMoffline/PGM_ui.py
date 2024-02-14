@@ -37,6 +37,8 @@ from scipy.ndimage import gaussian_filter1d
 from pressure_models import *
 from PvPm_plot_window import *
 from PvPm_table_window import *
+from ParameterWindow import *
+
 from plot_canvas import *
 
 Setup_mode = True
@@ -94,21 +96,18 @@ class CustomFileListModel(QAbstractListModel):
         self.itemDeleted.emit()  # Emit signal to notify the view
 
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
         menubar = self.menuBar()
-        param_menu = menubar.addMenu(' Parameters')
         exit_menu = menubar.addMenu(' Exit')
 
         exit_action = QAction(' Exit', self)
         exit_action.triggered.connect(self.close)
         exit_menu.addAction(exit_action)    
 
-        open_param_action = QAction('Open New Window', self)
-        open_param_action.triggered.connect(self.open_new_window)
-        param_menu.addAction(open_param_action)
         # Setup Main window parameters
         self.setWindowTitle("PressureGaugeMonitor_Offline")
         self.setGeometry(100, 100, 800, 1000)
@@ -126,6 +125,18 @@ class MainWindow(QMainWindow):
 
         # Create a new panel on the right
         right_panel_layout = QVBoxLayout()
+
+
+#####################################################################################
+# #? Setup Parameters table window
+
+        self.ParamWindow = ParameterWindow()
+        param_menu = menubar.addMenu('Parameters')
+        open_param_action = QAction('Change parameters', self)
+        open_param_action.triggered.connect(self.toggle_params)
+        param_menu.addAction(open_param_action)
+        #file = '/home/hilberera/Documents/Manips/2023-09_CDMX14_AlH3_noH/Raman/PvPm_20230913_1000.csv'
+        
 
 #####################################################################################
 #? Setup file loading section
@@ -223,7 +234,7 @@ class MainWindow(QMainWindow):
         #####################################################################################
 # #? Setup data plotting section
 
-        DataPlotBox = QGroupBox()
+        DataPlotBox = QGroupBox('Spectrum')
         DataPlotBoxLayout = QVBoxLayout()
 
         spectrum_plot = MplCanvas(self)
@@ -244,7 +255,7 @@ class MainWindow(QMainWindow):
 #####################################################################################
 # #? Setup derivative plotting section
 
-        DataPlotBox = QGroupBox()
+        DataPlotBox = QGroupBox('Spectrum derivative')
         DataPlotBoxLayout = QVBoxLayout()
 
         deriv_plot = MplCanvas(self)
@@ -340,36 +351,12 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 #? Main window methods
+    def toggle_params(self, checked):
+        if self.ParamWindow.isVisible():
+            self.ParamWindow.hide()
 
-    def open_new_window(self):
-        new_window = QWidget()
-        layout = QVBoxLayout()
-        self.setLayout(layout)
-        new_window.setWindowTitle("New Window")
-        new_window.setGeometry(200, 200, 400, 400)
-        tabs = QTabWidget()
-        tabs.addTab(self.generalTabUI(), "General")
-        tabs.addTab(self.networkTabUI(), "Network")
-        layout.addWidget(tabs)
-        new_window.show()
-
-    def generalTabUI(self):
-        """Create the General page UI."""
-        generalTab = QWidget()
-        layout = QVBoxLayout()
-        layout.addWidget(QCheckBox("General Option 1"))
-        layout.addWidget(QCheckBox("General Option 2"))
-        generalTab.setLayout(layout)
-        return generalTab
-
-    def networkTabUI(self):
-        """Create the Network page UI."""
-        networkTab = QWidget()
-        layout = QVBoxLayout()
-        layout.addWidget(QCheckBox("Network Option 1"))
-        layout.addWidget(QCheckBox("Network Option 2"))
-        networkTab.setLayout(layout)
-        return networkTab
+        else:
+            self.ParamWindow.show()
 
 
     @pyqtSlot()
