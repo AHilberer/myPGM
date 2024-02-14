@@ -599,7 +599,9 @@ class MainWindow(QMainWindow):
             smooth_window = int(self.smoothing_factor.value()//1)
             current_spectrum.current_smoothing = self.smoothing_factor.value()
             current_spectrum.corrected_data = np.column_stack((current_spectrum.data[:,0],uniform_filter1d(current_spectrum.data[:,1], size=smooth_window)))
-            self.plot_data()
+            self.plot_data() 
+            if current_spectrum.fit_result is not None:
+                self.plot_fit(current_spectrum)
     
     def update_fit_type(self):
         col1 = self.fit_type_selector.model().item(
