@@ -35,7 +35,7 @@ from scipy.ndimage import gaussian_filter1d
 from pressure_models import *
 from PvPm_plot_window import *
 from PvPm_table_window import *
-from ParameterWindow import *
+from Parameter_window import *
 
 from plot_canvas import *
 
@@ -341,7 +341,7 @@ class MainWindow(QMainWindow):
 # #####################################################################################
 # #? Setup PvPm section and associated buttons
 
-        PvPmBox = QGroupBox('PvPm table')
+        PvPmBox = QGroupBox('PvPm')
         PvPmBoxLayout = QHBoxLayout()
 
         self.PvPmPlot = PvPmPlotWindow()
