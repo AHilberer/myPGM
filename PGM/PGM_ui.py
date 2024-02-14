@@ -7,9 +7,7 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QLabel,
                              QPushButton,
                              QFileDialog,
-                             QGridLayout,
                              QWidget,
-                             QTableWidget,
                              QComboBox,
                              QVBoxLayout,
                              QHBoxLayout,
@@ -20,15 +18,13 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QStyledItemDelegate,
                              QLineEdit,
                              QMessageBox, 
-                             QMenuBar,
-                             QMenu,
                              QAction,
                              QListView,
-                             QTabWidget,
-                             QCheckBox
+                             QGridLayout
                              )
 from PyQt5.QtCore import QFileInfo, Qt, QAbstractListModel, QModelIndex, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QIcon
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 from scipy.ndimage import uniform_filter1d
 from scipy.spatial import ConvexHull
@@ -111,6 +107,7 @@ class MainWindow(QMainWindow):
         # Setup Main window parameters
         self.setWindowTitle("PressureGaugeMonitor_Offline")
         self.setGeometry(100, 100, 800, 1000)
+        #self.setWindowIcon(QIcon('resources/PGMicon.png'))
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
@@ -142,18 +139,29 @@ class MainWindow(QMainWindow):
 #? Setup file loading section
 
         FileBox = QGroupBox("File management")
-        FileBoxLayout = QHBoxLayout()
+        FileBoxLayout = QGridLayout()
 
         self.add_button = QPushButton("Add file", self)
         self.add_button.clicked.connect(self.add_file)
-        FileBoxLayout.addWidget(self.add_button)
+        FileBoxLayout.addWidget(self.add_button, 0,0)
 
         self.delete_button = QPushButton("Delete single file ", self)
         self.delete_button.clicked.connect(self.delete_file)
-        FileBoxLayout.addWidget(self.delete_button)
+        FileBoxLayout.addWidget(self.delete_button, 0,1)
         
+        self.selectdir_button = QPushButton("Select directory", self)
+        self.selectdir_button.clicked.connect(self.select_directory)
+
+        FileBoxLayout.addWidget(self.selectdir_button, 1,0)
+
+        self.loadlatest_button = QPushButton("Load latest", self)
+        self.loadlatest_button.clicked.connect(self.load_latest_file)
+        FileBoxLayout.addWidget(self.loadlatest_button, 1,1)
+
         FileBox.setLayout(FileBoxLayout)
         left_panel_layout.addWidget(FileBox)
+
+
 
         self.custom_model = CustomFileListModel()
         self.list_widget = QListView(self)
@@ -172,6 +180,9 @@ class MainWindow(QMainWindow):
 
         self.current_file_label = QLabel("No file selected", self)
         FileInfoBoxLayout.addWidget(self.current_file_label)
+
+        self.dir_label = QLabel("No directory selected", self)
+        FileInfoBoxLayout.addWidget(self.dir_label)
 
         FileInfoBox.setLayout(FileInfoBoxLayout)
         right_panel_layout.addWidget(FileInfoBox)
@@ -390,6 +401,53 @@ class MainWindow(QMainWindow):
         selected_index = self.list_widget.currentIndex()
         if selected_index.isValid():
             self.custom_model.deleteItem(selected_index.row())
+
+    def select_directory(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        dir_name = QFileDialog.getExistingDirectory(self, "Select Directory", options=options)
+        if dir_name:
+            self.dir_name = dir_name
+            self.dir_label.setText(f"Selected directory: {dir_name}")
+
+    @pyqtSlot()
+    def load_latest_file(self):
+        if hasattr(self, 'dir_name'):
+            file_names = [f for f in os.listdir(self.dir_name) if os.path.isfile(os.path.join(self.dir_name, f)) and '.asc' in f]
+            if file_names:
+                file_names.sort(key=lambda f: os.path.getmtime(os.path.join(self.dir_name, f)))
+                latest_file_name = file_names[-1]
+                file = os.path.join(self.dir_name, latest_file_name)
+                file_info = QFileInfo(file)
+                file_name = file_info.fileName()
+                new_item = MySpectrumItem(file_name, file)
+
+                with open(file) as f:
+                    lines = f.readlines()
+                    if 'Date' in lines[0]:
+                        data = np.loadtxt(file, skiprows=35, dtype=str)
+                        new_item.data = data.astype(np.float64)
+                        new_item.normalize_data()
+
+                    else:
+                        data = np.loadtxt(file, dtype=str)
+                        new_item.data = data.astype(np.float64)
+                        new_item.normalize_data()
+                    new_item.current_smoothing = 1
+                self.custom_model.addItem(new_item)
+            else:
+                msg=QMessageBox()
+                msg.setIcon(QMessageBox.Critical)
+                msg.setText("No files in selected directory.")
+                msg.setWindowTitle("Error")
+                msg.exec_()
+        else:
+            msg=QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("No directory selected.")
+            msg.setWindowTitle("Error")
+            msg.exec_()
+    
 
     @pyqtSlot(QModelIndex)
     def item_clicked(self, index):
