@@ -348,28 +348,29 @@ class MainWindow(QMainWindow):
 # #? Create special startup config for debugging
 
         if Setup_mode :
-            #print(os.path.dirname(__file__))
-            latest_file_path= os.path.dirname(__file__)+'/resources/Example_diam_Raman.asc'
+            example_files = ['Example_diam_Raman.asc','Example_Ruby_1.asc','Example_Ruby_2.asc']
+            for i, file in enumerate(example_files):
+                latest_file_path= os.path.dirname(__file__)+'/resources/'+file
 
-            file_info = QFileInfo(latest_file_path)
-            file_name = file_info.fileName()
-            list_item = MySpectrumItem(file_name, latest_file_path)
+                file_info = QFileInfo(latest_file_path)
+                file_name = file_info.fileName()
+                list_item = MySpectrumItem(file_name, latest_file_path)
 
-            with open(latest_file_path) as f:
-                lines = f.readlines()
-                if 'Date' in lines[0]:
-                    data = np.loadtxt(latest_file_path, skiprows=35, dtype=str)
-                    list_item.data = data.astype(np.float64)
-                    list_item.normalize_data()
+                with open(latest_file_path) as f:
+                    lines = f.readlines()
+                    if 'Date' in lines[0]:
+                        data = np.loadtxt(latest_file_path, skiprows=35, dtype=str)
+                        list_item.data = data.astype(np.float64)
+                        list_item.normalize_data()
 
-                else:
-                    data = np.loadtxt(latest_file_path, dtype=str)
-                    list_item.data = data.astype(np.float64)
-                    list_item.normalize_data()
-            
-            self.custom_model.addItem(list_item)
-            list_item.current_smoothing = self.smoothing_factor.value()
-            self.plot_data()
+                    else:
+                        data = np.loadtxt(latest_file_path, dtype=str)
+                        list_item.data = data.astype(np.float64)
+                        list_item.normalize_data()
+                
+                self.custom_model.addItem(list_item)
+                list_item.current_smoothing = self.smoothing_factor.value()
+                self.plot_data()
 
 
 #####################################################################################
