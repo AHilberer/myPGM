@@ -1,6 +1,13 @@
 import pandas as pd
-
+from PyQt5.QtWidgets import (QWidget,
+                             QVBoxLayout,
+                             QGroupBox,
+                             QTabWidget,
+                             QCheckBox,
+                             QTableView
+                             )
 from PyQt5.QtCore import QAbstractTableModel, Qt, QModelIndex
+
 
 
 
@@ -49,3 +56,27 @@ class PandasModel(QAbstractTableModel):
             if orientation == Qt.Vertical:
                 return str(self._dataframe.index[section])
         return None
+    
+class EditableDelegate(QStyledItemDelegate):
+    """A delegate that allows for cell editing"""
+
+    def createEditor(self, parent, option, index):
+        editor = QLineEdit(parent)
+        return editor
+
+class PvPmTableWindow(Qwidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('PvPm table')
+        self.setGeometry(900, 100, 450, 400)
+        self.PvPmTable = QTableView()
+            
+        self.PvPm_df = pd.DataFrame({'Pm':'', 'P':'', 'lambda':'', 'File':''}, index=[0])
+
+        self.PvPm_data_inst = PandasModel(self.PvPm_df)
+        delegate = EditableDelegate()
+        self.PvPm_data_inst.dataChanged.connect(self.plot_PvPm)
+        self.PvPmTable.setModel(self.PvPm_data_inst)
+        self.PvPmTable.setItemDelegate(delegate)
+        self.PvPmTable.setAlternatingRowColors(True)
+        self.PvPmTable.setSelectionBehavior(QTableView.SelectRows)

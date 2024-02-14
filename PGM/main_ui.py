@@ -42,12 +42,7 @@ from plot_canvas import *
 Setup_mode = True
 
 
-class EditableDelegate(QStyledItemDelegate):
-    """A delegate that allows for cell editing"""
 
-    def createEditor(self, parent, option, index):
-        editor = QLineEdit(parent)
-        return editor
 
 
 class MySpectrumItem:
@@ -323,20 +318,10 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 # #? Setup PvPm table window
+        self.PvPmTableWindow = PvPmTableWindow()
 
-        self.PvPmTable = QTableView()
+
         
-        self.PvPm_df = pd.DataFrame({'Pm':'', 'P':'', 'lambda':'', 'File':''}, index=[0])
-
-        self.PvPm_data_inst = PandasModel(self.PvPm_df)
-        delegate = EditableDelegate()
-        self.PvPm_data_inst.dataChanged.connect(self.plot_PvPm)
-        self.PvPmTable.setModel(self.PvPm_data_inst)
-        self.PvPmTable.setItemDelegate(delegate)
-        self.PvPmTable.setAlternatingRowColors(True)
-        self.PvPmTable.setSelectionBehavior(QTableView.SelectRows)
-        self.PvPmTable.setWindowTitle('PvPm table')
-        self.PvPmTable.setGeometry(900, 100, 450, 400)
 
 # #####################################################################################
 # #? Setup PvPm section and associated buttons
