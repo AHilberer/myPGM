@@ -39,6 +39,9 @@ from Parameter_window import *
 
 from plot_canvas import *
 
+import helpers
+import Calibfuncs
+
 Setup_mode = True
 
 
@@ -94,12 +97,6 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        menubar = self.menuBar()
-        exit_menu = menubar.addMenu(' Exit')
-
-        exit_action = QAction(' Exit', self)
-        exit_action.triggered.connect(self.close)
-        exit_menu.addAction(exit_action)    
 
         # Setup Main window parameters
         self.setWindowTitle("PressureGaugeMonitor_Offline")
@@ -120,6 +117,60 @@ class MainWindow(QMainWindow):
         # Create a new panel on the right
         right_panel_layout = QVBoxLayout()
 
+#####################################################################################
+#? Calibrations setup
+
+        Ruby2020 = helpers.HPCalibration(name = 'Ruby2020',
+							     func = Calibfuncs.Pruby2020,
+							     Tcor_name='Datchi 2007',
+							     xname = 'lambda',
+							     xunit = 'nm',
+							     x0default = 694.28,
+							     xstep = .01,
+							     color = 'lightcoral')
+        
+        SamariumDatchi = helpers.HPCalibration(name = 'Samarium Borate Datchi 1997',
+							     	   func = Calibfuncs.PsamDatchi1997,
+							     	   Tcor_name='NA',
+							     	   xname = 'lambda',
+							     	   xunit = 'nm',
+							     	   x0default = 685.41,
+							     	   xstep = .01,
+							     	   color = 'moccasin')
+        
+        Akahama2006 = helpers.HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
+							     	func = Calibfuncs.PAkahama2006,
+							     	Tcor_name='NA',
+							     	xname = 'nu',
+							     	xunit = 'cm-1',
+							     	x0default = 1333,
+							     	xstep = .1,
+							     	color = 'darkgrey')
+        
+        cBNDatchi = helpers.HPCalibration(name = 'cBN Raman Datchi 2007',
+							      func = Calibfuncs.PcBN,
+							      Tcor_name='Datchi 2007',
+							      xname = 'nu',
+							      xunit = 'cm-1',
+							      x0default = 1054,
+							      xstep = .1,
+							      color = 'lightblue')
+        
+        calib_list = [Ruby2020, 
+					  SamariumDatchi, 
+					  Akahama2006, 
+					  cBNDatchi]
+        
+        self.calibrations = {a.name:a for a in calib_list}
+
+#####################################################################################
+# #? Exit button setup
+        menubar = self.menuBar()
+        exit_menu = menubar.addMenu(' Exit')
+
+        exit_action = QAction(' Exit', self)
+        exit_action.triggered.connect(self.close)
+        exit_menu.addAction(exit_action)    
 
 #####################################################################################
 # #? Setup Parameters table window
@@ -129,7 +180,7 @@ class MainWindow(QMainWindow):
         open_param_action = QAction('Change parameters', self)
         open_param_action.triggered.connect(self.toggle_params)
         param_menu.addAction(open_param_action)
-        #file = '/home/hilberera/Documents/Manips/2023-09_CDMX14_AlH3_noH/Raman/PvPm_20230913_1000.csv'
+ 
         
 
 #####################################################################################
@@ -317,25 +368,29 @@ class MainWindow(QMainWindow):
 
 
 #####################################################################################
-# #? Setup PvPm table window
-        self.PvPmTableWindow = PvPmTableWindow()
+# #? Setup PvPm table and plotwindow
+        #self.PvPmTableWindow = PvPmTableWindow()
 
-        self.PvPm_df = pd.DataFrame({'Pm':'', 'P':'', 'lambda':'', 'File':''}, index=[0])
+        #self.PvPm_df = pd.DataFrame({'Pm':'', 'P':'', 'lambda':'', 'File':''}, index=[0])
 
-        self.PvPm_data_inst = PandasModel(self.PvPm_df)
-        delegate = EditableDelegate()
-        self.PvPm_data_inst.dataChanged.connect(self.plot_PvPm)
-        self.PvPmTableWindow.PvPmTable.setModel(self.PvPm_data_inst)
-        self.PvPmTableWindow.PvPmTable.setItemDelegate(delegate)
+        #self.PvPm_data_inst = PandasModel(self.PvPm_df)
+        #delegate = EditableDelegate()
+        #self.PvPm_data_inst.dataChanged.connect(self.plot_PvPm)
+        #self.PvPmTableWindow.PvPmTable.setModel(self.PvPm_data_inst)
+        #self.PvPmTableWindow.PvPmTable.setItemDelegate(delegate)
         
+        self.data = helpers.HPDataTable()
+        
+        self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
 
-# #####################################################################################
-# #? Setup PvPm section and associated buttons
+        #self.PvPmPlot = PvPmPlotWindow()
+        self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
+#####################################################################################
+# #? Setup PvPm section of main
 
         PvPmBox = QGroupBox('PvPm')
         PvPmBoxLayout = QHBoxLayout()
 
-        self.PvPmPlot = PvPmPlotWindow()
         self.PvPm_toggle_button = QPushButton("Toggle PvPm table")
         self.PvPm_toggle_button.clicked.connect(self.toggle_PvPm)
         PvPmBoxLayout.addWidget(self.PvPm_toggle_button)
@@ -343,13 +398,9 @@ class MainWindow(QMainWindow):
         #self.PvPmTable.itemChanged.connect(self.predict_from_lambda)
 
 
-        self.PvPm_save_button = QPushButton("Save PvPm table")
-        self.PvPm_save_button.clicked.connect(self.save_PvPm)
-        PvPmBoxLayout.addWidget(self.PvPm_save_button)
-        
-        self.PvPm_open_button = QPushButton("Open PvPm table")
-        self.PvPm_open_button.clicked.connect(self.open_PvPm)
-        PvPmBoxLayout.addWidget(self.PvPm_open_button)
+        self.add_fitted_button = QPushButton("Add current fit")
+        self.add_fitted_button.clicked.connect(self.add_current_fit)
+        PvPmBoxLayout.addWidget(self.add_fitted_button)
 
         PvPmBox.setLayout(PvPmBoxLayout)
         right_panel_layout.addWidget(PvPmBox)
@@ -387,6 +438,11 @@ class MainWindow(QMainWindow):
 #####################################################################################
 #? Main window methods
                 
+    def add_current_fit(self):
+        if self.current_selected_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+            if current_spectrum.fit_result is not None:
+                print('cool')
 
     def toggle_params(self, checked):
         if self.ParamWindow.isVisible():
@@ -658,8 +714,8 @@ class MainWindow(QMainWindow):
             P = SmPressure(R1)
 
             new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(R1,3), 'File':current_spectrum.name}, index=[0])
-            self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
-            self.update_PvPm()
+            #self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
+            #self.update_PvPm()
 
     def Ruby_fit(self, guess_peak=None):
         if self.current_selected_index is not None:
@@ -690,8 +746,8 @@ class MainWindow(QMainWindow):
             R1 = np.max([popt[2], popt[5]])
             P = RubyPressure(R1)
             new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(R1,3), 'File':current_spectrum.name}, index=[0])
-            self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
-            self.update_PvPm()
+            #self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
+            #self.update_PvPm()
 
     def Raman_fit(self, guess_peak=None):
         if self.current_selected_index is not None:
@@ -714,8 +770,8 @@ class MainWindow(QMainWindow):
             self.plot_fit(current_spectrum)
             
             new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(nu_min,3), 'File':current_spectrum.name}, index=[0])
-            self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
-            self.update_PvPm()
+            #self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
+            #self.update_PvPm()
 
     def plot_fit(self, my_spectrum):
         if my_spectrum.fit_result is not None:
@@ -756,12 +812,12 @@ class MainWindow(QMainWindow):
                 print('Not implemented')
 
     def toggle_PvPm(self):
-        if self.PvPmTableWindow.isVisible() or self.PvPmPlot.isVisible():
-            self.PvPmTableWindow.hide()
-            self.PvPmPlot.hide()
+        if self.DataTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
+            self.DataTableWindow.hide()
+            self.PvPmPlotWindow.hide()
         else:
-            self.PvPmTableWindow.show()
-            self.PvPmPlot.show()
+            self.DataTableWindow.show()
+            self.PvPmPlotWindow.show()
 
     def plot_PvPm(self):
         self.PvPmPlot.axes.clear()
