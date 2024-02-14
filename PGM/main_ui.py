@@ -22,8 +22,9 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QListView,
                              QGridLayout,
                              QStyle,
+                             
                              )
-from PyQt5.QtCore import QFileInfo, Qt, QAbstractListModel, QModelIndex, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QFileInfo, Qt, QAbstractListModel, QModelIndex, pyqtSignal,QItemSelectionModel, pyqtSlot
 from PyQt5.QtGui import QColor
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
@@ -184,6 +185,26 @@ class MainWindow(QMainWindow):
         self.list_widget.selectionModel().selectionChanged.connect(self.selection_changed)
 
 
+        MoveBox = QGroupBox()
+        MoveLayout = QHBoxLayout()
+
+        self.up_button = QPushButton("Move up", self)
+        pixmapi = getattr(QStyle, 'SP_ArrowUp')
+        icon = self.style().standardIcon(pixmapi)
+        self.up_button.setIcon(icon)
+        self.up_button.clicked.connect(self.move_up)
+        MoveLayout.addWidget(self.up_button)
+
+        self.down_button = QPushButton("Move down", self)
+        pixmapi = getattr(QStyle, 'SP_ArrowDown')
+        icon = self.style().standardIcon(pixmapi)
+        self.down_button.setIcon(icon)
+        self.down_button.clicked.connect(self.move_down)
+        MoveLayout.addWidget(self.down_button)
+
+        MoveBox.setLayout(MoveLayout)
+        left_panel_layout.addWidget(MoveBox)
+
         #####################################################################################
 # #? Setup loaded file info section
 
@@ -304,7 +325,6 @@ class MainWindow(QMainWindow):
 # #? Setup PvPm table window
 
         self.PvPmTable = QTableView()
-        #file = '/home/hilberera/Documents/Manips/2023-09_CDMX14_AlH3_noH/Raman/PvPm_20230913_1000.csv'
         
         self.PvPm_df = pd.DataFrame({'Pm':'', 'P':'', 'lambda':'', 'File':''}, index=[0])
 
@@ -348,7 +368,7 @@ class MainWindow(QMainWindow):
 # #? Create special startup config for debugging
 
         if Setup_mode :
-            example_files = ['Example_diam_Raman.asc','Example_Ruby_1.asc','Example_Ruby_2.asc']
+            example_files = ['Example_diam_Raman.asc','Example_Ruby_1.asc','Example_Ruby_2.asc', 'Example_Ruby_3.asc']
             for i, file in enumerate(example_files):
                 latest_file_path= os.path.dirname(__file__)+'/resources/'+file
 
@@ -375,6 +395,8 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 #? Main window methods
+                
+
     def toggle_params(self, checked):
         if self.ParamWindow.isVisible():
             self.ParamWindow.hide()
@@ -482,6 +504,68 @@ class MainWindow(QMainWindow):
             self.current_selected_index = selected_index
         else:
             self.current_selected_index = None
+
+    def move_up(self):
+        selected_index = self.list_widget.currentIndex()
+        #print(selected_index.row())
+        # Check if there's a valid selection and if the selected index is not the first item
+        if selected_index.isValid() and selected_index.row() > 0:
+            # Get the row number of the selected item
+            current_row = selected_index.row()
+
+            # Get the item data of the selected item
+            item = self.custom_model.data(selected_index, role=Qt.UserRole)
+
+            # Remove the item from the current position
+            self.custom_model.beginRemoveRows(QModelIndex(), current_row, current_row)
+            del self.custom_model.items[current_row]
+            self.custom_model.endRemoveRows()
+
+            # Calculate the new row number after moving up
+            new_row = current_row - 1
+
+            # Insert the item at the new position
+            self.custom_model.beginInsertRows(QModelIndex(), new_row, new_row)
+            self.custom_model.items.insert(new_row, item)
+            self.custom_model.endInsertRows()
+
+            # Select the item at the new position
+            new_index = self.custom_model.index(new_row, 0)
+            self.list_widget.selectionModel().clearSelection()
+            #self.list_widget.selectionModel().setCurrentIndex(selected_index, QItemSelectionModel.Deselect)
+
+            self.list_widget.selectionModel().setCurrentIndex(new_index, QItemSelectionModel.Select)
+
+
+    def move_down(self):
+        selected_index = self.list_widget.currentIndex()
+
+        # Check if there's a valid selection and if the selected index is not the first item
+        if selected_index.isValid() and selected_index.row() < self.custom_model.rowCount():
+            self.list_widget.selectionModel().clearSelection()
+            # Get the row number of the selected item
+            current_row = selected_index.row()
+
+            # Get the item data of the selected item
+            item = self.custom_model.data(selected_index, role=Qt.UserRole)
+
+            # Remove the item from the current position
+            self.custom_model.beginRemoveRows(QModelIndex(), current_row, current_row)
+            del self.custom_model.items[current_row]
+            self.custom_model.endRemoveRows()
+
+            # Calculate the new row number after moving up
+            new_row = current_row + 1
+
+            # Insert the item at the new position
+            self.custom_model.beginInsertRows(QModelIndex(), new_row, new_row)
+            self.custom_model.items.insert(new_row, item)
+            self.custom_model.endInsertRows()
+
+            # Select the item at the new position
+            new_index = self.custom_model.index(new_row, 0)
+            self.list_widget.selectionModel().clearSelection()
+            self.list_widget.selectionModel().setCurrentIndex(new_index, QItemSelectionModel.Select)
 
     def plot_data(self):
         if self.current_selected_index is not None:
