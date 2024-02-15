@@ -48,10 +48,16 @@ from calibrations import *
 Setup_mode = True
 
 
-class MyQSeparator(QFrame):
+class MyHSeparator(QFrame):
 	def __init__(self):
 		super().__init__()
 		self.setFrameShape(QFrame.HLine)
+		self.setFrameShadow(QFrame.Sunken)
+
+class MyVSeparator(QFrame):
+	def __init__(self):
+		super().__init__()
+		self.setFrameShape(QFrame.VLine)
 		self.setFrameShadow(QFrame.Sunken)
 
 class MainWindow(QMainWindow):
@@ -68,16 +74,18 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
 
         # Use a QHBoxLayout for the main layout
-        main_layout = QHBoxLayout(central_widget)
+        main_layout = QVBoxLayout(central_widget)
 
 
         # Create a new panel on the left
-        left_panel_layout = QVBoxLayout()
-        main_layout.addLayout(left_panel_layout)
+        top_panel_layout = QHBoxLayout()
+        main_layout.addLayout(top_panel_layout)
+
+
 
         # Create a new panel on the right
-        right_panel_layout = QVBoxLayout()
-        main_layout.addLayout(right_panel_layout)
+        bottom_panel_layout = QHBoxLayout()
+        main_layout.addLayout(bottom_panel_layout)
 
 #####################################################################################
 #? Calibrations setup
@@ -108,82 +116,10 @@ class MainWindow(QMainWindow):
         param_menu.addAction(open_param_action)
  
         
-        ##################################################################################### Main left Panel ###################################################################################"" 
-
-#####################################################################################
-#? Setup file loading section
-
-        FileBox = QGroupBox("File management")
-        FileBoxLayout = QGridLayout()
-
-        self.add_button = QPushButton("Add file", self)
-        pixmapi = getattr(QStyle, 'SP_FileIcon')
-        icon = self.style().standardIcon(pixmapi)
-        self.add_button.setIcon(icon)
-        self.add_button.clicked.connect(self.add_file)
-        FileBoxLayout.addWidget(self.add_button, 0,0)
-
-        self.delete_button = QPushButton("Delete file ", self)
-        pixmapi = getattr(QStyle, 'SP_DialogDiscardButton')
-        icon = self.style().standardIcon(pixmapi)
-        self.delete_button.setIcon(icon)
-        self.delete_button.clicked.connect(self.delete_file)
-        FileBoxLayout.addWidget(self.delete_button, 0,1)
-        
-        self.selectdir_button = QPushButton("Select directory", self)
-        pixmapi = getattr(QStyle, 'SP_DirIcon')
-        icon = self.style().standardIcon(pixmapi)
-        self.selectdir_button.setIcon(icon)
-        self.selectdir_button.clicked.connect(self.select_directory)
-        FileBoxLayout.addWidget(self.selectdir_button, 1,0)
-
-        self.loadlatest_button = QPushButton("Load latest", self)
-        pixmapi = getattr(QStyle, 'SP_BrowserReload')
-        icon = self.style().standardIcon(pixmapi)
-        self.loadlatest_button.setIcon(icon)
-        self.loadlatest_button.clicked.connect(self.load_latest_file)
-        FileBoxLayout.addWidget(self.loadlatest_button, 1,1)
-
-        FileBox.setLayout(FileBoxLayout)
-        left_panel_layout.addWidget(FileBox)
-
-
-
-        self.custom_model = helpers.CustomFileListModel()
-        self.list_widget = QListView(self)
-        self.list_widget.setModel(self.custom_model)
-        left_panel_layout.addWidget(self.list_widget)
-        self.list_widget.clicked.connect(self.item_clicked)
-        self.current_selected_index = None
-        self.list_widget.selectionModel().selectionChanged.connect(self.selection_changed)
-
-
-        MoveBox = QGroupBox()
-        MoveLayout = QHBoxLayout()
-
-        self.up_button = QPushButton("Move up", self)
-        pixmapi = getattr(QStyle, 'SP_ArrowUp')
-        icon = self.style().standardIcon(pixmapi)
-        self.up_button.setIcon(icon)
-        self.up_button.clicked.connect(self.move_up)
-        MoveLayout.addWidget(self.up_button)
-
-        self.down_button = QPushButton("Move down", self)
-        pixmapi = getattr(QStyle, 'SP_ArrowDown')
-        icon = self.style().standardIcon(pixmapi)
-        self.down_button.setIcon(icon)
-        self.down_button.clicked.connect(self.move_down)
-        MoveLayout.addWidget(self.down_button)
-
-        MoveBox.setLayout(MoveLayout)
-        left_panel_layout.addWidget(MoveBox)
-
-
-
-        ##################################################################################### Main right Panel ###################################################################################"" 
+     ##################################################################################### Top right Panel ###################################################################################"" 
 # #? PRL style toolbox
-        ToolboxGroup = QGroupBox('Pressure Toolbox')
-        Toolboxlayout = QVBoxLayout()
+        ToolboxGroup = QGroupBox('Pressure toolbox')
+        Toolboxlayout = QHBoxLayout()
         self.Pm_spinbox = QDoubleSpinBox()
         self.Pm_spinbox.setObjectName('Pm_spinbox')
         self.Pm_spinbox.setDecimals(2)
@@ -232,31 +168,33 @@ class MainWindow(QMainWindow):
         self.x0_label = QLabel('lambda0 (nm)')
 
 		# pressure form
-        pressure_form = QHBoxLayout()
-        pressure_form.addWidget(QLabel('Pm (bar)'))
-        pressure_form.addWidget(self.Pm_spinbox)
-        pressure_form.addWidget(QLabel('P (GPa)'))
-        pressure_form.addWidget(self.P_spinbox)
+        pressure_form = QGridLayout()
+        pressure_form.addWidget(QLabel('Pm (bar)'), 0, 0)
+        pressure_form.addWidget(self.Pm_spinbox, 0, 1)
+        pressure_form.addWidget(QLabel('P (GPa)'), 1, 0)
+        pressure_form.addWidget(self.P_spinbox, 1, 1)
 
 
 		# Calib params form
         param_form = QGridLayout()
         param_form.addWidget(self.x_label, 0, 0)
         param_form.addWidget(self.x_spinbox, 0, 1)
-        param_form.addWidget(self.x0_label, 0, 2)
-        param_form.addWidget(self.x0_spinbox, 0, 3)
+        param_form.addWidget(self.x0_label, 1, 0)
+        param_form.addWidget(self.x0_spinbox, 1, 1)
 
-        param_form.addWidget(QLabel('T (K)'), 1, 0)
-        param_form.addWidget(self.T_spinbox, 1, 1)
+        param_form.addWidget(QLabel('T (K)'), 0, 2)
+        param_form.addWidget(self.T_spinbox, 0, 3)
         param_form.addWidget(QLabel('T0 (K)'), 1, 2)
         param_form.addWidget(self.T0_spinbox, 1, 3)
 
 
         self.Tcor_Label = QLabel('NA')
 
-        calibration_form = QFormLayout()
-        calibration_form.addRow(QLabel('Calibration: '), self.calibration_combo)
-        calibration_form.addRow(QLabel('T correction: '), self.Tcor_Label)
+        calibration_form = QGridLayout()
+        calibration_form.addWidget(QLabel('Calibration: '), 0, 0)
+        calibration_form.addWidget(self.calibration_combo, 0, 1)
+        calibration_form.addWidget(QLabel('T correction: '), 1,0)
+        calibration_form.addWidget(self.Tcor_Label, 1, 1)
 
 
         self.add_button = QPushButton('+')
@@ -271,45 +209,126 @@ class MainWindow(QMainWindow):
         self.PmPplot_button = QPushButton('P vs Pm')
         self.PmPplot_button.setMinimumWidth(70)
 
-        actions_form = QHBoxLayout()
+        actions_form = QGridLayout()
 
-        actions_form.addWidget(self.add_button)
-        actions_form.addWidget(self.removelast_button)
-        actions_form.addWidget(self.table_button)
-        actions_form.addWidget(self.PmPplot_button)
+        actions_form.addWidget(self.add_button, 0, 0)
+        actions_form.addWidget(self.removelast_button, 1, 0)
+        actions_form.addWidget(self.table_button, 0, 1)
+        actions_form.addWidget(self.PmPplot_button, 1, 1)
 
         Toolboxlayout.addLayout(pressure_form)
 
         Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyQSeparator())
+        Toolboxlayout.addWidget(MyVSeparator())
         Toolboxlayout.addStretch()
 
         Toolboxlayout.addLayout(param_form)
 
         Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyQSeparator())
+        Toolboxlayout.addWidget(MyVSeparator())
         Toolboxlayout.addStretch()
 		
         Toolboxlayout.addLayout(calibration_form)
 
         Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyQSeparator())
+        Toolboxlayout.addWidget(MyVSeparator())
         Toolboxlayout.addStretch()
 
         Toolboxlayout.addLayout(actions_form)
 
         ToolboxGroup.setLayout(Toolboxlayout)
-        right_panel_layout.addWidget(ToolboxGroup)
+        top_panel_layout.addWidget(ToolboxGroup)
 	
 
 #? Toolbox connections
         self.table_button.clicked.connect(self.toggle_PvPm)
 
+        ##################################################################################### Main left Panel ###################################################################################"" 
+
+#####################################################################################
+#? Setup left part of bottom panel
+
+        FileManagementBox = QGroupBox("File management")
+        FileManagementLayout = QVBoxLayout()
+        FileManagementBox.setLayout(FileManagementLayout)
+        bottom_panel_layout.addWidget(FileManagementBox)
+
+#####################################################################################
+#? Setup file loading section
+        
+        FileLoadLayout = QGridLayout()
+
+        self.add_button = QPushButton("Add file", self)
+        pixmapi = getattr(QStyle, 'SP_FileIcon')
+        icon = self.style().standardIcon(pixmapi)
+        self.add_button.setIcon(icon)
+        self.add_button.clicked.connect(self.add_file)
+        FileLoadLayout.addWidget(self.add_button, 0,0)
+
+        self.delete_button = QPushButton("Delete file ", self)
+        pixmapi = getattr(QStyle, 'SP_DialogDiscardButton')
+        icon = self.style().standardIcon(pixmapi)
+        self.delete_button.setIcon(icon)
+        self.delete_button.clicked.connect(self.delete_file)
+        FileLoadLayout.addWidget(self.delete_button, 0,1)
+        
+        self.selectdir_button = QPushButton("Select directory", self)
+        pixmapi = getattr(QStyle, 'SP_DirIcon')
+        icon = self.style().standardIcon(pixmapi)
+        self.selectdir_button.setIcon(icon)
+        self.selectdir_button.clicked.connect(self.select_directory)
+        FileLoadLayout.addWidget(self.selectdir_button, 1,0)
+
+        self.loadlatest_button = QPushButton("Load latest", self)
+        pixmapi = getattr(QStyle, 'SP_BrowserReload')
+        icon = self.style().standardIcon(pixmapi)
+        self.loadlatest_button.setIcon(icon)
+        self.loadlatest_button.clicked.connect(self.load_latest_file)
+        FileLoadLayout.addWidget(self.loadlatest_button, 1,1)
+
+        FileManagementLayout.addLayout(FileLoadLayout)
+
+
+
+        self.custom_model = helpers.CustomFileListModel()
+        self.list_widget = QListView(self)
+        self.list_widget.setModel(self.custom_model)
+        FileManagementLayout.addWidget(self.list_widget)
+        self.list_widget.clicked.connect(self.item_clicked)
+        self.current_selected_index = None
+        self.list_widget.selectionModel().selectionChanged.connect(self.selection_changed)
+
+
+        MoveLayout = QHBoxLayout()
+
+        self.up_button = QPushButton("Move up", self)
+        pixmapi = getattr(QStyle, 'SP_ArrowUp')
+        icon = self.style().standardIcon(pixmapi)
+        self.up_button.setIcon(icon)
+        self.up_button.clicked.connect(self.move_up)
+        MoveLayout.addWidget(self.up_button)
+
+        self.down_button = QPushButton("Move down", self)
+        pixmapi = getattr(QStyle, 'SP_ArrowDown')
+        icon = self.style().standardIcon(pixmapi)
+        self.down_button.setIcon(icon)
+        self.down_button.clicked.connect(self.move_down)
+        MoveLayout.addWidget(self.down_button)
+
+        
+        FileManagementLayout.addLayout(MoveLayout)
+
+
+        #####################################################################################
+# #? Setup right part of bottom panel
+
+        FitBox = QGroupBox("File fitting")
+        FitBoxLayout = QVBoxLayout()
+        FitBox.setLayout(FitBoxLayout)
+        bottom_panel_layout.addWidget(FitBox)
+
         #####################################################################################
 # #? Setup loaded file info section
-
-        FitBoxGroup = QGroupBox("File fitting")
-        FitBoxLayout = QVBoxLayout()
 
         FileInfoBoxLayout = QVBoxLayout()
         self.current_file_label = QLabel("No file selected", self)
@@ -416,9 +435,6 @@ class MainWindow(QMainWindow):
         self.add_fitted_button.clicked.connect(self.add_current_fit)
         FitBoxLayout.addWidget(self.add_fitted_button)
 
-        FitBoxGroup.setLayout(FitBoxLayout)
-        right_panel_layout.addWidget(FitBoxGroup)
-        # Add the nested QVBoxLayout to the main layout
 
 #####################################################################################
 # #? Setup PvPm table and plotwindow
