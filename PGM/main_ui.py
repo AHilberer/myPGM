@@ -40,56 +40,11 @@ from Parameter_window import *
 from plot_canvas import *
 
 import helpers
-import Calibfuncs
+import calibfuncs
+from calibrations import *
 
 Setup_mode = True
 
-
-
-
-
-class MySpectrumItem:
-    def __init__(self, name, path):
-        self.name = name
-        self.path = path
-        self.data = None
-        self.corrected_data = None
-        self.current_smoothing = None
-        self.spectral_unit = r"$\lambda$ (nm)"
-        self.fitted_gauge = None
-        self.fit_result = None
-
-    def normalize_data(self):
-        self.data[:,1]=self.data[:,1]/max(self.data[:,1])
-
-class CustomFileListModel(QAbstractListModel):
-    itemAdded = pyqtSignal()  # Signal emitted when an item is added
-    itemDeleted = pyqtSignal()  # Signal emitted when an item is deleted
-
-    def __init__(self, items=None, parent=None):
-        super().__init__(parent)
-        self.items = items or []
-
-    def rowCount(self, parent=QModelIndex()):
-        return len(self.items)
-
-    def data(self, index, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole:
-            return self.items[index.row()].name
-        elif role == Qt.UserRole:
-            return self.items[index.row()]
-
-    def addItem(self, item):
-        self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
-        self.items.append(item)
-        self.endInsertRows()
-        self.itemAdded.emit()  # Emit signal to notify the view
-
-    def deleteItem(self, index):
-        self.beginRemoveRows(QModelIndex(), index, index)
-        del self.items[index]
-        self.endRemoveRows()
-        self.itemDeleted.emit()  # Emit signal to notify the view
 
 
 
@@ -119,42 +74,6 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 #? Calibrations setup
-
-        Ruby2020 = helpers.HPCalibration(name = 'Ruby2020',
-							     func = Calibfuncs.Pruby2020,
-							     Tcor_name='Datchi 2007',
-							     xname = 'lambda',
-							     xunit = 'nm',
-							     x0default = 694.28,
-							     xstep = .01,
-							     color = 'lightcoral')
-        
-        SamariumDatchi = helpers.HPCalibration(name = 'Samarium Borate Datchi 1997',
-							     	   func = Calibfuncs.PsamDatchi1997,
-							     	   Tcor_name='NA',
-							     	   xname = 'lambda',
-							     	   xunit = 'nm',
-							     	   x0default = 685.41,
-							     	   xstep = .01,
-							     	   color = 'moccasin')
-        
-        Akahama2006 = helpers.HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
-							     	func = Calibfuncs.PAkahama2006,
-							     	Tcor_name='NA',
-							     	xname = 'nu',
-							     	xunit = 'cm-1',
-							     	x0default = 1333,
-							     	xstep = .1,
-							     	color = 'darkgrey')
-        
-        cBNDatchi = helpers.HPCalibration(name = 'cBN Raman Datchi 2007',
-							      func = Calibfuncs.PcBN,
-							      Tcor_name='Datchi 2007',
-							      xname = 'nu',
-							      xunit = 'cm-1',
-							      x0default = 1054,
-							      xstep = .1,
-							      color = 'lightblue')
         
         calib_list = [Ruby2020, 
 					  SamariumDatchi, 
@@ -222,7 +141,7 @@ class MainWindow(QMainWindow):
 
 
 
-        self.custom_model = CustomFileListModel()
+        self.custom_model = helpers.CustomFileListModel()
         self.list_widget = QListView(self)
         self.list_widget.setModel(self.custom_model)
         left_panel_layout.addWidget(self.list_widget)
@@ -410,7 +329,7 @@ class MainWindow(QMainWindow):
 
                 file_info = QFileInfo(latest_file_path)
                 file_name = file_info.fileName()
-                list_item = MySpectrumItem(file_name, latest_file_path)
+                list_item = helpers.MySpectrumItem(file_name, latest_file_path)
 
                 with open(latest_file_path) as f:
                     lines = f.readlines()
@@ -479,7 +398,7 @@ class MainWindow(QMainWindow):
             for file in selected_files:
                 file_info = QFileInfo(file)
                 file_name = file_info.fileName()
-                new_item = MySpectrumItem(file_name, file)
+                new_item = helpers.MySpectrumItem(file_name, file)
 
                 with open(file) as f:
                     lines = f.readlines()
@@ -520,7 +439,7 @@ class MainWindow(QMainWindow):
                 file = os.path.join(self.dir_name, latest_file_name)
                 file_info = QFileInfo(file)
                 file_name = file_info.fileName()
-                new_item = MySpectrumItem(file_name, file)
+                new_item = helpers.MySpectrumItem(file_name, file)
 
                 with open(file) as f:
                     lines = f.readlines()

@@ -2,9 +2,53 @@ import numpy as np
 import pandas as pd
 from copy import deepcopy
 from scipy.optimize import minimize
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import Qt, QObject, pyqtSignal, QAbstractListModel, QModelIndex
 
-import Calibfuncs
+
+class MySpectrumItem:
+    def __init__(self, name, path):
+        self.name = name
+        self.path = path
+        self.data = None
+        self.corrected_data = None
+        self.current_smoothing = None
+        self.spectral_unit = r"$\lambda$ (nm)"
+        self.fitted_gauge = None
+        self.fit_result = None
+
+    def normalize_data(self):
+        self.data[:,1]=self.data[:,1]/max(self.data[:,1])
+
+class CustomFileListModel(QAbstractListModel):
+    itemAdded = pyqtSignal()  # Signal emitted when an item is added
+    itemDeleted = pyqtSignal()  # Signal emitted when an item is deleted
+
+    def __init__(self, items=None, parent=None):
+        super().__init__(parent)
+        self.items = items or []
+
+    def rowCount(self, parent=QModelIndex()):
+        return len(self.items)
+
+    def data(self, index, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole:
+            return self.items[index.row()].name
+        elif role == Qt.UserRole:
+            return self.items[index.row()]
+
+    def addItem(self, item):
+        self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
+        self.items.append(item)
+        self.endInsertRows()
+        self.itemAdded.emit()  # Emit signal to notify the view
+
+    def deleteItem(self, index):
+        self.beginRemoveRows(QModelIndex(), index, index)
+        del self.items[index]
+        self.endRemoveRows()
+        self.itemDeleted.emit()  # Emit signal to notify the view
+
+
 
 class HPCalibration():
 	''' A general HP calibration object '''
