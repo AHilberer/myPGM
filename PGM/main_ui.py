@@ -1066,32 +1066,36 @@ class MainWindow(QMainWindow):
     def click_fit(self, event):
         if self.click_enabled and event.button == 1 and event.inaxes:
             x_click, y_click = event.xdata, event.ydata
-            fit_mode  = self.fit_model_combo.currentText()
-            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
-            current_spectrum.fitted_gauge = fit_mode
-            if fit_mode == 'Samarium':
-                self.Sm_fit(guess_peak=x_click)
-                self.x_spinbox.setValue(x_click)
+
+            fit_mode  = self.models[ self.fit_model_combo.currentText() ]
+
+            if self.current_selected_file_index is not None:
+                current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+                current_spectrum.fit_model = fit_mode
+
+            if current_spectrum.corrected_data is None:
+                x=current_spectrum.data[:,0]
+                y=current_spectrum.data[:,1]
+            else :
+                x=current_spectrum.corrected_data[:,0]
+                y=current_spectrum.corrected_data[:,1]
+
+            if fit_mode.type == 'point':
+                # special case to implement
+                pass
+            elif fit_mode.type == 'fit':
+                res = self.do_fit(fit_mode, x, y, guess_peak=x_click) # identify x, feed it to toolbox, store toolbox state in spectum.fit_config and plot fit result
+                #print('done fit')
+                current_spectrum.fit_config = deepcopy(self.buffer)
+                current_spectrum.fit_result = res
+                self.plot_fit(current_spectrum)
                 self.toggle_click_fit()
                 self.click_fit_button.setChecked(False)
-
-            elif fit_mode == 'Ruby':
-                self.Ruby_fit(guess_peak=x_click)
-                self.x_spinbox.setValue(x_click)
-                self.toggle_click_fit()
-                self.click_fit_button.setChecked(False)
-
-            elif fit_mode == 'Raman':
-                nu_min = x_click
-                self.Raman_fit(guess_peak = nu_min)
-                self.x_spinbox.setValue(x_click)
-                self.toggle_click_fit()
-                self.click_fit_button.setChecked(False)
-
             else:
                 print('Not implemented')
                 self.toggle_click_fit()
                 self.click_fit_button.setChecked(False)
+                
 
     def CHull_Bg(self):
         current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
