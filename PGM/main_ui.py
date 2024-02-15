@@ -67,7 +67,11 @@ class MainWindow(QMainWindow):
 
         # Setup Main window parameters
         self.setWindowTitle("myPGM - PressureGaugeMonitor")
-        self.setGeometry(100, 100, 800, 1000)
+        x = 100
+        y = 100
+        width = 1000
+        height = 1000
+        self.setGeometry(x, y, width, height)
         #self.setWindowIcon(QIcon('resources/PGMicon.png'))
 
         central_widget = QWidget(self)
@@ -134,16 +138,18 @@ class MainWindow(QMainWindow):
         self.Pm_spinbox.setDecimals(2)
         self.Pm_spinbox.setRange(-np.inf, np.inf)
         self.Pm_spinbox.setSingleStep(.1)
+        self.Pm_spinbox.setStyleSheet("background: #C5E1FC;")
 
         self.P_spinbox = QDoubleSpinBox()
         self.P_spinbox.setObjectName('P_spinbox')
         self.P_spinbox.setDecimals(3)
         self.P_spinbox.setRange(-np.inf, np.inf)
         self.P_spinbox.setSingleStep(.1)
+        self.P_spinbox.setStyleSheet("background: #c6fcc5;")
 
         self.x_spinbox = QDoubleSpinBox()
         self.x_spinbox.setObjectName('x_spinbox')
-        self.x_spinbox.setDecimals(3)
+        self.x_spinbox.setDecimals(2)
         self.x_spinbox.setRange(-np.inf, +np.inf)
 
         self.T_spinbox = QDoubleSpinBox()
@@ -154,7 +160,7 @@ class MainWindow(QMainWindow):
 
         self.x0_spinbox = QDoubleSpinBox()
         self.x0_spinbox.setObjectName('x0_spinbox')
-        self.x0_spinbox.setDecimals(3)
+        self.x0_spinbox.setDecimals(2)
         self.x0_spinbox.setRange(-np.inf, +np.inf)
 
         self.T0_spinbox = QDoubleSpinBox()
@@ -177,33 +183,26 @@ class MainWindow(QMainWindow):
         self.x0_label = QLabel('lambda0 (nm)')
 
         # pressure form
-        pressure_form = QGridLayout()
-        pressure_form.addWidget(QLabel('Pm (bar)'), 0, 0)
-        pressure_form.addWidget(self.Pm_spinbox, 0, 1)
-        pressure_form.addWidget(QLabel('P (GPa)'), 1, 0)
-        pressure_form.addWidget(self.P_spinbox, 1, 1)
-
+        pressure_form = QFormLayout()
+        pressure_form.addRow(QLabel('Pm (bar)'), self.Pm_spinbox)
+        pressure_form.addRow(QLabel('P (GPa)'), self.P_spinbox)
 
         # Calib params form
-        param_form = QGridLayout()
-        param_form.addWidget(self.x_label, 0, 0)
-        param_form.addWidget(self.x_spinbox, 0, 1)
-        param_form.addWidget(self.x0_label, 1, 0)
-        param_form.addWidget(self.x0_spinbox, 1, 1)
-
-        param_form.addWidget(QLabel('T (K)'), 0, 2)
-        param_form.addWidget(self.T_spinbox, 0, 3)
-        param_form.addWidget(QLabel('T0 (K)'), 1, 2)
-        param_form.addWidget(self.T0_spinbox, 1, 3)
-
+        param_form = QHBoxLayout()
+        form_x = QFormLayout()
+        form_x.addRow(self.x_label, self.x_spinbox)
+        form_x.addRow(self.x0_label, self.x0_spinbox)
+        form_T = QFormLayout()
+        form_T.addRow(QLabel('T (K)'), self.T_spinbox)
+        form_T.addRow(QLabel('T0 (K)'), self.T0_spinbox)
+        param_form.addLayout(form_x)
+        param_form.addLayout(form_T)
 
         self.Tcor_Label = QLabel('NA')
 
-        calibration_form = QGridLayout()
-        calibration_form.addWidget(QLabel('Calibration: '), 0, 0)
-        calibration_form.addWidget(self.calibration_combo, 0, 1)
-        calibration_form.addWidget(QLabel('T correction: '), 1,0)
-        calibration_form.addWidget(self.Tcor_Label, 1, 1)
+        calibration_form = QFormLayout()
+        calibration_form.addRow(QLabel('Calibration: '), self.calibration_combo)
+        calibration_form.addRow(QLabel('T correction: '), self.Tcor_Label)
 
 
         self.add_button = QPushButton('+')
@@ -225,25 +224,25 @@ class MainWindow(QMainWindow):
         actions_form.addWidget(self.table_button, 0, 1)
         actions_form.addWidget(self.PmPplot_button, 1, 1)
 
-        Toolboxlayout.addLayout(pressure_form)
+        Toolboxlayout.addLayout(calibration_form, stretch=1)
 
         #Toolboxlayout.addStretch()
         Toolboxlayout.addWidget(MyVSeparator())
         #Toolboxlayout.addStretch()
 
-        Toolboxlayout.addLayout(param_form)
+        Toolboxlayout.addLayout(param_form, stretch=3)
 
         #Toolboxlayout.addStretch()
         Toolboxlayout.addWidget(MyVSeparator())
         #Toolboxlayout.addStretch()
         
-        Toolboxlayout.addLayout(calibration_form)
+        Toolboxlayout.addLayout(pressure_form, stretch=2)
 
         #Toolboxlayout.addStretch()
         Toolboxlayout.addWidget(MyVSeparator())
         #Toolboxlayout.addStretch()
 
-        Toolboxlayout.addLayout(actions_form)
+        Toolboxlayout.addLayout(actions_form, stretch=1)
 
         ToolboxGroup.setLayout(Toolboxlayout)
         top_panel_layout.addWidget(ToolboxGroup)
@@ -256,7 +255,11 @@ class MainWindow(QMainWindow):
         self.x0_spinbox.setValue(self.buffer.x0)
         self.T0_spinbox.setValue(self.buffer.T0)
         self.calibration_combo.setCurrentText(self.buffer.calib.name) 
-
+        newind = self.calibration_combo.currentIndex()
+        col1 = self.calibration_combo.model()\
+							.item(newind).background().color().getRgb() 
+        self.calibration_combo.setStyleSheet("background-color: rgba{};\
+					selection-background-color: k;".format(col1))
 #? Toolbox connections
         self.table_button.clicked.connect(self.toggle_PvPm)
 

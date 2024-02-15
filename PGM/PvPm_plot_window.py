@@ -20,7 +20,7 @@ class PmPPlotWindow(QWidget):
 		super().__init__()
 
 		self.setWindowTitle("PvPm Plot")
-		self.setGeometry(900, 550, 450, 350)
+		self.setGeometry(1000, 550, 450, 350)
 
 		#centerPoint = QDesktopWidget().availableGeometry().center()
 		#thePosition = (centerPoint.x() + 300, centerPoint.y() - 400)

@@ -89,7 +89,7 @@ class HPTableWindow(QWidget):
 		self.data = HPDataTable_
 		self.calibrations = calibrations_
 		self.setWindowTitle('PvPm table')
-		self.setGeometry(900, 100, 450, 400)
+		self.setGeometry(1000, 100, 450, 400)
 
 		#centerPoint = QDesktopWidget().availableGeometry().center()
 		#thePosition = (centerPoint.x() + 200, centerPoint.y() + 50)
