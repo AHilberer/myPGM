@@ -22,6 +22,8 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QListView,
                              QGridLayout,
                              QStyle,
+                             QFormLayout,
+                             QFrame
                              
                              )
 from PyQt5.QtCore import QFileInfo, Qt, QAbstractListModel, QModelIndex, pyqtSignal,QItemSelectionModel, pyqtSlot
@@ -46,7 +48,11 @@ from calibrations import *
 Setup_mode = True
 
 
-
+class MyQSeparator(QFrame):
+	def __init__(self):
+		super().__init__()
+		self.setFrameShape(QFrame.HLine)
+		self.setFrameShadow(QFrame.Sunken)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -54,7 +60,7 @@ class MainWindow(QMainWindow):
 
 
         # Setup Main window parameters
-        self.setWindowTitle("PGM - PressureGaugeMonitor")
+        self.setWindowTitle("myPGM - PressureGaugeMonitor")
         self.setGeometry(100, 100, 800, 1000)
         #self.setWindowIcon(QIcon('resources/PGMicon.png'))
 
@@ -71,6 +77,7 @@ class MainWindow(QMainWindow):
 
         # Create a new panel on the right
         right_panel_layout = QVBoxLayout()
+        main_layout.addLayout(right_panel_layout)
 
 #####################################################################################
 #? Calibrations setup
@@ -101,6 +108,7 @@ class MainWindow(QMainWindow):
         param_menu.addAction(open_param_action)
  
         
+        ##################################################################################### Main left Panel ###################################################################################"" 
 
 #####################################################################################
 #? Setup file loading section
@@ -170,56 +178,153 @@ class MainWindow(QMainWindow):
         MoveBox.setLayout(MoveLayout)
         left_panel_layout.addWidget(MoveBox)
 
+
+
+        ##################################################################################### Main right Panel ###################################################################################"" 
+# #? PRL style toolbox
+        ToolboxGroup = QGroupBox('Pressure Toolbox')
+        Toolboxlayout = QVBoxLayout()
+        self.Pm_spinbox = QDoubleSpinBox()
+        self.Pm_spinbox.setObjectName('Pm_spinbox')
+        self.Pm_spinbox.setDecimals(2)
+        self.Pm_spinbox.setRange(-np.inf, np.inf)
+        self.Pm_spinbox.setSingleStep(.1)
+
+        self.P_spinbox = QDoubleSpinBox()
+        self.P_spinbox.setObjectName('P_spinbox')
+        self.P_spinbox.setDecimals(3)
+        self.P_spinbox.setRange(-np.inf, np.inf)
+        self.P_spinbox.setSingleStep(.1)
+
+        self.x_spinbox = QDoubleSpinBox()
+        self.x_spinbox.setObjectName('x_spinbox')
+        self.x_spinbox.setDecimals(3)
+        self.x_spinbox.setRange(-np.inf, +np.inf)
+
+        self.T_spinbox = QDoubleSpinBox()
+        self.T_spinbox.setObjectName('T_spinbox')
+        self.T_spinbox.setDecimals(0)
+        self.T_spinbox.setRange(-np.inf, +np.inf)
+        self.T_spinbox.setSingleStep(1)
+
+        self.x0_spinbox = QDoubleSpinBox()
+        self.x0_spinbox.setObjectName('x0_spinbox')
+        self.x0_spinbox.setDecimals(3)
+        self.x0_spinbox.setRange(-np.inf, +np.inf)
+
+        self.T0_spinbox = QDoubleSpinBox()
+        self.T0_spinbox.setObjectName('T0_spinbox')
+        self.T0_spinbox.setDecimals(0)
+        self.T0_spinbox.setRange(-np.inf, +np.inf)
+        self.T0_spinbox.setSingleStep(1)
+
+
+        self.calibration_combo = QComboBox()
+        self.calibration_combo.setObjectName('calibration_combo')
+        self.calibration_combo.setMinimumWidth(100)
+        self.calibration_combo.addItems( self.calibrations.keys() )
+		
+        for k, v in self.calibrations.items():
+            ind = self.calibration_combo.findText( k )
+            self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
+
+        self.x_label = QLabel('lambda (nm)')
+        self.x0_label = QLabel('lambda0 (nm)')
+
+		# pressure form
+        pressure_form = QHBoxLayout()
+        pressure_form.addWidget(QLabel('Pm (bar)'))
+        pressure_form.addWidget(self.Pm_spinbox)
+        pressure_form.addWidget(QLabel('P (GPa)'))
+        pressure_form.addWidget(self.P_spinbox)
+
+
+		# Calib params form
+        param_form = QGridLayout()
+        param_form.addWidget(self.x_label, 0, 0)
+        param_form.addWidget(self.x_spinbox, 0, 1)
+        param_form.addWidget(self.x0_label, 0, 2)
+        param_form.addWidget(self.x0_spinbox, 0, 3)
+
+        param_form.addWidget(QLabel('T (K)'), 1, 0)
+        param_form.addWidget(self.T_spinbox, 1, 1)
+        param_form.addWidget(QLabel('T0 (K)'), 1, 2)
+        param_form.addWidget(self.T0_spinbox, 1, 3)
+
+
+        self.Tcor_Label = QLabel('NA')
+
+        calibration_form = QFormLayout()
+        calibration_form.addRow(QLabel('Calibration: '), self.calibration_combo)
+        calibration_form.addRow(QLabel('T correction: '), self.Tcor_Label)
+
+
+        self.add_button = QPushButton('+')
+        self.add_button.setMinimumWidth(25)
+
+        self.removelast_button = QPushButton('-')
+        self.removelast_button.setMinimumWidth(25)
+
+        self.table_button = QPushButton('Table')
+        self.table_button.setMinimumWidth(70)
+
+        self.PmPplot_button = QPushButton('P vs Pm')
+        self.PmPplot_button.setMinimumWidth(70)
+
+        actions_form = QHBoxLayout()
+
+        actions_form.addWidget(self.add_button)
+        actions_form.addWidget(self.removelast_button)
+        actions_form.addWidget(self.table_button)
+        actions_form.addWidget(self.PmPplot_button)
+
+        Toolboxlayout.addLayout(pressure_form)
+
+        Toolboxlayout.addStretch()
+        Toolboxlayout.addWidget(MyQSeparator())
+        Toolboxlayout.addStretch()
+
+        Toolboxlayout.addLayout(param_form)
+
+        Toolboxlayout.addStretch()
+        Toolboxlayout.addWidget(MyQSeparator())
+        Toolboxlayout.addStretch()
+		
+        Toolboxlayout.addLayout(calibration_form)
+
+        Toolboxlayout.addStretch()
+        Toolboxlayout.addWidget(MyQSeparator())
+        Toolboxlayout.addStretch()
+
+        Toolboxlayout.addLayout(actions_form)
+
+        ToolboxGroup.setLayout(Toolboxlayout)
+        right_panel_layout.addWidget(ToolboxGroup)
+	
+
+#? Toolbox connections
+        self.table_button.clicked.connect(self.toggle_PvPm)
+
         #####################################################################################
 # #? Setup loaded file info section
 
-        FileInfoBox = QGroupBox("Current file info")
-        FileInfoBoxLayout = QVBoxLayout()
+        FitBoxGroup = QGroupBox("File fitting")
+        FitBoxLayout = QVBoxLayout()
 
+        FileInfoBoxLayout = QVBoxLayout()
         self.current_file_label = QLabel("No file selected", self)
         FileInfoBoxLayout.addWidget(self.current_file_label)
 
         self.dir_label = QLabel("No directory selected", self)
         FileInfoBoxLayout.addWidget(self.dir_label)
 
-        FileInfoBox.setLayout(FileInfoBoxLayout)
-        right_panel_layout.addWidget(FileInfoBox)
+        FitBoxLayout.addLayout(FileInfoBoxLayout)
 
 
-        #####################################################################################
-#? Setup Fitting section
 
-
-        FitBox = QGroupBox("Fitting")
-        FitBoxLayout = QHBoxLayout()
-
-        self.fit_button = QPushButton("Fit", self)
-        self.fit_button.clicked.connect(self.fit)
-        FitBoxLayout.addWidget(self.fit_button)
-
-        self.fit_type_selector = QComboBox(self)
-        self.fit_type_selector.addItems(['Ruby', 'Samarium', 'Raman'])
-        gauge_colors = ['lightcoral', 'royalblue', 'darkgrey']
-        for ind in range(len(['Ruby', 'Samarium', 'Raman'])):
-            self.fit_type_selector.model().item(ind).setBackground(QColor(gauge_colors[ind]))
-
-        self.fit_type_selector.currentIndexChanged.connect(self.update_fit_type)
-        self.update_fit_type()
-        FitBoxLayout.addWidget(self.fit_type_selector)
-        
-        self.click_fit_button = QPushButton("Enable Click-to-Fit", self)
-        self.click_fit_button.setCheckable(True)
-        self.click_fit_button.clicked.connect(self.toggle_click_fit)
-        FitBoxLayout.addWidget(self.click_fit_button)
-        self.click_enabled = False
-
-        FitBox.setLayout(FitBoxLayout)
-        right_panel_layout.addWidget(FitBox)
-
-        #####################################################################################
+       #####################################################################################
 #? Data correction section
 
-        CorrectionBox = QGroupBox("Data correction")
         CorrectionBoxLayout = QHBoxLayout()
 
         self.CHullBg_button = QPushButton("CHull Background", self)
@@ -236,14 +341,42 @@ class MainWindow(QMainWindow):
         self.smoothing_factor.valueChanged.connect(self.smoothen)
         CorrectionBoxLayout.addWidget(self.smoothing_factor, stretch=3)
 
-        CorrectionBox.setLayout(CorrectionBoxLayout)
-        right_panel_layout.addWidget(CorrectionBox)
+        FitBoxLayout.addLayout(CorrectionBoxLayout)
 
+
+        #####################################################################################
+#? Setup Fitting section
+
+
+        FitButtonsLayout = QHBoxLayout()
+
+        self.fit_button = QPushButton("Fit", self)
+        self.fit_button.clicked.connect(self.fit)
+        FitButtonsLayout.addWidget(self.fit_button)
+
+        self.fit_type_selector = QComboBox(self)
+        self.fit_type_selector.addItems(['Ruby', 'Samarium', 'Raman'])
+        gauge_colors = ['lightcoral', 'royalblue', 'darkgrey']
+        for ind in range(len(['Ruby', 'Samarium', 'Raman'])):
+            self.fit_type_selector.model().item(ind).setBackground(QColor(gauge_colors[ind]))
+
+        self.fit_type_selector.currentIndexChanged.connect(self.update_fit_type)
+        self.update_fit_type()
+        FitButtonsLayout.addWidget(self.fit_type_selector)
+        
+        self.click_fit_button = QPushButton("Enable Click-to-Fit", self)
+        self.click_fit_button.setCheckable(True)
+        self.click_fit_button.clicked.connect(self.toggle_click_fit)
+        FitButtonsLayout.addWidget(self.click_fit_button)
+        self.click_enabled = False
+
+        FitBoxLayout.addLayout(FitButtonsLayout)
+
+ 
 
         #####################################################################################
 # #? Setup data plotting section
 
-        DataPlotBox = QGroupBox('Spectrum')
         DataPlotBoxLayout = QVBoxLayout()
 
         spectrum_plot = MplCanvas(self)
@@ -258,13 +391,11 @@ class MainWindow(QMainWindow):
         DataPlotBoxLayout.addWidget(toolbar)
         self.canvas.mpl_connect('button_press_event', self.click_fit)
 
-        DataPlotBox.setLayout(DataPlotBoxLayout)
-        right_panel_layout.addWidget(DataPlotBox)
+        FitBoxLayout.addLayout(DataPlotBoxLayout)
 
 #####################################################################################
 # #? Setup derivative plotting section
 
-        DataPlotBox = QGroupBox('Spectrum derivative')
         DataPlotBoxLayout = QVBoxLayout()
 
         deriv_plot = MplCanvas(self)
@@ -279,12 +410,15 @@ class MainWindow(QMainWindow):
         DataPlotBoxLayout.addWidget(deriv_toolbar)
         self.deriv_canvas.mpl_connect('button_press_event', self.click_fit)
 
-        DataPlotBox.setLayout(DataPlotBoxLayout)
-        right_panel_layout.addWidget(DataPlotBox)
+        FitBoxLayout.addLayout(DataPlotBoxLayout)
 
+        self.add_fitted_button = QPushButton("Add current fit")
+        self.add_fitted_button.clicked.connect(self.add_current_fit)
+        FitBoxLayout.addWidget(self.add_fitted_button)
+
+        FitBoxGroup.setLayout(FitBoxLayout)
+        right_panel_layout.addWidget(FitBoxGroup)
         # Add the nested QVBoxLayout to the main layout
-        main_layout.addLayout(right_panel_layout)
-
 
 #####################################################################################
 # #? Setup PvPm table and plotwindow
@@ -298,25 +432,6 @@ class MainWindow(QMainWindow):
 
         self.data.changed.connect(self.DataTableWindow.table_widget.updatetable)
         self.data.changed.connect(self.PvPmPlotWindow.updateplot)
-#####################################################################################
-# #? Setup PvPm section of main
-
-        PvPmBox = QGroupBox('PvPm')
-        PvPmBoxLayout = QHBoxLayout()
-
-        self.PvPm_toggle_button = QPushButton("Toggle PvPm table")
-        self.PvPm_toggle_button.clicked.connect(self.toggle_PvPm)
-        PvPmBoxLayout.addWidget(self.PvPm_toggle_button)
-        #self.PvPmTable.itemChanged.connect(self.plot_PvPm)
-        #self.PvPmTable.itemChanged.connect(self.predict_from_lambda)
-
-
-        self.add_fitted_button = QPushButton("Add current fit")
-        self.add_fitted_button.clicked.connect(self.add_current_fit)
-        PvPmBoxLayout.addWidget(self.add_fitted_button)
-
-        PvPmBox.setLayout(PvPmBoxLayout)
-        right_panel_layout.addWidget(PvPmBox)
 
 
 # #####################################################################################
@@ -353,10 +468,8 @@ class MainWindow(QMainWindow):
                 
     def add_current_fit(self):
         if self.current_selected_index is not None:
-            print('found item')
             current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
             if current_spectrum.fit_result is not None:
-                print('found fit res')
                 if current_spectrum.fitted_gauge == 'Samarium':
                     R1 = current_spectrum.fit_result['opti'][2]
                     P = SmPressure(R1)
@@ -378,7 +491,7 @@ class MainWindow(QMainWindow):
 	      		  					T0 = 298, 
 	      		  					calib = self.calibrations['Ruby2020'],
 	      		  					file = current_spectrum.name)
-                print(new_point)
+
                 self.data.add(new_point)
 
     def toggle_params(self, checked):
