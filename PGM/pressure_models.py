@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.special import voigt_profile as voigt
 
 def Sm_model(x, c, a1, x1, sigma1):
     return c + a1*np.exp(-(x-x1)**2/(2*sigma1**2))
@@ -11,6 +12,9 @@ def SmPressure(lambda_Sm, lambda_Sm_0=685.41):
 
 def Ruby_model(x, c, a1, x1, sigma1, a2, x2, sigma2):
     return c + a1*np.exp(-(x-x1)**2/(2*sigma1**2)) + a2*np.exp(-(x-x2)**2/(2*sigma2**2))
+
+def Ruby_model_voigts(x, c, a1, x1, sigma1, gamma1, a2, x2, sigma2, gamma2):
+    return c + a1 * voigt(x-x1, sigma1, gamma1) + a2 * voigt(x-x2, sigma2, gamma2)
 
 def RubyPressure(lambda_ruby, lambda_ruby_0=694.25):
     # ruby2020: High Pressure Research 

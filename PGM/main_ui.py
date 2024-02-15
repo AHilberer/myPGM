@@ -641,9 +641,15 @@ class MainWindow(QMainWindow):
                 self.axes.set_ylabel('Intensity')
                 self.axes.set_xlabel(current_spectrum.spectral_unit)
                 if current_spectrum.corrected_data is None:
-                    self.axes.plot(current_spectrum.data[:,0], current_spectrum.data[:,1])
+                    self.axes.scatter(current_spectrum.data[:,0], 
+                                      current_spectrum.data[:,1],
+                                      c = 'gray', 
+                                      s = 5)
                 else :
-                    self.axes.plot(current_spectrum.corrected_data[:,0], current_spectrum.corrected_data[:,1])
+                    self.axes.scatter(current_spectrum.corrected_data[:,0], 
+                                      current_spectrum.corrected_data[:,1],
+                                      c = 'gray', 
+                                      s = 5)
                 self.canvas.draw()
 
                 # derivative data
@@ -652,10 +658,16 @@ class MainWindow(QMainWindow):
                 self.deriv_axes.set_xlabel(current_spectrum.spectral_unit)
                 if current_spectrum.corrected_data is None:
                     dI = gaussian_filter1d(current_spectrum.data[:,1],mode='nearest', sigma=1, order=1)
-                    self.deriv_axes.plot(current_spectrum.data[:,0], dI, color="crimson")
+                    self.deriv_axes.scatter(current_spectrum.data[:,0], 
+                                            dI, 
+                                            c = "crimson",
+                                            s = 5)
                 else :
                     dI = gaussian_filter1d(current_spectrum.corrected_data[:,1],mode='nearest', sigma=1, order=1)
-                    self.deriv_axes.plot(current_spectrum.corrected_data[:,0], dI, color="crimson")
+                    self.deriv_axes.scatter(current_spectrum.corrected_data[:,0], 
+                                            dI, 
+                                            c = "crimson",
+                                            s = 5)
                 self.deriv_canvas.draw()
 
     def smoothen(self):
@@ -751,17 +763,38 @@ class MainWindow(QMainWindow):
                 guess_peak = x[pk[np.argmax(prop['peak_heights'])]]
 
             #print('Guess : ', guess_peak)
-            pinit = [y[0], 1-y[0], guess_peak-1.5, 2e-1,  1-y[0], guess_peak, 2e-1]
+            
+            # This was for two gaussians:
+            # pinit = [y[0], 1-y[0], guess_peak-1.5, 2e-1,  1-y[0], guess_peak, 2e-1]
+            # This is for two voigts:
+            pinit = [y[0], 1-y[0], guess_peak-1.5, 2e-2, 2e-1,  
+                           1-y[0], guess_peak,     2e-2, 2e-1]
 
-            init = [Ruby_model(wvl, *pinit) for wvl in x]
+            fitbounds = ( [0,           0,  690,   0,   0,  
+                                        0,  690,   0,   0],
+                          [np.inf, np.inf,  900,   2,   2,  
+                                   np.inf,  900,   2,   2] )
 
-            popt, pcov = curve_fit(Ruby_model, x, y, p0=pinit)
+            init = [Ruby_model_voigts(wvl, *pinit) for wvl in x]
+  #          self.axes.scatter(x, init, label='init')
+
+            popt, pcov = curve_fit(Ruby_model_voigts, 
+                                   x, 
+                                   y, 
+                                   p0=pinit,
+                                   bounds=fitbounds)
+
+            #print(popt)
 
             current_spectrum.fit_result = {"opti":popt,"cov":pcov}
 
             self.plot_fit(current_spectrum)
-
-            R1 = np.max([popt[2], popt[5]])
+            
+            # this was for two gaussians:
+            # R1 = np.max([popt[2], popt[5]])
+            # this is for two voigts:
+            R1 = np.max([popt[2], popt[6]])
+            
             P = RubyPressure(R1)
             new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(R1,3), 'File':current_spectrum.name}, index=[0])
             #self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
@@ -793,6 +826,10 @@ class MainWindow(QMainWindow):
 
     def plot_fit(self, my_spectrum):
         if my_spectrum.fit_result is not None:
+            # any previous fit will be cleared,
+            # previously plotted raw data will NOT be cleared
+            _ = [l.remove() for l in self.axes.lines]
+            _ = [l.remove() for l in self.deriv_axes.lines]
             if my_spectrum.corrected_data is None:
                 x=my_spectrum.data[:,0]
                 y=my_spectrum.data[:,1]
@@ -804,16 +841,27 @@ class MainWindow(QMainWindow):
                 fitted = [Sm_model(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
                 R1 = my_spectrum.fit_result['opti'][2]
                 P = SmPressure(R1)
-                self.axes.plot(x, fitted, '-', label='best fit')
+                self.axes.plot(x, 
+                               fitted, 
+                               '-',
+                               c = 'r', 
+                               label='best fit')
                 self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
                 self.axes.legend(frameon=False)
                 self.canvas.draw()
 
             elif my_spectrum.fitted_gauge == 'Ruby':
-                fitted = [Ruby_model(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
-                R1 = np.max([my_spectrum.fit_result['opti'][2], my_spectrum.fit_result['opti'][5]])
+                fitted = [Ruby_model_voigts(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
+                # this was for two gaussians:
+                #R1 = np.max([my_spectrum.fit_result['opti'][2], my_spectrum.fit_result['opti'][5]])
+                # this is for two voigts:
+                R1 = np.max([my_spectrum.fit_result['opti'][2], my_spectrum.fit_result['opti'][6]])
                 P = RubyPressure(R1)
-                self.axes.plot(x, fitted, '-', label='best fit')
+                self.axes.plot(x, 
+                               fitted, 
+                               '-',
+                               c = 'r', 
+                               label='best fit')
                 self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
                 self.axes.legend(frameon=False)
                 self.canvas.draw()
