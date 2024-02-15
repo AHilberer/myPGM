@@ -15,6 +15,8 @@ class MySpectrumItem:
         self.spectral_unit = r"$\lambda$ (nm)"
         self.fitted_gauge = None
         self.fit_result = None
+        self.fit_config = None
+        self.fit_model = None
 
     def normalize_data(self):
         self.data[:,1]=self.data[:,1]/max(self.data[:,1])
@@ -70,6 +72,18 @@ class HPCalibration():
 		res = minimize( lambda x: ( self.func(x, *args, **kwargs) - p )**2, 
 									x0=self.x0default, tol=1e-6)
 		return res.x[0]
+
+
+class GaugeFitModel():
+	''' A general pressure gauge fitting model object '''
+	def __init__(self, name, func,type, color):
+		self.name = name
+		self.func = func
+		self.type = type
+		self.color = color  # color printed in calibration combobox
+
+	def __repr__(self):
+		return 'GaugeFitModel : ' + str( self.__dict__ )
 	
 
 

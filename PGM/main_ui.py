@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from copy import deepcopy
 from scipy.signal import find_peaks
 from scipy.optimize import curve_fit
 import pandas as pd
@@ -34,7 +35,7 @@ from scipy.ndimage import uniform_filter1d
 from scipy.spatial import ConvexHull
 from scipy.ndimage import gaussian_filter1d
 
-from pressure_models import *
+from fit_models import *
 from PvPm_plot_window import *
 from PvPm_table_window import *
 from Parameter_window import *
@@ -42,7 +43,6 @@ from Parameter_window import *
 from plot_canvas import *
 
 import helpers
-import calibfuncs
 from calibrations import *
 
 Setup_mode = True
@@ -100,6 +100,16 @@ class MainWindow(QMainWindow):
         self.calibrations = {a.name:a for a in calib_list}
 
 #####################################################################################
+#? Fit models setup
+        
+        model_list = [RubyGauss, 
+                      RubyVoigt, 
+                      SamariumGauss, 
+                      ]
+        
+        self.models = {a.name:a for a in model_list}
+
+#####################################################################################
 # #? Exit button setup
         menubar = self.menuBar()
         exit_menu = menubar.addMenu(' Exit')
@@ -119,14 +129,14 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
         # this will be our initial state
-        self.buffer = helpers.HPData(Pm = 0, 
-                                       P = 0,
-                                        x = 694.28,
-                                          T = 298,
-                                        x0 = 694.28,
-                                        T0 = 298, 
-                                        calib = self.calibrations['Ruby2020'],
-                                        file = 'No')
+        self.buffer = helpers.HPData(Pm = 0,
+                                     P = 0,
+                                     x = 694.28,
+                                     T = 298,
+                                     x0 = 694.28,
+                                     T0 = 298,
+                                     calib = self.calibrations['Ruby2020'],
+                                     file = 'No')
  
         
      ##################################################################################### Main Top Panel ###################################################################################"" 
@@ -257,23 +267,23 @@ class MainWindow(QMainWindow):
         self.calibration_combo.setCurrentText(self.buffer.calib.name) 
         newind = self.calibration_combo.currentIndex()
         col1 = self.calibration_combo.model()\
-							.item(newind).background().color().getRgb() 
+                            .item(newind).background().color().getRgb() 
         self.calibration_combo.setStyleSheet("background-color: rgba{};\
-					selection-background-color: k;".format(col1))
+                    selection-background-color: k;".format(col1))
 #? Toolbox connections
         self.table_button.clicked.connect(self.toggle_PvPm)
 
         self.calibration_combo.currentIndexChanged.connect(self.updatecalib)
 
-        self.Pm_spinbox.valueChanged.connect(self.update)
-        self.P_spinbox.valueChanged.connect(self.update)
+        self.Pm_spinbox.valueChanged.connect(self.update_toolbox)
+        self.P_spinbox.valueChanged.connect(self.update_toolbox)
 
-        self.x_spinbox.valueChanged.connect(self.update)
-        self.x0_spinbox.valueChanged.connect(self.update)
-        self.T_spinbox.valueChanged.connect(self.update)
-        self.T0_spinbox.valueChanged.connect(self.update)
+        self.x_spinbox.valueChanged.connect(self.update_toolbox)
+        self.x0_spinbox.valueChanged.connect(self.update_toolbox)
+        self.T_spinbox.valueChanged.connect(self.update_toolbox)
+        self.T0_spinbox.valueChanged.connect(self.update_toolbox)
 
-        self.add_button.clicked.connect(self.add_to_data)
+        self.add_button.clicked.connect(self.add_to_table)
         self.removelast_button.clicked.connect(self.removelast)
 
 
@@ -331,7 +341,7 @@ class MainWindow(QMainWindow):
         self.list_widget.setModel(self.custom_model)
         FileManagementLayout.addWidget(self.list_widget)
         self.list_widget.clicked.connect(self.item_clicked)
-        self.current_selected_index = None
+        self.current_selected_file_index = None
         self.list_widget.selectionModel().selectionChanged.connect(self.selection_changed)
 
 
@@ -409,15 +419,28 @@ class MainWindow(QMainWindow):
         self.fit_button.clicked.connect(self.fit)
         FitButtonsLayout.addWidget(self.fit_button)
 
-        self.fit_type_selector = QComboBox(self)
-        self.fit_type_selector.addItems(['Ruby', 'Samarium', 'Raman'])
-        gauge_colors = ['lightcoral', 'royalblue', 'darkgrey']
-        for ind in range(len(['Ruby', 'Samarium', 'Raman'])):
-            self.fit_type_selector.model().item(ind).setBackground(QColor(gauge_colors[ind]))
 
-        self.fit_type_selector.currentIndexChanged.connect(self.update_fit_type)
-        self.update_fit_type()
-        FitButtonsLayout.addWidget(self.fit_type_selector)
+
+        self.calibration_combo = QComboBox()
+        self.calibration_combo.setObjectName('calibration_combo')
+        self.calibration_combo.setMinimumWidth(100)
+        self.calibration_combo.addItems( self.calibrations.keys() )
+        
+        
+
+
+
+        self.fit_model_combo = QComboBox()
+        self.fit_model_combo.setObjectName('fit_model_combo')
+        self.fit_model_combo.setMinimumWidth(100)
+        self.fit_model_combo.addItems( self.models.keys() )
+        for k, v in self.models.items():
+            ind = self.fit_model_combo.findText( k )
+            self.fit_model_combo.model().item(ind).setBackground(QColor(v.color))
+
+        self.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
+        self.update_fit_model()
+        FitButtonsLayout.addWidget(self.fit_model_combo)
         
         self.click_fit_button = QPushButton("Enable Click-to-Fit", self)
         self.click_fit_button.setCheckable(True)
@@ -517,7 +540,7 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 #? Main window methods
-    def add_to_data(self):
+    def add_to_table(self):
         self.data.add(self.buffer)
     #    print(self.data)
 
@@ -526,7 +549,7 @@ class MainWindow(QMainWindow):
             self.data.removelast()
 
         # update is called two time, not very good but working
-    def update(self, s):
+    def update_toolbox(self, s):
 
         if self.P_spinbox.hasFocus():
             self.buffer.P = self.P_spinbox.value()
@@ -577,34 +600,15 @@ class MainWindow(QMainWindow):
         self.x0_spinbox.setSingleStep(self.buffer.calib.xstep)
 
         # note that this should call update() but it does not at __init__ !!
-        self.x0_spinbox.setValue(self.buffer.calib.x0default)  
+        self.x0_spinbox.setValue(self.buffer.calib.x0default) 
+
+
+
     def add_current_fit(self):
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
-            if current_spectrum.fit_result is not None:
-                if current_spectrum.fitted_gauge == 'Samarium':
-                    R1 = current_spectrum.fit_result['opti'][2]
-                    P = SmPressure(R1)
-                
-                
-                elif current_spectrum.fitted_gauge == 'Ruby':
-                    R1 = np.max([current_spectrum.fit_result['opti'][2], current_spectrum.fit_result['opti'][5]])
-                    P = RubyPressure(R1)
-
-                elif current_spectrum.fitted_gauge == 'Raman':
-                    R1 = current_spectrum.fit_result['opti']
-                    P = Raman_akahama(current_spectrum.fit_result['opti'])
-                
-                new_point = helpers.HPData(Pm = 0, 
-                                       P = P,
-                                        x = R1,
-                                          T = 298,
-                                        x0 = 694.281,
-                                        T0 = 298, 
-                                        calib = self.calibrations['Ruby2020'],
-                                        file = current_spectrum.name)
-
-                self.data.add(new_point)
+        if self.current_selected_file_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+            if current_spectrum.fit_config is not None:
+                self.data.add(current_spectrum.fit_config)
 
     def toggle_params(self, checked):
         if self.ParamWindow.isVisible():
@@ -700,7 +704,7 @@ class MainWindow(QMainWindow):
         self.current_file_label.setText(f"{self.current_file_path}")
         self.smoothing_factor.setValue(selected_item.current_smoothing)
         if selected_item.fitted_gauge is not None:
-            self.fit_type_selector.setCurrentText(selected_item.fitted_gauge)
+            self.fit_model_combo.setCurrentText(selected_item.fitted_gauge)
         self.plot_data()
         if selected_item.fit_result is not None:
             self.plot_fit(selected_item)
@@ -710,9 +714,9 @@ class MainWindow(QMainWindow):
         # Update the current_selected_index when the selection changes
         selected_index = self.list_widget.currentIndex()
         if selected_index.isValid():
-            self.current_selected_index = selected_index
+            self.current_selected_file_index = selected_index
         else:
-            self.current_selected_index = None
+            self.current_selected_file_index = None
 
     def move_up(self):
         selected_index = self.list_widget.currentIndex()
@@ -777,8 +781,8 @@ class MainWindow(QMainWindow):
             self.list_widget.selectionModel().setCurrentIndex(new_index, QItemSelectionModel.Select)
 
     def plot_data(self):
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+        if self.current_selected_file_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
             if hasattr(current_spectrum, 'data'):
                 # spectral data
                 self.axes.clear()
@@ -815,8 +819,8 @@ class MainWindow(QMainWindow):
                 self.deriv_canvas.draw()
 
     def smoothen(self):
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+        if self.current_selected_file_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
             smooth_window = int(self.smoothing_factor.value()//1)
             current_spectrum.current_smoothing = self.smoothing_factor.value()
             current_spectrum.corrected_data = np.column_stack((current_spectrum.data[:,0],uniform_filter1d(current_spectrum.data[:,1], size=smooth_window)))
@@ -824,43 +828,65 @@ class MainWindow(QMainWindow):
             if current_spectrum.fit_result is not None:
                 self.plot_fit(current_spectrum)
     
-    def update_fit_type(self):
-        col1 = self.fit_type_selector.model().item(
-            self.fit_type_selector.currentIndex()).background().color().getRgb()
-        self.fit_type_selector.setStyleSheet("background-color: rgba{};    selection-background-color: k;".format(col1))
+    def update_fit_model(self):
+        col1 = self.fit_model_combo.model().item(
+            self.fit_model_combo.currentIndex()).background().color().getRgb()
+        self.fit_model_combo.setStyleSheet("background-color: rgba{};    selection-background-color: k;".format(col1))
 
-        fit_mode  = self.fit_type_selector.currentText()
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
-            if fit_mode == 'Samarium':
-                current_spectrum.spectral_unit = r"$\lambda$ (nm)"
-            elif fit_mode == 'Ruby':
-                current_spectrum.spectral_unit = r"$\lambda$ (nm)"
-            elif fit_mode == 'Raman':
-                current_spectrum.spectral_unit = r"$\nu$ (cm$^{-1}$)"
-            self.deriv_axes.set_xlabel(current_spectrum.spectral_unit)
-            self.axes.set_xlabel(current_spectrum.spectral_unit)
-            self.deriv_canvas.draw()
-            self.canvas.draw()
+        fit_mode  = self.fit_model_combo.currentText()
+        #if self.current_selected_index is not None:
+            #current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+            #if fit_mode == 'Samarium':
+            #    current_spectrum.spectral_unit = r"$\lambda$ (nm)"
+            #elif fit_mode == 'Ruby':
+            #    current_spectrum.spectral_unit = r"$\lambda$ (nm)"
+            #elif fit_mode == 'Raman':
+            #    current_spectrum.spectral_unit = r"$\nu$ (cm$^{-1}$)"
+            #self.deriv_axes.set_xlabel(current_spectrum.spectral_unit)
+            #self.axes.set_xlabel(current_spectrum.spectral_unit)
+            #self.deriv_canvas.draw()
+            #self.canvas.draw()
 
     def fit(self):
-        fit_mode  = self.fit_type_selector.currentText()
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
-            current_spectrum.fitted_gauge = fit_mode
+        fit_mode  = self.models[ self.fit_model_combo.currentText() ]
+        if self.current_selected_file_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+            current_spectrum.fit_model = fit_mode
 
-            if fit_mode == 'Samarium':
-                self.Sm_fit()
-            elif fit_mode == 'Ruby':
-                self.Ruby_fit()
-            elif fit_mode == 'Raman':
-                self.Raman_fit()
+            if current_spectrum.corrected_data is None:
+                x=current_spectrum.data[:,0]
+                y=current_spectrum.data[:,1]
+            else :
+                x=current_spectrum.corrected_data[:,0]
+                y=current_spectrum.corrected_data[:,1]
+
+            if fit_mode.type == 'point':
+                # special case to implement
+                pass
+            elif fit_mode.type == 'fit':
+                res = self.do_fit(fit_mode, x, y) # identify x, feed it to toolbox, store toolbox state in spectum.fit_config and plot fit result
+                print('done fit')
+                current_spectrum.fit_config = deepcopy(self.buffer)
+                current_spectrum.fit_result = res
+                self.plot_fit(current_spectrum)
             else:
                 print('Not implemented')
 
+    def do_fit(self, model, x, y, guess_peak=None):
+        pk, prop = find_peaks(y, height = max(y)/2, width=10)
+            #print([x[a] for a in pk])
+        if guess_peak == None :
+            guess_peak = x[pk[np.argmax(prop['peak_heights'])]]
+        pinit = [y[0], 1-y[0], guess_peak, 2e-1]
+
+        popt, pcov = curve_fit(model.func, x, y, p0=pinit)
+        best_x = popt[2] # to improve for 2 peak fit cases
+        self.x_spinbox.setValue(best_x)
+        return {"opti":popt,"cov":pcov}
+
     def Sm_fit(self, guess_peak=None):
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+        if self.current_selected_file_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
             if current_spectrum.corrected_data is None:
                 x=current_spectrum.data[:,0]
                 y=current_spectrum.data[:,1]
@@ -884,16 +910,10 @@ class MainWindow(QMainWindow):
 
             self.plot_fit(current_spectrum)
 
-            R1 = popt[2]
-            P = SmPressure(R1)
-
-            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(R1,3), 'File':current_spectrum.name}, index=[0])
-            #self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
-            #self.update_PvPm()
 
     def Ruby_fit(self, guess_peak=None):
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+        if self.current_selected_file_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
             if current_spectrum.corrected_data is None:
                 x=current_spectrum.data[:,0]
                 y=current_spectrum.data[:,1]
@@ -920,7 +940,7 @@ class MainWindow(QMainWindow):
                                    np.inf,  900,   2,   2] )
 
             init = [Ruby_model_voigts(wvl, *pinit) for wvl in x]
-  #          self.axes.scatter(x, init, label='init')
+  #         self.axes.scatter(x, init, label='init')
 
             popt, pcov = curve_fit(Ruby_model_voigts, 
                                    x, 
@@ -939,14 +959,10 @@ class MainWindow(QMainWindow):
             # this is for two voigts:
             R1 = np.max([popt[2], popt[6]])
             
-            P = RubyPressure(R1)
-            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(R1,3), 'File':current_spectrum.name}, index=[0])
-            #self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
-            #self.update_PvPm()
 
     def Raman_fit(self, guess_peak=None):
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+        if self.current_selected_file_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
             if guess_peak == None:
                 if current_spectrum.corrected_data is None:
                     x=current_spectrum.data[:,0]
@@ -959,12 +975,12 @@ class MainWindow(QMainWindow):
                 nu_min = x[np.argmin(grad)]
             else:
                 nu_min=guess_peak
-            P = Raman_akahama(nu_min)
-            current_spectrum.fit_result = {"opti":nu_min,"cov":None}
+            #P = Raman_akahama(nu_min)
+            #current_spectrum.fit_result = {"opti":nu_min,"cov":None}
 
-            self.plot_fit(current_spectrum)
+            #self.plot_fit(current_spectrum)
             
-            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(nu_min,3), 'File':current_spectrum.name}, index=[0])
+            #new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(nu_min,3), 'File':current_spectrum.name}, index=[0])
             #self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
             #self.update_PvPm()
 
@@ -981,42 +997,17 @@ class MainWindow(QMainWindow):
                 x=my_spectrum.corrected_data[:,0]
                 y=my_spectrum.corrected_data[:,1]
 
-            if my_spectrum.fitted_gauge == 'Samarium':
-                fitted = [Sm_model(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
-                R1 = my_spectrum.fit_result['opti'][2]
-                P = SmPressure(R1)
+            if my_spectrum.fit_model.type == 'fit':
+                fitted = [my_spectrum.fit_model.func(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
+
                 self.axes.plot(x, 
                                fitted, 
                                '-',
                                c = 'r', 
                                label='best fit')
-                self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
+                self.axes.set_title(f'Fitted pressure : {my_spectrum.fit_config.P : > 10.2f} GPa')
                 self.axes.legend(frameon=False)
                 self.canvas.draw()
-
-            elif my_spectrum.fitted_gauge == 'Ruby':
-                fitted = [Ruby_model_voigts(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
-                # this was for two gaussians:
-                #R1 = np.max([my_spectrum.fit_result['opti'][2], my_spectrum.fit_result['opti'][5]])
-                # this is for two voigts:
-                R1 = np.max([my_spectrum.fit_result['opti'][2], my_spectrum.fit_result['opti'][6]])
-                P = RubyPressure(R1)
-                self.axes.plot(x, 
-                               fitted, 
-                               '-',
-                               c = 'r', 
-                               label='best fit')
-                self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
-                self.axes.legend(frameon=False)
-                self.canvas.draw()
-
-            elif my_spectrum.fitted_gauge == 'Raman':
-                self.axes.axvline(my_spectrum.fit_result['opti'], color='green', ls='--')
-                self.deriv_axes.axvline(my_spectrum.fit_result['opti'], color='green', ls='--')
-                P = Raman_akahama(my_spectrum.fit_result['opti'])
-                self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
-                self.canvas.draw()
-                self.deriv_canvas.draw()
 
             else:
                 print('Not implemented')
@@ -1075,22 +1066,25 @@ class MainWindow(QMainWindow):
     def click_fit(self, event):
         if self.click_enabled and event.button == 1 and event.inaxes:
             x_click, y_click = event.xdata, event.ydata
-            fit_mode  = self.fit_type_selector.currentText()
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+            fit_mode  = self.fit_model_combo.currentText()
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
             current_spectrum.fitted_gauge = fit_mode
             if fit_mode == 'Samarium':
                 self.Sm_fit(guess_peak=x_click)
+                self.x_spinbox.setValue(x_click)
                 self.toggle_click_fit()
                 self.click_fit_button.setChecked(False)
 
             elif fit_mode == 'Ruby':
                 self.Ruby_fit(guess_peak=x_click)
+                self.x_spinbox.setValue(x_click)
                 self.toggle_click_fit()
                 self.click_fit_button.setChecked(False)
 
             elif fit_mode == 'Raman':
                 nu_min = x_click
                 self.Raman_fit(guess_peak = nu_min)
+                self.x_spinbox.setValue(x_click)
                 self.toggle_click_fit()
                 self.click_fit_button.setChecked(False)
 
@@ -1100,7 +1094,7 @@ class MainWindow(QMainWindow):
                 self.click_fit_button.setChecked(False)
 
     def CHull_Bg(self):
-        current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+        current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
         if current_spectrum.corrected_data is None:
             x=current_spectrum.data[:,0]
             y=current_spectrum.data[:,1]
