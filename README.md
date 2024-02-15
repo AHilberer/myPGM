@@ -35,4 +35,5 @@ to quit it.
 
 ## Contributors
 
-[<img src="https://github.com/{{AHilberer}}.png" width="60px;"/><br /><sub><ahref="https://github.com/{{AHilberer}}">{{AHilberer}}</a></sub>](https://github.com/{{AHilberer}}/{{PGM}}
+- Antoine Hilberer
+- Alexis Forestier
