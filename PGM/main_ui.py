@@ -49,16 +49,16 @@ Setup_mode = True
 
 
 class MyHSeparator(QFrame):
-	def __init__(self):
-		super().__init__()
-		self.setFrameShape(QFrame.HLine)
-		self.setFrameShadow(QFrame.Sunken)
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.HLine)
+        self.setFrameShadow(QFrame.Sunken)
 
 class MyVSeparator(QFrame):
-	def __init__(self):
-		super().__init__()
-		self.setFrameShape(QFrame.VLine)
-		self.setFrameShadow(QFrame.Sunken)
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.VLine)
+        self.setFrameShadow(QFrame.Sunken)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -81,8 +81,6 @@ class MainWindow(QMainWindow):
         top_panel_layout = QHBoxLayout()
         main_layout.addLayout(top_panel_layout)
 
-
-
         # Create a new panel on the right
         bottom_panel_layout = QHBoxLayout()
         main_layout.addLayout(bottom_panel_layout)
@@ -91,9 +89,9 @@ class MainWindow(QMainWindow):
 #? Calibrations setup
         
         calib_list = [Ruby2020, 
-					  SamariumDatchi, 
-					  Akahama2006, 
-					  cBNDatchi]
+                      SamariumDatchi, 
+                      Akahama2006, 
+                      cBNDatchi]
         
         self.calibrations = {a.name:a for a in calib_list}
 
@@ -114,9 +112,20 @@ class MainWindow(QMainWindow):
         open_param_action = QAction('Change parameters', self)
         open_param_action.triggered.connect(self.toggle_params)
         param_menu.addAction(open_param_action)
+
+#####################################################################################
+        # this will be our initial state
+        self.buffer = helpers.HPData(Pm = 0, 
+                                       P = 0,
+                                        x = 694.28,
+                                          T = 298,
+                                        x0 = 694.28,
+                                        T0 = 298, 
+                                        calib = self.calibrations['Ruby2020'],
+                                        file = 'No')
  
         
-     ##################################################################################### Top right Panel ###################################################################################"" 
+     ##################################################################################### Main Top Panel ###################################################################################"" 
 # #? PRL style toolbox
         ToolboxGroup = QGroupBox('Pressure toolbox')
         Toolboxlayout = QHBoxLayout()
@@ -159,7 +168,7 @@ class MainWindow(QMainWindow):
         self.calibration_combo.setObjectName('calibration_combo')
         self.calibration_combo.setMinimumWidth(100)
         self.calibration_combo.addItems( self.calibrations.keys() )
-		
+        
         for k, v in self.calibrations.items():
             ind = self.calibration_combo.findText( k )
             self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
@@ -167,7 +176,7 @@ class MainWindow(QMainWindow):
         self.x_label = QLabel('lambda (nm)')
         self.x0_label = QLabel('lambda0 (nm)')
 
-		# pressure form
+        # pressure form
         pressure_form = QGridLayout()
         pressure_form.addWidget(QLabel('Pm (bar)'), 0, 0)
         pressure_form.addWidget(self.Pm_spinbox, 0, 1)
@@ -175,7 +184,7 @@ class MainWindow(QMainWindow):
         pressure_form.addWidget(self.P_spinbox, 1, 1)
 
 
-		# Calib params form
+        # Calib params form
         param_form = QGridLayout()
         param_form.addWidget(self.x_label, 0, 0)
         param_form.addWidget(self.x_spinbox, 0, 1)
@@ -218,32 +227,56 @@ class MainWindow(QMainWindow):
 
         Toolboxlayout.addLayout(pressure_form)
 
-        Toolboxlayout.addStretch()
+        #Toolboxlayout.addStretch()
         Toolboxlayout.addWidget(MyVSeparator())
-        Toolboxlayout.addStretch()
+        #Toolboxlayout.addStretch()
 
         Toolboxlayout.addLayout(param_form)
 
-        Toolboxlayout.addStretch()
+        #Toolboxlayout.addStretch()
         Toolboxlayout.addWidget(MyVSeparator())
-        Toolboxlayout.addStretch()
-		
+        #Toolboxlayout.addStretch()
+        
         Toolboxlayout.addLayout(calibration_form)
 
-        Toolboxlayout.addStretch()
+        #Toolboxlayout.addStretch()
         Toolboxlayout.addWidget(MyVSeparator())
-        Toolboxlayout.addStretch()
+        #Toolboxlayout.addStretch()
 
         Toolboxlayout.addLayout(actions_form)
 
         ToolboxGroup.setLayout(Toolboxlayout)
         top_panel_layout.addWidget(ToolboxGroup)
-	
+    
+
+        self.Pm_spinbox.setValue(self.buffer.Pm)
+        self.P_spinbox.setValue(self.buffer.P)
+        self.x_spinbox.setValue(self.buffer.x)
+        self.T_spinbox.setValue(self.buffer.T)
+        self.x0_spinbox.setValue(self.buffer.x0)
+        self.T0_spinbox.setValue(self.buffer.T0)
+        self.calibration_combo.setCurrentText(self.buffer.calib.name) 
 
 #? Toolbox connections
         self.table_button.clicked.connect(self.toggle_PvPm)
 
-        ##################################################################################### Main left Panel ###################################################################################"" 
+        self.calibration_combo.currentIndexChanged.connect(self.updatecalib)
+
+        self.Pm_spinbox.valueChanged.connect(self.update)
+        self.P_spinbox.valueChanged.connect(self.update)
+
+        self.x_spinbox.valueChanged.connect(self.update)
+        self.x0_spinbox.valueChanged.connect(self.update)
+        self.T_spinbox.valueChanged.connect(self.update)
+        self.T0_spinbox.valueChanged.connect(self.update)
+
+        self.add_button.clicked.connect(self.add_to_data)
+        self.removelast_button.clicked.connect(self.removelast)
+
+
+
+
+        ##################################################################################### Main Bottom Panel ###################################################################################"" 
 
 #####################################################################################
 #? Setup left part of bottom panel
@@ -251,7 +284,7 @@ class MainWindow(QMainWindow):
         FileManagementBox = QGroupBox("File management")
         FileManagementLayout = QVBoxLayout()
         FileManagementBox.setLayout(FileManagementLayout)
-        bottom_panel_layout.addWidget(FileManagementBox)
+        bottom_panel_layout.addWidget(FileManagementBox, stretch = 1)
 
 #####################################################################################
 #? Setup file loading section
@@ -325,7 +358,7 @@ class MainWindow(QMainWindow):
         FitBox = QGroupBox("File fitting")
         FitBoxLayout = QVBoxLayout()
         FitBox.setLayout(FitBoxLayout)
-        bottom_panel_layout.addWidget(FitBox)
+        bottom_panel_layout.addWidget(FitBox, stretch=10)
 
         #####################################################################################
 # #? Setup loaded file info section
@@ -481,7 +514,67 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 #? Main window methods
+    def add_to_data(self):
+        self.data.add(self.buffer)
+    #    print(self.data)
+
+    def removelast(self):
+        if len(self.data) > 0:
+            self.data.removelast()
+
+        # update is called two time, not very good but working
+    def update(self, s):
+
+        if self.P_spinbox.hasFocus():
+            self.buffer.P = self.P_spinbox.value()
+            try:
+                self.buffer.invcalcP()
+                self.x_spinbox.setValue(self.buffer.x)
                 
+                self.x_spinbox.setStyleSheet("background: #c6fcc5;") # green
+            except:
+                self.x_spinbox.setStyleSheet("background: #ff7575;") # red
+
+        else:
+            # read everything stupidly
+            self.buffer.Pm = self.Pm_spinbox.value()
+            self.buffer.x = self.x_spinbox.value()
+            self.buffer.T = self.T_spinbox.value()
+            self.buffer.x0 = self.x0_spinbox.value()
+            self.buffer.T0 = self.T0_spinbox.value()
+
+            try:
+                self.buffer.calcP()
+                self.P_spinbox.setValue(self.buffer.P)
+                
+                self.P_spinbox.setStyleSheet("background: #c6fcc5;") # green
+            except:
+                self.P_spinbox.setStyleSheet("background: #ff7575;") # red
+            
+
+
+    def updatecalib(self, s):
+
+        self.buffer.calib = self.calibrations[ self.calibration_combo.currentText() ]
+        newind = self.calibration_combo.currentIndex()
+
+        self.Tcor_Label.setText( self.buffer.calib.Tcor_name )
+
+        col1 = self.calibration_combo.model()\
+                            .item(newind).background().color().getRgb() 
+        self.calibration_combo.setStyleSheet("background-color: rgba{};\
+                    selection-background-color: k;".format(col1))
+
+        self.x_label.setText('{} ({})'.format(self.buffer.calib.xname, 
+                                                    self.buffer.calib.xunit))
+        self.x0_label.setText('{}0 ({})'.format(self.buffer.calib.xname, 
+                                                    self.buffer.calib.xunit))
+
+        self.x_spinbox.setSingleStep(self.buffer.calib.xstep)
+        self.x0_spinbox.setSingleStep(self.buffer.calib.xstep)
+
+        # note that this should call update() but it does not at __init__ !!
+        self.x0_spinbox.setValue(self.buffer.calib.x0default)  
     def add_current_fit(self):
         if self.current_selected_index is not None:
             current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
@@ -500,13 +593,13 @@ class MainWindow(QMainWindow):
                     P = Raman_akahama(current_spectrum.fit_result['opti'])
                 
                 new_point = helpers.HPData(Pm = 0, 
-	     		  					P = P,
-	      		  					x = R1,
-	       	 	  					T = 298,
-	      		  					x0 = 694.281,
-	      		  					T0 = 298, 
-	      		  					calib = self.calibrations['Ruby2020'],
-	      		  					file = current_spectrum.name)
+                                       P = P,
+                                        x = R1,
+                                          T = 298,
+                                        x0 = 694.281,
+                                        T0 = 298, 
+                                        calib = self.calibrations['Ruby2020'],
+                                        file = current_spectrum.name)
 
                 self.data.add(new_point)
 
@@ -730,8 +823,8 @@ class MainWindow(QMainWindow):
     
     def update_fit_type(self):
         col1 = self.fit_type_selector.model().item(
-		    self.fit_type_selector.currentIndex()).background().color().getRgb()
-        self.fit_type_selector.setStyleSheet("background-color: rgba{};	selection-background-color: k;".format(col1))
+            self.fit_type_selector.currentIndex()).background().color().getRgb()
+        self.fit_type_selector.setStyleSheet("background-color: rgba{};    selection-background-color: k;".format(col1))
 
         fit_mode  = self.fit_type_selector.currentText()
         if self.current_selected_index is not None:
