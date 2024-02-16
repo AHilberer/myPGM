@@ -36,10 +36,15 @@ SingleGaussian = helpers.GaugeFitModel(name = 'Single Gaussian',
 							     	func = Single_Gaussian,
                                     type = 'peak',
 							     	color = 'royalblue')
-        
+
+RamanEdge = helpers.GaugeFitModel(name = 'Raman Edge',
+							     	func = None,
+                                    type = 'edge',
+							     	color = 'darkgrey')        
         
 model_list = [DoubleVoigt,
               DoubleGaussian,
               SingleVoigt,
               SingleGaussian,
+              RamanEdge
               ]

@@ -792,17 +792,13 @@ class MainWindow(QMainWindow):
                 self.deriv_axes.set_ylabel(r'dI/d$\nu$')
                 self.deriv_axes.set_xlabel(f'{self.buffer.calib.xname} ({self.buffer.calib.xunit})')
                 if current_spectrum.corrected_data is None:
-                    dI = gaussian_filter1d(current_spectrum.data[:,1],mode='nearest', sigma=1, order=1)
-                    self.deriv_axes.scatter(current_spectrum.data[:,0], 
-                                            dI, 
-                                            c = "crimson",
-                                            s = 5)
+                    x=current_spectrum.data[:,0]
+                    y=current_spectrum.data[:,1]
                 else :
-                    dI = gaussian_filter1d(current_spectrum.corrected_data[:,1],mode='nearest', sigma=1, order=1)
-                    self.deriv_axes.scatter(current_spectrum.corrected_data[:,0], 
-                                            dI, 
-                                            c = "crimson",
-                                            s = 5)
+                    x=current_spectrum.corrected_data[:,0]
+                    y=current_spectrum.corrected_data[:,1]
+                dI = gaussian_filter1d(y,mode='nearest', sigma=1, order=1)
+                self.deriv_axes.scatter(x,dI,c = "skyblue",s = 5)
                 self.deriv_canvas.draw()
 
     def smoothen(self):
@@ -857,8 +853,8 @@ class MainWindow(QMainWindow):
                     best_x = np.max([ popt[2], popt[6] ])
 
                 self.x_spinbox.setValue(best_x)
-                
                 return {"opti":popt,"cov":pcov}
+            
             except RuntimeError:
                 msg=QMessageBox()
                 msg.setIcon(QMessageBox.Critical)
@@ -869,7 +865,10 @@ class MainWindow(QMainWindow):
             else:
                 return
         elif model.type == 'edge':
-            pass
+            grad = np.gradient(y)
+            best_x = x[np.argmin(grad)]
+            self.x_spinbox.setValue(best_x)
+            return {"opti":best_x,"cov":None}
 
     def toggle_click_fit(self):
         self.click_enabled = not self.click_enabled
@@ -892,44 +891,27 @@ class MainWindow(QMainWindow):
                 y=current_spectrum.corrected_data[:,1]
 
             if fit_mode.type == 'edge':
-                # special case to implement
-                pass
+                best_x = x_click
+                self.x_spinbox.setValue(best_x)
+                res =  {"opti":best_x,"cov":None}
+                current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
+                current_spectrum.fit_result = res
+                self.plot_fit(current_spectrum)
+
+
             elif fit_mode.type == 'peak':
                 res = self.do_fit(fit_mode, x, y, guess_peak=x_click)
                 #print('done fit')
                 current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
                 current_spectrum.fit_result = res
                 self.plot_fit(current_spectrum)
-                self.toggle_click_fit()
-                self.click_fit_button.setChecked(False)
+
             else:
                 print('Click to fit not implemented')
-                self.toggle_click_fit()
-                self.click_fit_button.setChecked(False)
 
-    def Raman_fit(self, guess_peak=None):
-        if self.current_selected_file_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
-            if guess_peak == None:
-                if current_spectrum.corrected_data is None:
-                    x=current_spectrum.data[:,0]
-                    y=current_spectrum.data[:,1]
-                else :
-                    x=current_spectrum.corrected_data[:,0]
-                    y=current_spectrum.corrected_data[:,1]
+            self.toggle_click_fit()
+            self.click_fit_button.setChecked(False)
 
-                grad = np.gradient(y)
-                nu_min = x[np.argmin(grad)]
-            else:
-                nu_min=guess_peak
-            #P = Raman_akahama(nu_min)
-            #current_spectrum.fit_result = {"opti":nu_min,"cov":None}
-
-            #self.plot_fit(current_spectrum)
-            
-            #new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(nu_min,3), 'File':current_spectrum.name}, index=[0])
-            #self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
-            #self.update_PvPm()
 
     def plot_fit(self, my_spectrum):
         if my_spectrum.fit_result is not None:
@@ -946,7 +928,6 @@ class MainWindow(QMainWindow):
 
             if my_spectrum.fit_model.type == 'peak':
                 fitted = [my_spectrum.fit_model.func(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
-
                 self.axes.plot(x, 
                                fitted, 
                                '-',
@@ -955,7 +936,14 @@ class MainWindow(QMainWindow):
                 self.axes.set_title(f'Fitted pressure : {my_spectrum.fit_toolbox_config.P : > 10.2f} GPa')
                 self.axes.legend(frameon=False)
                 self.canvas.draw()
-
+            
+            elif my_spectrum.fit_model.type == 'edge':
+                self.axes.axvline(my_spectrum.fit_result['opti'], color='red', ls='--', label='edge')
+                self.deriv_axes.axvline(my_spectrum.fit_result['opti'], color='red', ls='--', label='edge')
+                self.axes.set_title(f'Fitted pressure : {my_spectrum.fit_toolbox_config.P : > 10.2f} GPa')
+                self.axes.legend(frameon=False)
+                self.canvas.draw()
+                self.deriv_canvas.draw()
             else:
                 print('Plot fit not implemented')
 
