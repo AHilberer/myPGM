@@ -42,8 +42,9 @@ def PAkahama2006(nu, T, nu0, T0):
 	p = K0 * (dnu/nu0) * (1 + 0.5 * (K0p -1)*dnu/nu0)
 	return p 
 
-def H2_Vibron(sigma_H2, T, nu0, T0):
-	return ((1.113520628648027e-08*sigma_H2**5-0.0002337933432834734*sigma_H2**4+1.963452944114722*sigma_H2**3-8244.669967044751*sigma_H2**2+17309734.53397923*sigma_H2-14536565712.17933)*10)/10
+def H2_Vibron(nu, T=0, nu0=0, T0=0):
+	poly = 1.113520628648027e-08*nu**5-0.0002337933432834734*nu**4+1.963452944114722*nu**3-8244.669967044751*nu**2+17309734.53397923*nu-14536565712.17933
+	return poly
 
 
 Ruby2020 = helpers.HPCalibration(name = 'Ruby2020',
@@ -87,7 +88,7 @@ H2Vibron = helpers.HPCalibration(name = 'H2 Vibron <30GPa',
 							      Tcor_name='NA',
 							      xname = 'nu',
 							      xunit = 'cm-1',
-							      x0default = 4150,
+							      x0default = 4200,
 							      xstep = .1,
 							      color = 'royalblue')
 
@@ -97,3 +98,17 @@ calib_list = [Ruby2020,
                       Akahama2006, 
                       cBNDatchi,
 					  H2Vibron]
+
+
+if __name__ == '__main__': 
+	import matplotlib.pyplot as plt
+	import numpy as np
+
+	print(H2Vibron)
+	x = np.linspace(4000, 4260, 100)
+	y = H2_Vibron(x, 0, 4150, 0)
+
+	print( H2Vibron.invfunc(10) )
+
+	plt.plot(y,x)
+	plt.show()

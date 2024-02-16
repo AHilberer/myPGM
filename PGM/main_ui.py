@@ -532,13 +532,13 @@ class MainWindow(QMainWindow):
 
         if self.P_spinbox.hasFocus():
             self.buffer.P = self.P_spinbox.value()
-            try:
-                self.buffer.invcalcP()
-                self.x_spinbox.setValue(self.buffer.x)
-                
-                self.x_spinbox.setStyleSheet("background: #c6fcc5;") # green
-            except:
-                self.x_spinbox.setStyleSheet("background: #ff7575;") # red
+            
+            self.buffer.invcalcP()
+            self.x_spinbox.setValue(self.buffer.x)
+            
+            self.x_spinbox.setStyleSheet("background: #c6fcc5;") # green
+        
+        #    self.x_spinbox.setStyleSheet("background: #ff7575;") # red
 
         else:
             # read everything stupidly
