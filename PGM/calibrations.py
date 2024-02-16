@@ -63,7 +63,7 @@ SamariumDatchi = helpers.HPCalibration(name = 'Samarium Borate Datchi 1997',
 							     	   xunit = 'nm',
 							     	   x0default = 685.41,
 							     	   xstep = .01,
-							     	   color = 'moccasin')
+							     	   color = 'mediumseagreen')
         
 Akahama2006 = helpers.HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
 							     	func = PAkahama2006,

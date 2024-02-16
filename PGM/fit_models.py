@@ -30,7 +30,7 @@ DoubleGaussian = helpers.GaugeFitModel(name = 'Double Gaussian',
 SingleVoigt= helpers.GaugeFitModel(name = 'Single Voigt',
 							     	func = Single_Voigt,
                                     type = 'peak',
-							     	color = 'mediumseagreen')
+							     	color = 'royalblue')
                 
 SingleGaussian = helpers.GaugeFitModel(name = 'Single Gaussian',
 							     	func = Single_Gaussian,
