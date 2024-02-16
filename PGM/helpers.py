@@ -70,7 +70,7 @@ class HPCalibration():
 
     def invfunc(self, p, *args, **kwargs):
         res = minimize( lambda x: ( self.func(x, *args, **kwargs) - p )**2, 
-                                    x0=self.x0default, tol=1e-6)
+                                    x0=self.x0default, method='Powell', tol=1e-6)
         
         return res.x[0]
 

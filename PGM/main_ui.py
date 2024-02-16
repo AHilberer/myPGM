@@ -836,16 +836,11 @@ class MainWindow(QMainWindow):
                 x=current_spectrum.corrected_data[:,0]
                 y=current_spectrum.corrected_data[:,1]
 
-            if fit_mode.type == 'point':
-                # special case to implement
-                pass
-            elif fit_mode.type == 'peak':
-                res = self.do_fit(fit_mode, x, y)
-                current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
-                current_spectrum.fit_result = res
-                self.plot_fit(current_spectrum)
-            else:
-                print('Fit not implemented')
+            res = self.do_fit(fit_mode, x, y)
+            current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
+            current_spectrum.fit_result = res
+            self.plot_fit(current_spectrum)
+
 
     def do_fit(self, model, x, y, guess_peak=None):
         
@@ -873,6 +868,8 @@ class MainWindow(QMainWindow):
                 return
             else:
                 return
+        elif model.type == 'edge':
+            pass
 
     def toggle_click_fit(self):
         self.click_enabled = not self.click_enabled
@@ -894,7 +891,7 @@ class MainWindow(QMainWindow):
                 x=current_spectrum.corrected_data[:,0]
                 y=current_spectrum.corrected_data[:,1]
 
-            if fit_mode.type == 'point':
+            if fit_mode.type == 'edge':
                 # special case to implement
                 pass
             elif fit_mode.type == 'peak':

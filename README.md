@@ -1,4 +1,4 @@
-# PGM - Pressure Gauge Monitor
+# myPGM - Pressure Gauge Monitor
  
 PGM - Pressure Gauge Monitor is a spectral pressure gauge fitting software for pressure determination in high pressure experiments. It currently supports ruby, samarium doped strontium borate, and diamond Raman edges scales.
 
