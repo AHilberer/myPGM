@@ -16,7 +16,7 @@ class MySpectrumItem:
         self.spectral_unit = r"$\lambda$ (nm)"
         self.fitted_gauge = None
         self.fit_result = None
-        self.fit_config = None
+        self.fit_toolbox_config = None
         self.fit_model = None
 
     def normalize_data(self):

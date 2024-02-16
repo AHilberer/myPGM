@@ -278,11 +278,7 @@ class MainWindow(QMainWindow):
         self.removelast_button.clicked.connect(self.removelast)
 
 
-
-        self.update_calib(1)	
-		# for some reason updatecalib does not call update at __init__
-        self.update_toolbox(1)
-        ##################################################################################### Main Bottom Panel ###################################################################################"" 
+#################################################################################### Main Bottom Panel ###################################################################################"" 
 
 #####################################################################################
 #? Setup left part of bottom panel
@@ -522,7 +518,9 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 #? Main window methods
+                
     def add_to_table(self):
+        self.buffer.file = 'No'
         self.data.add(self.buffer)
 
     def removelast(self):
@@ -582,14 +580,15 @@ class MainWindow(QMainWindow):
 
         # note that this should call update() but it does not at __init__ !!
         self.x0_spinbox.setValue(self.buffer.calib.x0default) 
-
+        self.plot_data()
 
 
     def add_current_fit(self):
         if self.current_selected_file_index is not None:
             current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
-            if current_spectrum.fit_config is not None:
-                self.data.add(current_spectrum.fit_config)
+            if current_spectrum.fit_toolbox_config is not None:
+                current_spectrum.fit_toolbox_config.file = current_spectrum.name
+                self.data.add(current_spectrum.fit_toolbox_config)
 
     def toggle_params(self, checked):
         if self.ParamWindow.isVisible():
@@ -686,6 +685,15 @@ class MainWindow(QMainWindow):
         self.smoothing_factor.setValue(selected_item.current_smoothing)
         if selected_item.fitted_gauge is not None:
             self.fit_model_combo.setCurrentText(selected_item.fitted_gauge)
+        if selected_item.fit_toolbox_config is not None:
+            self.buffer = deepcopy(selected_item.fit_toolbox_config)
+            self.Pm_spinbox.setValue(self.buffer.Pm)
+            self.P_spinbox.setValue(self.buffer.P)
+            self.x_spinbox.setValue(self.buffer.x)
+            self.T_spinbox.setValue(self.buffer.T)
+            self.x0_spinbox.setValue(self.buffer.x0)
+            self.T0_spinbox.setValue(self.buffer.T0)
+            self.calibration_combo.setCurrentText(self.buffer.calib.name) 
         self.plot_data()
         if selected_item.fit_result is not None:
             self.plot_fit(selected_item)
@@ -768,7 +776,7 @@ class MainWindow(QMainWindow):
                 # spectral data
                 self.axes.clear()
                 self.axes.set_ylabel('Intensity')
-                self.axes.set_xlabel(current_spectrum.spectral_unit)
+                self.axes.set_xlabel(f'{self.buffer.calib.xname} ({self.buffer.calib.xunit})')
                 if current_spectrum.corrected_data is None:
                     self.axes.scatter(current_spectrum.data[:,0], 
                                       current_spectrum.data[:,1],
@@ -784,7 +792,7 @@ class MainWindow(QMainWindow):
                 # derivative data
                 self.deriv_axes.clear()
                 self.deriv_axes.set_ylabel(r'dI/d$\nu$')
-                self.deriv_axes.set_xlabel(current_spectrum.spectral_unit)
+                self.deriv_axes.set_xlabel(f'{self.buffer.calib.xname} ({self.buffer.calib.xunit})')
                 if current_spectrum.corrected_data is None:
                     dI = gaussian_filter1d(current_spectrum.data[:,1],mode='nearest', sigma=1, order=1)
                     self.deriv_axes.scatter(current_spectrum.data[:,0], 
@@ -815,18 +823,7 @@ class MainWindow(QMainWindow):
         self.fit_model_combo.setStyleSheet("background-color: rgba{};    selection-background-color: k;".format(col1))
 
         fit_mode  = self.fit_model_combo.currentText()
-        #if self.current_selected_index is not None:
-            #current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
-            #if fit_mode == 'Samarium':
-            #    current_spectrum.spectral_unit = r"$\lambda$ (nm)"
-            #elif fit_mode == 'Ruby':
-            #    current_spectrum.spectral_unit = r"$\lambda$ (nm)"
-            #elif fit_mode == 'Raman':
-            #    current_spectrum.spectral_unit = r"$\nu$ (cm$^{-1}$)"
-            #self.deriv_axes.set_xlabel(current_spectrum.spectral_unit)
-            #self.axes.set_xlabel(current_spectrum.spectral_unit)
-            #self.deriv_canvas.draw()
-            #self.canvas.draw()
+
 
     def fit(self):
         fit_mode  = self.models[ self.fit_model_combo.currentText() ]
@@ -845,8 +842,8 @@ class MainWindow(QMainWindow):
                 # special case to implement
                 pass
             elif fit_mode.type == 'peak':
-                res = self.do_fit(fit_mode, x, y) # identify x, feed it to toolbox, store toolbox state in spectum.fit_config and plot fit result
-                current_spectrum.fit_config = deepcopy(self.buffer)
+                res = self.do_fit(fit_mode, x, y)
+                current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
                 current_spectrum.fit_result = res
                 self.plot_fit(current_spectrum)
             else:
@@ -893,9 +890,9 @@ class MainWindow(QMainWindow):
                 # special case to implement
                 pass
             elif fit_mode.type == 'peak':
-                res = self.do_fit(fit_mode, x, y, guess_peak=x_click) # identify x, feed it to toolbox, store toolbox state in spectum.fit_config and plot fit result
+                res = self.do_fit(fit_mode, x, y, guess_peak=x_click)
                 #print('done fit')
-                current_spectrum.fit_config = deepcopy(self.buffer)
+                current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
                 current_spectrum.fit_result = res
                 self.plot_fit(current_spectrum)
                 self.toggle_click_fit()
@@ -950,7 +947,7 @@ class MainWindow(QMainWindow):
                                '-',
                                c = 'r', 
                                label='best fit')
-                self.axes.set_title(f'Fitted pressure : {my_spectrum.fit_config.P : > 10.2f} GPa')
+                self.axes.set_title(f'Fitted pressure : {my_spectrum.fit_toolbox_config.P : > 10.2f} GPa')
                 self.axes.legend(frameon=False)
                 self.canvas.draw()
 
