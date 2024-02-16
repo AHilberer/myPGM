@@ -848,21 +848,31 @@ class MainWindow(QMainWindow):
                 print('Fit not implemented')
 
     def do_fit(self, model, x, y, guess_peak=None):
-        popt, pcov = curve_fit(model.func, x, y, p0=model.get_pinit(x, y, guess_peak=guess_peak))
-
-        if model.type == 'peak':
-        # for now we use the number of args..
-            if len(popt) < 7:       # Samarium
-                best_x = popt[2] 
-            elif len(popt) < 8:     # Ruby Gaussian
-                best_x = np.max([ popt[2], popt[5] ])
-            else:                   # Ruby Voigt
-                best_x = np.max([ popt[2], popt[6] ])
-
-        self.x_spinbox.setValue(best_x)
         
-        return {"opti":popt,"cov":pcov}
-    
+        if model.type == 'peak':
+            try:
+                popt, pcov = curve_fit(model.func, x, y, p0=model.get_pinit(x, y, guess_peak=guess_peak))
+            
+        # for now we use the number of args..
+                if len(popt) < 7:       # Samarium
+                    best_x = popt[2] 
+                elif len(popt) < 8:     # Ruby Gaussian
+                    best_x = np.max([ popt[2], popt[5] ])
+                else:                   # Ruby Voigt
+                    best_x = np.max([ popt[2], popt[6] ])
+
+                self.x_spinbox.setValue(best_x)
+                
+                return {"opti":popt,"cov":pcov}
+            except RuntimeError:
+                msg=QMessageBox()
+                msg.setIcon(QMessageBox.Critical)
+                msg.setText("Attempted fit couldn't converge.")
+                msg.setWindowTitle("Fit error")
+                msg.exec_()
+                return
+            else:
+                return
 
     def toggle_click_fit(self):
         self.click_enabled = not self.click_enabled
