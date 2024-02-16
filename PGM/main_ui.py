@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from copy import deepcopy
 from scipy.signal import find_peaks
 from scipy.optimize import curve_fit
 import pandas as pd
@@ -22,6 +23,8 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QListView,
                              QGridLayout,
                              QStyle,
+                             QFormLayout,
+                             QFrame
                              
                              )
 from PyQt5.QtCore import QFileInfo, Qt, QAbstractListModel, QModelIndex, pyqtSignal,QItemSelectionModel, pyqtSlot
@@ -32,94 +35,77 @@ from scipy.ndimage import uniform_filter1d
 from scipy.spatial import ConvexHull
 from scipy.ndimage import gaussian_filter1d
 
-from pressure_models import *
+from fit_models import *
 from PvPm_plot_window import *
 from PvPm_table_window import *
 from Parameter_window import *
 
 from plot_canvas import *
 
+import helpers
+from calibrations import *
+
 Setup_mode = True
 
 
+class MyHSeparator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.HLine)
+        self.setFrameShadow(QFrame.Sunken)
 
-
-
-class MySpectrumItem:
-    def __init__(self, name, path):
-        self.name = name
-        self.path = path
-        self.data = None
-        self.corrected_data = None
-        self.current_smoothing = None
-        self.spectral_unit = r"$\lambda$ (nm)"
-        self.fitted_gauge = None
-        self.fit_result = None
-
-    def normalize_data(self):
-        self.data[:,1]=self.data[:,1]/max(self.data[:,1])
-
-class CustomFileListModel(QAbstractListModel):
-    itemAdded = pyqtSignal()  # Signal emitted when an item is added
-    itemDeleted = pyqtSignal()  # Signal emitted when an item is deleted
-
-    def __init__(self, items=None, parent=None):
-        super().__init__(parent)
-        self.items = items or []
-
-    def rowCount(self, parent=QModelIndex()):
-        return len(self.items)
-
-    def data(self, index, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole:
-            return self.items[index.row()].name
-        elif role == Qt.UserRole:
-            return self.items[index.row()]
-
-    def addItem(self, item):
-        self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
-        self.items.append(item)
-        self.endInsertRows()
-        self.itemAdded.emit()  # Emit signal to notify the view
-
-    def deleteItem(self, index):
-        self.beginRemoveRows(QModelIndex(), index, index)
-        del self.items[index]
-        self.endRemoveRows()
-        self.itemDeleted.emit()  # Emit signal to notify the view
-
-
+class MyVSeparator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.VLine)
+        self.setFrameShadow(QFrame.Sunken)
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        menubar = self.menuBar()
-        exit_menu = menubar.addMenu(' Exit')
-
-        exit_action = QAction(' Exit', self)
-        exit_action.triggered.connect(self.close)
-        exit_menu.addAction(exit_action)    
 
         # Setup Main window parameters
-        self.setWindowTitle("PressureGaugeMonitor_Offline")
-        self.setGeometry(100, 100, 800, 1000)
+        self.setWindowTitle("myPGM - PressureGaugeMonitor")
+        x = 100
+        y = 100
+        width = 1000
+        height = 1000
+        self.setGeometry(x, y, width, height)
         #self.setWindowIcon(QIcon('resources/PGMicon.png'))
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
 
         # Use a QHBoxLayout for the main layout
-        main_layout = QHBoxLayout(central_widget)
+        main_layout = QVBoxLayout(central_widget)
 
 
         # Create a new panel on the left
-        left_panel_layout = QVBoxLayout()
-        main_layout.addLayout(left_panel_layout)
+        top_panel_layout = QHBoxLayout()
+        main_layout.addLayout(top_panel_layout)
 
         # Create a new panel on the right
-        right_panel_layout = QVBoxLayout()
+        bottom_panel_layout = QHBoxLayout()
+        main_layout.addLayout(bottom_panel_layout)
 
+#####################################################################################
+#? Calibrations setup
+        
+        self.calibrations = {a.name:a for a in calib_list}
+#####################################################################################
+#? Fit models setups
+        
+        self.models = {a.name:a for a in model_list}
+
+#####################################################################################
+# #? Exit button setup
+        menubar = self.menuBar()
+        exit_menu = menubar.addMenu(' Exit')
+
+        exit_action = QAction(' Exit', self)
+        exit_action.triggered.connect(self.close)
+        exit_menu.addAction(exit_action)    
 
 #####################################################################################
 # #? Setup Parameters table window
@@ -129,58 +115,225 @@ class MainWindow(QMainWindow):
         open_param_action = QAction('Change parameters', self)
         open_param_action.triggered.connect(self.toggle_params)
         param_menu.addAction(open_param_action)
-        #file = '/home/hilberera/Documents/Manips/2023-09_CDMX14_AlH3_noH/Raman/PvPm_20230913_1000.csv'
+
+#####################################################################################
+        # this will be our initial state
+        self.buffer = helpers.HPData(Pm = 0,
+                                     P = 0,
+                                     x = 694.28,
+                                     T = 298,
+                                     x0 = 694.28,
+                                     T0 = 298,
+                                     calib = self.calibrations['Ruby2020'],
+                                     file = 'No')
+ 
         
+     ##################################################################################### Main Top Panel ###################################################################################"" 
+# #? PRL style toolbox
+        ToolboxGroup = QGroupBox('Pressure toolbox')
+        Toolboxlayout = QHBoxLayout()
+        self.Pm_spinbox = QDoubleSpinBox()
+        self.Pm_spinbox.setObjectName('Pm_spinbox')
+        self.Pm_spinbox.setDecimals(2)
+        self.Pm_spinbox.setRange(-np.inf, np.inf)
+        self.Pm_spinbox.setSingleStep(.1)
+        self.Pm_spinbox.setStyleSheet("background: #C5E1FC;")
+
+        self.P_spinbox = QDoubleSpinBox()
+        self.P_spinbox.setObjectName('P_spinbox')
+        self.P_spinbox.setDecimals(3)
+        self.P_spinbox.setRange(-np.inf, np.inf)
+        self.P_spinbox.setSingleStep(.1)
+        self.P_spinbox.setStyleSheet("background: #c6fcc5;")
+
+        self.x_spinbox = QDoubleSpinBox()
+        self.x_spinbox.setObjectName('x_spinbox')
+        self.x_spinbox.setDecimals(2)
+        self.x_spinbox.setRange(-np.inf, +np.inf)
+
+        self.T_spinbox = QDoubleSpinBox()
+        self.T_spinbox.setObjectName('T_spinbox')
+        self.T_spinbox.setDecimals(0)
+        self.T_spinbox.setRange(-np.inf, +np.inf)
+        self.T_spinbox.setSingleStep(1)
+
+        self.x0_spinbox = QDoubleSpinBox()
+        self.x0_spinbox.setObjectName('x0_spinbox')
+        self.x0_spinbox.setDecimals(2)
+        self.x0_spinbox.setRange(-np.inf, +np.inf)
+
+        self.T0_spinbox = QDoubleSpinBox()
+        self.T0_spinbox.setObjectName('T0_spinbox')
+        self.T0_spinbox.setDecimals(0)
+        self.T0_spinbox.setRange(-np.inf, +np.inf)
+        self.T0_spinbox.setSingleStep(1)
+
+
+        self.calibration_combo = QComboBox()
+        self.calibration_combo.setObjectName('calibration_combo')
+        self.calibration_combo.setMinimumWidth(200)
+        self.calibration_combo.addItems( self.calibrations.keys() )
+        
+        for k, v in self.calibrations.items():
+            ind = self.calibration_combo.findText( k )
+            self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
+
+        self.x_label = QLabel('lambda (nm)')
+        self.x0_label = QLabel('lambda0 (nm)')
+
+        # pressure form
+        pressure_form = QFormLayout()
+        pressure_form.addRow(QLabel('Pm (bar)'), self.Pm_spinbox)
+        pressure_form.addRow(QLabel('P (GPa)'), self.P_spinbox)
+
+        # Calib params form
+        param_form = QHBoxLayout()
+        form_x = QFormLayout()
+        form_x.addRow(self.x_label, self.x_spinbox)
+        form_x.addRow(self.x0_label, self.x0_spinbox)
+        form_T = QFormLayout()
+        form_T.addRow(QLabel('T (K)'), self.T_spinbox)
+        form_T.addRow(QLabel('T0 (K)'), self.T0_spinbox)
+        param_form.addLayout(form_x)
+        param_form.addLayout(form_T)
+
+        self.Tcor_Label = QLabel('NA')
+
+        calibration_form = QFormLayout()
+        calibration_form.addRow(QLabel('Calibration: '), self.calibration_combo)
+        calibration_form.addRow(QLabel('T correction: '), self.Tcor_Label)
+
+
+        self.add_button = QPushButton('+')
+        self.add_button.setMinimumWidth(25)
+
+        self.removelast_button = QPushButton('-')
+        self.removelast_button.setMinimumWidth(25)
+
+        self.table_button = QPushButton('Table')
+        self.table_button.setMinimumWidth(70)
+
+        self.PmPplot_button = QPushButton('P vs Pm')
+        self.PmPplot_button.setMinimumWidth(70)
+
+        actions_form = QGridLayout()
+
+        actions_form.addWidget(self.add_button, 0, 0)
+        actions_form.addWidget(self.removelast_button, 1, 0)
+        actions_form.addWidget(self.table_button, 0, 1)
+        actions_form.addWidget(self.PmPplot_button, 1, 1)
+
+        Toolboxlayout.addLayout(calibration_form, stretch=1)
+
+        #Toolboxlayout.addStretch()
+        Toolboxlayout.addWidget(MyVSeparator())
+        #Toolboxlayout.addStretch()
+
+        Toolboxlayout.addLayout(param_form, stretch=5)
+
+        #Toolboxlayout.addStretch()
+        Toolboxlayout.addWidget(MyVSeparator())
+        #Toolboxlayout.addStretch()
+        
+        Toolboxlayout.addLayout(pressure_form, stretch=2)
+
+        #Toolboxlayout.addStretch()
+        Toolboxlayout.addWidget(MyVSeparator())
+        #Toolboxlayout.addStretch()
+
+        Toolboxlayout.addLayout(actions_form, stretch=1)
+
+        ToolboxGroup.setLayout(Toolboxlayout)
+        top_panel_layout.addWidget(ToolboxGroup)
+    
+
+        self.Pm_spinbox.setValue(self.buffer.Pm)
+        self.P_spinbox.setValue(self.buffer.P)
+        self.x_spinbox.setValue(self.buffer.x)
+        self.T_spinbox.setValue(self.buffer.T)
+        self.x0_spinbox.setValue(self.buffer.x0)
+        self.T0_spinbox.setValue(self.buffer.T0)
+        self.calibration_combo.setCurrentText(self.buffer.calib.name) 
+        newind = self.calibration_combo.currentIndex()
+        col1 = self.calibration_combo.model()\
+                            .item(newind).background().color().getRgb() 
+        self.calibration_combo.setStyleSheet("background-color: rgba{};\
+                    selection-background-color: k;".format(col1))
+        
+
+#? Toolbox connections
+        self.table_button.clicked.connect(self.toggle_PvPm)
+
+        self.calibration_combo.currentIndexChanged.connect(self.update_calib)
+
+        self.Pm_spinbox.valueChanged.connect(self.update_toolbox)
+        self.P_spinbox.valueChanged.connect(self.update_toolbox)
+
+        self.x_spinbox.valueChanged.connect(self.update_toolbox)
+        self.x0_spinbox.valueChanged.connect(self.update_toolbox)
+        self.T_spinbox.valueChanged.connect(self.update_toolbox)
+        self.T0_spinbox.valueChanged.connect(self.update_toolbox)
+
+        self.add_button.clicked.connect(self.add_to_table)
+        self.removelast_button.clicked.connect(self.removelast)
+
+
+#################################################################################### Main Bottom Panel ###################################################################################"" 
+
+#####################################################################################
+#? Setup left part of bottom panel
+
+        FileManagementBox = QGroupBox("File management")
+        FileManagementLayout = QVBoxLayout()
+        FileManagementBox.setLayout(FileManagementLayout)
+        bottom_panel_layout.addWidget(FileManagementBox, stretch = 1)
 
 #####################################################################################
 #? Setup file loading section
-
-        FileBox = QGroupBox("File management")
-        FileBoxLayout = QGridLayout()
+        
+        FileLoadLayout = QGridLayout()
 
         self.add_button = QPushButton("Add file", self)
         pixmapi = getattr(QStyle, 'SP_FileIcon')
         icon = self.style().standardIcon(pixmapi)
         self.add_button.setIcon(icon)
         self.add_button.clicked.connect(self.add_file)
-        FileBoxLayout.addWidget(self.add_button, 0,0)
+        FileLoadLayout.addWidget(self.add_button, 0,0)
 
         self.delete_button = QPushButton("Delete file ", self)
         pixmapi = getattr(QStyle, 'SP_DialogDiscardButton')
         icon = self.style().standardIcon(pixmapi)
         self.delete_button.setIcon(icon)
         self.delete_button.clicked.connect(self.delete_file)
-        FileBoxLayout.addWidget(self.delete_button, 0,1)
+        FileLoadLayout.addWidget(self.delete_button, 0,1)
         
         self.selectdir_button = QPushButton("Select directory", self)
         pixmapi = getattr(QStyle, 'SP_DirIcon')
         icon = self.style().standardIcon(pixmapi)
         self.selectdir_button.setIcon(icon)
         self.selectdir_button.clicked.connect(self.select_directory)
-        FileBoxLayout.addWidget(self.selectdir_button, 1,0)
+        FileLoadLayout.addWidget(self.selectdir_button, 1,0)
 
         self.loadlatest_button = QPushButton("Load latest", self)
         pixmapi = getattr(QStyle, 'SP_BrowserReload')
         icon = self.style().standardIcon(pixmapi)
         self.loadlatest_button.setIcon(icon)
         self.loadlatest_button.clicked.connect(self.load_latest_file)
-        FileBoxLayout.addWidget(self.loadlatest_button, 1,1)
+        FileLoadLayout.addWidget(self.loadlatest_button, 1,1)
 
-        FileBox.setLayout(FileBoxLayout)
-        left_panel_layout.addWidget(FileBox)
-
+        FileManagementLayout.addLayout(FileLoadLayout)
 
 
-        self.custom_model = CustomFileListModel()
+
+        self.custom_model = helpers.CustomFileListModel()
         self.list_widget = QListView(self)
         self.list_widget.setModel(self.custom_model)
-        left_panel_layout.addWidget(self.list_widget)
+        FileManagementLayout.addWidget(self.list_widget)
         self.list_widget.clicked.connect(self.item_clicked)
-        self.current_selected_index = None
+        self.current_selected_file_index = None
         self.list_widget.selectionModel().selectionChanged.connect(self.selection_changed)
 
 
-        MoveBox = QGroupBox()
         MoveLayout = QHBoxLayout()
 
         self.up_button = QPushButton("Move up", self)
@@ -197,59 +350,35 @@ class MainWindow(QMainWindow):
         self.down_button.clicked.connect(self.move_down)
         MoveLayout.addWidget(self.down_button)
 
-        MoveBox.setLayout(MoveLayout)
-        left_panel_layout.addWidget(MoveBox)
+        
+        FileManagementLayout.addLayout(MoveLayout)
+
+
+        #####################################################################################
+# #? Setup right part of bottom panel
+
+        FitBox = QGroupBox("File fitting")
+        FitBoxLayout = QVBoxLayout()
+        FitBox.setLayout(FitBoxLayout)
+        bottom_panel_layout.addWidget(FitBox, stretch=10)
 
         #####################################################################################
 # #? Setup loaded file info section
 
-        FileInfoBox = QGroupBox("Current file info")
         FileInfoBoxLayout = QVBoxLayout()
-
         self.current_file_label = QLabel("No file selected", self)
         FileInfoBoxLayout.addWidget(self.current_file_label)
 
         self.dir_label = QLabel("No directory selected", self)
         FileInfoBoxLayout.addWidget(self.dir_label)
 
-        FileInfoBox.setLayout(FileInfoBoxLayout)
-        right_panel_layout.addWidget(FileInfoBox)
+        FitBoxLayout.addLayout(FileInfoBoxLayout)
 
 
-        #####################################################################################
-#? Setup Fitting section
 
-
-        FitBox = QGroupBox("Fitting")
-        FitBoxLayout = QHBoxLayout()
-
-        self.fit_button = QPushButton("Fit", self)
-        self.fit_button.clicked.connect(self.fit)
-        FitBoxLayout.addWidget(self.fit_button)
-
-        self.fit_type_selector = QComboBox(self)
-        self.fit_type_selector.addItems(['Ruby', 'Samarium', 'Raman'])
-        gauge_colors = ['lightcoral', 'royalblue', 'darkgrey']
-        for ind in range(len(['Ruby', 'Samarium', 'Raman'])):
-            self.fit_type_selector.model().item(ind).setBackground(QColor(gauge_colors[ind]))
-
-        self.fit_type_selector.currentIndexChanged.connect(self.update_fit_type)
-        self.update_fit_type()
-        FitBoxLayout.addWidget(self.fit_type_selector)
-        
-        self.click_fit_button = QPushButton("Enable Click-to-Fit", self)
-        self.click_fit_button.setCheckable(True)
-        self.click_fit_button.clicked.connect(self.toggle_click_fit)
-        FitBoxLayout.addWidget(self.click_fit_button)
-        self.click_enabled = False
-
-        FitBox.setLayout(FitBoxLayout)
-        right_panel_layout.addWidget(FitBox)
-
-        #####################################################################################
+       #####################################################################################
 #? Data correction section
 
-        CorrectionBox = QGroupBox("Data correction")
         CorrectionBoxLayout = QHBoxLayout()
 
         self.CHullBg_button = QPushButton("CHull Background", self)
@@ -266,14 +395,44 @@ class MainWindow(QMainWindow):
         self.smoothing_factor.valueChanged.connect(self.smoothen)
         CorrectionBoxLayout.addWidget(self.smoothing_factor, stretch=3)
 
-        CorrectionBox.setLayout(CorrectionBoxLayout)
-        right_panel_layout.addWidget(CorrectionBox)
+        FitBoxLayout.addLayout(CorrectionBoxLayout)
 
+
+        #####################################################################################
+#? Setup Fitting section
+
+
+        FitButtonsLayout = QHBoxLayout()
+
+        self.fit_button = QPushButton("Fit", self)
+        self.fit_button.clicked.connect(self.fit)
+        FitButtonsLayout.addWidget(self.fit_button)
+
+        self.fit_model_combo = QComboBox()
+        self.fit_model_combo.setObjectName('fit_model_combo')
+        self.fit_model_combo.setMinimumWidth(100)
+        self.fit_model_combo.addItems( self.models.keys() )
+        for k, v in self.models.items():
+            ind = self.fit_model_combo.findText( k )
+            self.fit_model_combo.model().item(ind).setBackground(QColor(v.color))
+
+        self.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
+        self.update_fit_model()
+        FitButtonsLayout.addWidget(self.fit_model_combo)
+        
+        self.click_fit_button = QPushButton("Enable Click-to-Fit", self)
+        self.click_fit_button.setCheckable(True)
+        self.click_fit_button.clicked.connect(self.toggle_click_fit)
+        FitButtonsLayout.addWidget(self.click_fit_button)
+        self.click_enabled = False
+
+        FitBoxLayout.addLayout(FitButtonsLayout)
+
+ 
 
         #####################################################################################
 # #? Setup data plotting section
 
-        DataPlotBox = QGroupBox('Spectrum')
         DataPlotBoxLayout = QVBoxLayout()
 
         spectrum_plot = MplCanvas(self)
@@ -288,13 +447,11 @@ class MainWindow(QMainWindow):
         DataPlotBoxLayout.addWidget(toolbar)
         self.canvas.mpl_connect('button_press_event', self.click_fit)
 
-        DataPlotBox.setLayout(DataPlotBoxLayout)
-        right_panel_layout.addWidget(DataPlotBox)
+        FitBoxLayout.addLayout(DataPlotBoxLayout)
 
 #####################################################################################
 # #? Setup derivative plotting section
 
-        DataPlotBox = QGroupBox('Spectrum derivative')
         DataPlotBoxLayout = QVBoxLayout()
 
         deriv_plot = MplCanvas(self)
@@ -309,63 +466,38 @@ class MainWindow(QMainWindow):
         DataPlotBoxLayout.addWidget(deriv_toolbar)
         self.deriv_canvas.mpl_connect('button_press_event', self.click_fit)
 
-        DataPlotBox.setLayout(DataPlotBoxLayout)
-        right_panel_layout.addWidget(DataPlotBox)
+        FitBoxLayout.addLayout(DataPlotBoxLayout)
 
-        # Add the nested QVBoxLayout to the main layout
-        main_layout.addLayout(right_panel_layout)
+        self.add_fitted_button = QPushButton("Add current fit")
+        self.add_fitted_button.clicked.connect(self.add_current_fit)
+        FitBoxLayout.addWidget(self.add_fitted_button)
 
 
 #####################################################################################
-# #? Setup PvPm table window
-        self.PvPmTableWindow = PvPmTableWindow()
+# #? Setup PvPm table and plotwindow
 
-        self.PvPm_df = pd.DataFrame({'Pm':'', 'P':'', 'lambda':'', 'File':''}, index=[0])
+        self.data = helpers.HPDataTable()       
 
-        self.PvPm_data_inst = PandasModel(self.PvPm_df)
-        delegate = EditableDelegate()
-        self.PvPm_data_inst.dataChanged.connect(self.plot_PvPm)
-        self.PvPmTableWindow.PvPmTable.setModel(self.PvPm_data_inst)
-        self.PvPmTableWindow.PvPmTable.setItemDelegate(delegate)
-        
+        self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
 
-# #####################################################################################
-# #? Setup PvPm section and associated buttons
+        #self.PvPmPlot = PvPmPlotWindow()
+        self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
 
-        PvPmBox = QGroupBox('PvPm')
-        PvPmBoxLayout = QHBoxLayout()
-
-        self.PvPmPlot = PvPmPlotWindow()
-        self.PvPm_toggle_button = QPushButton("Toggle PvPm table")
-        self.PvPm_toggle_button.clicked.connect(self.toggle_PvPm)
-        PvPmBoxLayout.addWidget(self.PvPm_toggle_button)
-        #self.PvPmTable.itemChanged.connect(self.plot_PvPm)
-        #self.PvPmTable.itemChanged.connect(self.predict_from_lambda)
-
-
-        self.PvPm_save_button = QPushButton("Save PvPm table")
-        self.PvPm_save_button.clicked.connect(self.save_PvPm)
-        PvPmBoxLayout.addWidget(self.PvPm_save_button)
-        
-        self.PvPm_open_button = QPushButton("Open PvPm table")
-        self.PvPm_open_button.clicked.connect(self.open_PvPm)
-        PvPmBoxLayout.addWidget(self.PvPm_open_button)
-
-        PvPmBox.setLayout(PvPmBoxLayout)
-        right_panel_layout.addWidget(PvPmBox)
+        self.data.changed.connect(self.DataTableWindow.table_widget.updatetable)
+        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
 
 
 # #####################################################################################
 # #? Create special startup config for debugging
 
         if Setup_mode :
-            example_files = ['Example_diam_Raman.asc','Example_Ruby_1.asc','Example_Ruby_2.asc', 'Example_Ruby_3.asc']
+            example_files = ['Example_diam_Raman.asc','Example_Ruby_1.asc','Example_Ruby_2.asc', 'Example_Ruby_3.asc', 'Example_H2.txt']
             for i, file in enumerate(example_files):
                 latest_file_path= os.path.dirname(__file__)+'/resources/'+file
 
                 file_info = QFileInfo(latest_file_path)
                 file_name = file_info.fileName()
-                list_item = MySpectrumItem(file_name, latest_file_path)
+                list_item = helpers.MySpectrumItem(file_name, latest_file_path)
 
                 with open(latest_file_path) as f:
                     lines = f.readlines()
@@ -387,6 +519,76 @@ class MainWindow(QMainWindow):
 #####################################################################################
 #? Main window methods
                 
+    def add_to_table(self):
+        self.buffer.file = 'No'
+        self.data.add(self.buffer)
+
+    def removelast(self):
+        if len(self.data) > 0:
+            self.data.removelast()
+
+        # update is called two time, not very good but working
+    def update_toolbox(self, s):
+
+        if self.P_spinbox.hasFocus():
+            self.buffer.P = self.P_spinbox.value()
+            
+            self.buffer.invcalcP()
+            self.x_spinbox.setValue(self.buffer.x)
+            
+            self.x_spinbox.setStyleSheet("background: #c6fcc5;") # green
+        
+        #    self.x_spinbox.setStyleSheet("background: #ff7575;") # red
+
+        else:
+            # read everything stupidly
+            self.buffer.Pm = self.Pm_spinbox.value()
+            self.buffer.x = self.x_spinbox.value()
+            self.buffer.T = self.T_spinbox.value()
+            self.buffer.x0 = self.x0_spinbox.value()
+            self.buffer.T0 = self.T0_spinbox.value()
+
+            try:
+                self.buffer.calcP()
+                self.P_spinbox.setValue(self.buffer.P)
+                
+                self.P_spinbox.setStyleSheet("background: #c6fcc5;") # green
+            except:
+                self.P_spinbox.setStyleSheet("background: #ff7575;") # red
+            
+
+
+    def update_calib(self, s):
+
+        self.buffer.calib = self.calibrations[ self.calibration_combo.currentText() ]
+        newind = self.calibration_combo.currentIndex()
+
+        self.Tcor_Label.setText( self.buffer.calib.Tcor_name )
+
+        col1 = self.calibration_combo.model()\
+                            .item(newind).background().color().getRgb() 
+        self.calibration_combo.setStyleSheet("background-color: rgba{};\
+                    selection-background-color: k;".format(col1))
+
+        self.x_label.setText('{} ({})'.format(self.buffer.calib.xname, 
+                                                    self.buffer.calib.xunit))
+        self.x0_label.setText('{}0 ({})'.format(self.buffer.calib.xname, 
+                                                    self.buffer.calib.xunit))
+
+        self.x_spinbox.setSingleStep(self.buffer.calib.xstep)
+        self.x0_spinbox.setSingleStep(self.buffer.calib.xstep)
+
+        # note that this should call update() but it does not at __init__ !!
+        self.x0_spinbox.setValue(self.buffer.calib.x0default) 
+        self.plot_data()
+
+
+    def add_current_fit(self):
+        if self.current_selected_file_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+            if current_spectrum.fit_toolbox_config is not None:
+                current_spectrum.fit_toolbox_config.file = current_spectrum.name
+                self.data.add(current_spectrum.fit_toolbox_config)
 
     def toggle_params(self, checked):
         if self.ParamWindow.isVisible():
@@ -405,7 +607,7 @@ class MainWindow(QMainWindow):
             for file in selected_files:
                 file_info = QFileInfo(file)
                 file_name = file_info.fileName()
-                new_item = MySpectrumItem(file_name, file)
+                new_item = helpers.MySpectrumItem(file_name, file)
 
                 with open(file) as f:
                     lines = f.readlines()
@@ -446,7 +648,7 @@ class MainWindow(QMainWindow):
                 file = os.path.join(self.dir_name, latest_file_name)
                 file_info = QFileInfo(file)
                 file_name = file_info.fileName()
-                new_item = MySpectrumItem(file_name, file)
+                new_item = helpers.MySpectrumItem(file_name, file)
 
                 with open(file) as f:
                     lines = f.readlines()
@@ -481,8 +683,15 @@ class MainWindow(QMainWindow):
         self.current_file_path = selected_item.path
         self.current_file_label.setText(f"{self.current_file_path}")
         self.smoothing_factor.setValue(selected_item.current_smoothing)
-        if selected_item.fitted_gauge is not None:
-            self.fit_type_selector.setCurrentText(selected_item.fitted_gauge)
+        if selected_item.fit_toolbox_config is not None:
+            self.buffer = deepcopy(selected_item.fit_toolbox_config)
+            self.Pm_spinbox.setValue(self.buffer.Pm)
+            self.P_spinbox.setValue(self.buffer.P)
+            self.x_spinbox.setValue(self.buffer.x)
+            self.T_spinbox.setValue(self.buffer.T)
+            self.x0_spinbox.setValue(self.buffer.x0)
+            self.T0_spinbox.setValue(self.buffer.T0)
+            self.calibration_combo.setCurrentText(self.buffer.calib.name) 
         self.plot_data()
         if selected_item.fit_result is not None:
             self.plot_fit(selected_item)
@@ -492,9 +701,9 @@ class MainWindow(QMainWindow):
         # Update the current_selected_index when the selection changes
         selected_index = self.list_widget.currentIndex()
         if selected_index.isValid():
-            self.current_selected_index = selected_index
+            self.current_selected_file_index = selected_index
         else:
-            self.current_selected_index = None
+            self.current_selected_file_index = None
 
     def move_up(self):
         selected_index = self.list_widget.currentIndex()
@@ -559,34 +768,42 @@ class MainWindow(QMainWindow):
             self.list_widget.selectionModel().setCurrentIndex(new_index, QItemSelectionModel.Select)
 
     def plot_data(self):
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+        if self.current_selected_file_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
             if hasattr(current_spectrum, 'data'):
                 # spectral data
                 self.axes.clear()
                 self.axes.set_ylabel('Intensity')
-                self.axes.set_xlabel(current_spectrum.spectral_unit)
+                self.axes.set_xlabel(f'{self.buffer.calib.xname} ({self.buffer.calib.xunit})')
                 if current_spectrum.corrected_data is None:
-                    self.axes.plot(current_spectrum.data[:,0], current_spectrum.data[:,1])
+                    self.axes.scatter(current_spectrum.data[:,0], 
+                                      current_spectrum.data[:,1],
+                                      c = 'gray', 
+                                      s = 5)
                 else :
-                    self.axes.plot(current_spectrum.corrected_data[:,0], current_spectrum.corrected_data[:,1])
+                    self.axes.scatter(current_spectrum.corrected_data[:,0], 
+                                      current_spectrum.corrected_data[:,1],
+                                      c = 'gray', 
+                                      s = 5)
                 self.canvas.draw()
 
                 # derivative data
                 self.deriv_axes.clear()
                 self.deriv_axes.set_ylabel(r'dI/d$\nu$')
-                self.deriv_axes.set_xlabel(current_spectrum.spectral_unit)
+                self.deriv_axes.set_xlabel(f'{self.buffer.calib.xname} ({self.buffer.calib.xunit})')
                 if current_spectrum.corrected_data is None:
-                    dI = gaussian_filter1d(current_spectrum.data[:,1],mode='nearest', sigma=1, order=1)
-                    self.deriv_axes.plot(current_spectrum.data[:,0], dI, color="crimson")
+                    x=current_spectrum.data[:,0]
+                    y=current_spectrum.data[:,1]
                 else :
-                    dI = gaussian_filter1d(current_spectrum.corrected_data[:,1],mode='nearest', sigma=1, order=1)
-                    self.deriv_axes.plot(current_spectrum.corrected_data[:,0], dI, color="crimson")
+                    x=current_spectrum.corrected_data[:,0]
+                    y=current_spectrum.corrected_data[:,1]
+                dI = gaussian_filter1d(y,mode='nearest', sigma=1, order=1)
+                self.deriv_axes.scatter(x,dI,c = "skyblue",s = 5)
                 self.deriv_canvas.draw()
 
     def smoothen(self):
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+        if self.current_selected_file_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
             smooth_window = int(self.smoothing_factor.value()//1)
             current_spectrum.current_smoothing = self.smoothing_factor.value()
             current_spectrum.corrected_data = np.column_stack((current_spectrum.data[:,0],uniform_filter1d(current_spectrum.data[:,1], size=smooth_window)))
@@ -594,43 +811,20 @@ class MainWindow(QMainWindow):
             if current_spectrum.fit_result is not None:
                 self.plot_fit(current_spectrum)
     
-    def update_fit_type(self):
-        col1 = self.fit_type_selector.model().item(
-		    self.fit_type_selector.currentIndex()).background().color().getRgb()
-        self.fit_type_selector.setStyleSheet("background-color: rgba{};	selection-background-color: k;".format(col1))
+    def update_fit_model(self):
+        col1 = self.fit_model_combo.model().item(
+            self.fit_model_combo.currentIndex()).background().color().getRgb()
+        self.fit_model_combo.setStyleSheet("background-color: rgba{};    selection-background-color: k;".format(col1))
 
-        fit_mode  = self.fit_type_selector.currentText()
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
-            if fit_mode == 'Samarium':
-                current_spectrum.spectral_unit = r"$\lambda$ (nm)"
-            elif fit_mode == 'Ruby':
-                current_spectrum.spectral_unit = r"$\lambda$ (nm)"
-            elif fit_mode == 'Raman':
-                current_spectrum.spectral_unit = r"$\nu$ (cm$^{-1}$)"
-            self.deriv_axes.set_xlabel(current_spectrum.spectral_unit)
-            self.axes.set_xlabel(current_spectrum.spectral_unit)
-            self.deriv_canvas.draw()
-            self.canvas.draw()
+        fit_mode  = self.fit_model_combo.currentText()
+
 
     def fit(self):
-        fit_mode  = self.fit_type_selector.currentText()
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
-            current_spectrum.fitted_gauge = fit_mode
+        fit_mode  = self.models[ self.fit_model_combo.currentText() ]
+        if self.current_selected_file_index is not None:
+            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+            current_spectrum.fit_model = fit_mode
 
-            if fit_mode == 'Samarium':
-                self.Sm_fit()
-            elif fit_mode == 'Ruby':
-                self.Ruby_fit()
-            elif fit_mode == 'Raman':
-                self.Raman_fit()
-            else:
-                print('Not implemented')
-
-    def Sm_fit(self, guess_peak=None):
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
             if current_spectrum.corrected_data is None:
                 x=current_spectrum.data[:,0]
                 y=current_spectrum.data[:,1]
@@ -638,175 +832,43 @@ class MainWindow(QMainWindow):
                 x=current_spectrum.corrected_data[:,0]
                 y=current_spectrum.corrected_data[:,1]
 
-            pk, prop = find_peaks(y, height = max(y)/2, width=10)
-            #print([x[a] for a in pk])
-            if guess_peak == None :
-                guess_peak = x[pk[np.argmax(prop['peak_heights'])]]
-
-            #print('Guess : ', guess_peak)
-            pinit = [y[0], 1-y[0], guess_peak, 2e-1]
-
-            init = [Sm_model(wvl, *pinit) for wvl in x]
-
-            popt, pcov = curve_fit(Sm_model, x, y, p0=pinit)
-
-            current_spectrum.fit_result = {"opti":popt,"cov":pcov}
-
+            res = self.do_fit(fit_mode, x, y)
+            current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
+            current_spectrum.fit_result = res
             self.plot_fit(current_spectrum)
 
-            R1 = popt[2]
-            P = SmPressure(R1)
 
-            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(R1,3), 'File':current_spectrum.name}, index=[0])
-            self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
-            self.update_PvPm()
-
-    def Ruby_fit(self, guess_peak=None):
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
-            if current_spectrum.corrected_data is None:
-                x=current_spectrum.data[:,0]
-                y=current_spectrum.data[:,1]
-            else :
-                x=current_spectrum.corrected_data[:,0]
-                y=current_spectrum.corrected_data[:,1]
-
-            pk, prop = find_peaks(y, height = max(y)/2, width=10)
-            #print([x[a] for a in pk])
-            if guess_peak == None:
-                guess_peak = x[pk[np.argmax(prop['peak_heights'])]]
-
-            #print('Guess : ', guess_peak)
-            pinit = [y[0], 1-y[0], guess_peak-1.5, 2e-1,  1-y[0], guess_peak, 2e-1]
-
-            init = [Ruby_model(wvl, *pinit) for wvl in x]
-
-            popt, pcov = curve_fit(Ruby_model, x, y, p0=pinit)
-
-            current_spectrum.fit_result = {"opti":popt,"cov":pcov}
-
-            self.plot_fit(current_spectrum)
-
-            R1 = np.max([popt[2], popt[5]])
-            P = RubyPressure(R1)
-            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(R1,3), 'File':current_spectrum.name}, index=[0])
-            self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
-            self.update_PvPm()
-
-    def Raman_fit(self, guess_peak=None):
-        if self.current_selected_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
-            if guess_peak == None:
-                if current_spectrum.corrected_data is None:
-                    x=current_spectrum.data[:,0]
-                    y=current_spectrum.data[:,1]
-                else :
-                    x=current_spectrum.corrected_data[:,0]
-                    y=current_spectrum.corrected_data[:,1]
-
-                grad = np.gradient(y)
-                nu_min = x[np.argmin(grad)]
-            else:
-                nu_min=guess_peak
-            P = Raman_akahama(nu_min)
-            current_spectrum.fit_result = {"opti":nu_min,"cov":None}
-
-            self.plot_fit(current_spectrum)
+    def do_fit(self, model, x, y, guess_peak=None):
+        
+        if model.type == 'peak':
+            try:
+                popt, pcov = curve_fit(model.func, x, y, p0=model.get_pinit(x, y, guess_peak=guess_peak))
             
-            new_row = pd.DataFrame({'Pm':'', 'P':round(P,2), 'lambda':round(nu_min,3), 'File':current_spectrum.name}, index=[0])
-            self.PvPm_df = pd.concat([self.PvPm_df,new_row], ignore_index=True)
-            self.update_PvPm()
+        # for now we use the number of args..
+                if len(popt) < 7:       # Samarium
+                    best_x = popt[2] 
+                elif len(popt) < 8:     # Ruby Gaussian
+                    best_x = np.max([ popt[2], popt[5] ])
+                else:                   # Ruby Voigt
+                    best_x = np.max([ popt[2], popt[6] ])
 
-    def plot_fit(self, my_spectrum):
-        if my_spectrum.fit_result is not None:
-            if my_spectrum.corrected_data is None:
-                x=my_spectrum.data[:,0]
-                y=my_spectrum.data[:,1]
-            else :
-                x=my_spectrum.corrected_data[:,0]
-                y=my_spectrum.corrected_data[:,1]
-
-            if my_spectrum.fitted_gauge == 'Samarium':
-                fitted = [Sm_model(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
-                R1 = my_spectrum.fit_result['opti'][2]
-                P = SmPressure(R1)
-                self.axes.plot(x, fitted, '-', label='best fit')
-                self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
-                self.axes.legend(frameon=False)
-                self.canvas.draw()
-
-            elif my_spectrum.fitted_gauge == 'Ruby':
-                fitted = [Ruby_model(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
-                R1 = np.max([my_spectrum.fit_result['opti'][2], my_spectrum.fit_result['opti'][5]])
-                P = RubyPressure(R1)
-                self.axes.plot(x, fitted, '-', label='best fit')
-                self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
-                self.axes.legend(frameon=False)
-                self.canvas.draw()
-
-            elif my_spectrum.fitted_gauge == 'Raman':
-                self.axes.axvline(my_spectrum.fit_result['opti'], color='green', ls='--')
-                self.deriv_axes.axvline(my_spectrum.fit_result['opti'], color='green', ls='--')
-                P = Raman_akahama(my_spectrum.fit_result['opti'])
-                self.axes.set_title(f'Fitted pressure : {P : > 10.2f} GPa')
-                self.canvas.draw()
-                self.deriv_canvas.draw()
-
+                self.x_spinbox.setValue(best_x)
+                return {"opti":popt,"cov":pcov}
+            
+            except RuntimeError:
+                msg=QMessageBox()
+                msg.setIcon(QMessageBox.Critical)
+                msg.setText("Attempted fit couldn't converge.")
+                msg.setWindowTitle("Fit error")
+                msg.exec_()
+                return
             else:
-                print('Not implemented')
-
-    def toggle_PvPm(self):
-        if self.PvPmTableWindow.isVisible() or self.PvPmPlot.isVisible():
-            self.PvPmTableWindow.hide()
-            self.PvPmPlot.hide()
-        else:
-            self.PvPmTableWindow.show()
-            self.PvPmPlot.show()
-
-    def plot_PvPm(self):
-        self.PvPmPlot.axes.clear()
-        self.PvPmPlot.axes.set_ylabel(r'$P$ (GPa)')
-        self.PvPmPlot.axes.set_xlabel(r"$P_m$ (bar)")
-        temp = self.PvPm_df.replace('', np.nan).dropna(subset=['Pm', 'P'])
-        self.PvPmPlot.axes.plot(temp['Pm'].astype(np.float16), temp['P'].astype(np.float16), marker='.')
-        self.PvPmPlot.canvas.draw()
-
-    def save_PvPm(self):
-        if hasattr(self, 'dir_name'):
-            options = QFileDialog.Options()
-            options |= QFileDialog.DontUseNativeDialog
-            file_name, _ = QFileDialog.getSaveFileName(self, "Save Table", self.dir_name, "All Files (*)", options=options)
-            temp = self.PvPm_df.replace('', np.nan).dropna(subset=['Pm', 'P'])
-            temp.to_csv(file_name+".csv")
-
-        else:
-            msg=QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("No directory selected.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
-
-    def update_PvPm(self):
-        self.PvPm_data_inst = PandasModel(self.PvPm_df)
-        self.PvPm_data_inst.dataChanged.connect(self.plot_PvPm)
-        self.PvPmTableWindow.PvPmTable.setModel(self.PvPm_data_inst)
-        self.plot_PvPm()
-
-    def open_PvPm(self):
-        if hasattr(self, 'dir_name'):
-            options = QFileDialog.Options()
-            options |= QFileDialog.DontUseNativeDialog
-            file_name, _ = QFileDialog.getOpenFileName(self, "Save Table", self.dir_name, "All Files (*)", options=options)
-            self.PvPm_df = pd.read_csv(file_name, delimiter = ',', index_col=0)
-
-            self.update_PvPm()
-        else:
-            msg=QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("No directory selected.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
-
+                return
+        elif model.type == 'edge':
+            grad = np.gradient(y)
+            best_x = x[np.argmin(grad)]
+            self.x_spinbox.setValue(best_x)
+            return {"opti":best_x,"cov":None}
 
     def toggle_click_fit(self):
         self.click_enabled = not self.click_enabled
@@ -814,32 +876,87 @@ class MainWindow(QMainWindow):
     def click_fit(self, event):
         if self.click_enabled and event.button == 1 and event.inaxes:
             x_click, y_click = event.xdata, event.ydata
-            fit_mode  = self.fit_type_selector.currentText()
-            current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
-            current_spectrum.fitted_gauge = fit_mode
-            if fit_mode == 'Samarium':
-                self.Sm_fit(guess_peak=x_click)
-                self.toggle_click_fit()
-                self.click_fit_button.setChecked(False)
 
-            elif fit_mode == 'Ruby':
-                self.Ruby_fit(guess_peak=x_click)
-                self.toggle_click_fit()
-                self.click_fit_button.setChecked(False)
+            fit_mode  = self.models[ self.fit_model_combo.currentText() ]
 
-            elif fit_mode == 'Raman':
-                nu_min = x_click
-                self.Raman_fit(guess_peak = nu_min)
-                self.toggle_click_fit()
-                self.click_fit_button.setChecked(False)
+            if self.current_selected_file_index is not None:
+                current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+                current_spectrum.fit_model = fit_mode
+
+            if current_spectrum.corrected_data is None:
+                x=current_spectrum.data[:,0]
+                y=current_spectrum.data[:,1]
+            else :
+                x=current_spectrum.corrected_data[:,0]
+                y=current_spectrum.corrected_data[:,1]
+
+            if fit_mode.type == 'edge':
+                best_x = x_click
+                self.x_spinbox.setValue(best_x)
+                res =  {"opti":best_x,"cov":None}
+                current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
+                current_spectrum.fit_result = res
+                self.plot_fit(current_spectrum)
+
+
+            elif fit_mode.type == 'peak':
+                res = self.do_fit(fit_mode, x, y, guess_peak=x_click)
+                #print('done fit')
+                current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
+                current_spectrum.fit_result = res
+                self.plot_fit(current_spectrum)
 
             else:
-                print('Not implemented')
-                self.toggle_click_fit()
-                self.click_fit_button.setChecked(False)
+                print('Click to fit not implemented')
+
+            self.toggle_click_fit()
+            self.click_fit_button.setChecked(False)
+
+
+    def plot_fit(self, my_spectrum):
+        if my_spectrum.fit_result is not None:
+            # any previous fit will be cleared,
+            # previously plotted raw data will NOT be cleared
+            _ = [l.remove() for l in self.axes.lines]
+            _ = [l.remove() for l in self.deriv_axes.lines]
+            if my_spectrum.corrected_data is None:
+                x=my_spectrum.data[:,0]
+                y=my_spectrum.data[:,1]
+            else :
+                x=my_spectrum.corrected_data[:,0]
+                y=my_spectrum.corrected_data[:,1]
+
+            if my_spectrum.fit_model.type == 'peak':
+                fitted = [my_spectrum.fit_model.func(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
+                self.axes.plot(x, 
+                               fitted, 
+                               '-',
+                               c = 'r', 
+                               label='best fit')
+                self.axes.set_title(f'Fitted pressure : {my_spectrum.fit_toolbox_config.P : > 10.2f} GPa')
+                self.axes.legend(frameon=False)
+                self.canvas.draw()
+            
+            elif my_spectrum.fit_model.type == 'edge':
+                self.axes.axvline(my_spectrum.fit_result['opti'], color='red', ls='--', label='edge')
+                self.deriv_axes.axvline(my_spectrum.fit_result['opti'], color='red', ls='--', label='edge')
+                self.axes.set_title(f'Fitted pressure : {my_spectrum.fit_toolbox_config.P : > 10.2f} GPa')
+                self.axes.legend(frameon=False)
+                self.canvas.draw()
+                self.deriv_canvas.draw()
+            else:
+                print('Plot fit not implemented')
+
+    def toggle_PvPm(self):
+        if self.DataTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
+            self.DataTableWindow.hide()
+            self.PvPmPlotWindow.hide()
+        else:
+            self.DataTableWindow.show()
+            self.PvPmPlotWindow.show()
 
     def CHull_Bg(self):
-        current_spectrum = self.custom_model.data(self.current_selected_index, role=Qt.UserRole)
+        current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
         if current_spectrum.corrected_data is None:
             x=current_spectrum.data[:,0]
             y=current_spectrum.data[:,1]
