@@ -7,6 +7,9 @@ import helpers
 def Single_Gaussian(x, c, a1, x1, sigma1):
     return c + a1*np.exp(-(x-x1)**2/(2*sigma1**2))
 
+def Single_Voigt(x, c, a1, x1, sigma1, gamma1):
+    return c + a1 * voigt(x-x1, sigma1, gamma1)
+
 def Double_Gaussian(x, c, a1, x1, sigma1, a2, x2, sigma2):
     return c + a1*np.exp(-(x-x1)**2/(2*sigma1**2)) + a2*np.exp(-(x-x2)**2/(2*sigma2**2))
 
@@ -24,6 +27,11 @@ DoubleGaussian = helpers.GaugeFitModel(name = 'Double Gaussian',
                                  type = 'peak',
 							     color = 'lightcoral')
                 
+SingleVoigt= helpers.GaugeFitModel(name = 'Single Voigt',
+							     	func = Single_Voigt,
+                                    type = 'peak',
+							     	color = 'mediumseagreen')
+                
 SingleGaussian = helpers.GaugeFitModel(name = 'Single Gaussian',
 							     	func = Single_Gaussian,
                                     type = 'peak',
@@ -32,5 +40,6 @@ SingleGaussian = helpers.GaugeFitModel(name = 'Single Gaussian',
         
 model_list = [DoubleVoigt,
               DoubleGaussian,
+              SingleVoigt,
               SingleGaussian,
               ]

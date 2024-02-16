@@ -127,8 +127,8 @@ class GaugeFitModel():
                 for i in range(peak_number):
                     pinit.append( 0.5 )                         # height
                     pinit.append( guess_peak  )                   # position
-                    pinit.append( 0.5 ) # sigma
-                    pinit.append( 0.5 ) # gamma
+                    pinit.append( 0.2 ) # sigma
+                    pinit.append( 0.2 ) # gamma
         return pinit
 
 

@@ -853,25 +853,35 @@ class MainWindow(QMainWindow):
                 print('Fit not implemented')
 
     def do_fit(self, model, x, y, guess_peak=None):
-        
-
         popt, pcov = curve_fit(model.func, x, y, p0=model.get_pinit(x, y, guess_peak=guess_peak))
 
+        if model.type == 'peak':
         # for now we use the number of args..
-        if len(popt) < 7:       # Samarium
-            best_x = popt[2] 
-        elif len(popt) < 8:     # Ruby Gaussian
-            best_x = np.max([ popt[2], popt[5] ])
-        else:                   # Ruby Voigt
-            best_x = np.max([ popt[2], popt[6] ])
+            if len(popt) < 7:       # Samarium
+                best_x = popt[2] 
+            elif len(popt) < 8:     # Ruby Gaussian
+                best_x = np.max([ popt[2], popt[5] ])
+            else:                   # Ruby Voigt
+                best_x = np.max([ popt[2], popt[6] ])
 
         self.x_spinbox.setValue(best_x)
         
         return {"opti":popt,"cov":pcov}
+    
 
-    def Sm_fit(self, guess_peak=None):
-        if self.current_selected_file_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+    def toggle_click_fit(self):
+        self.click_enabled = not self.click_enabled
+        
+    def click_fit(self, event):
+        if self.click_enabled and event.button == 1 and event.inaxes:
+            x_click, y_click = event.xdata, event.ydata
+
+            fit_mode  = self.models[ self.fit_model_combo.currentText() ]
+
+            if self.current_selected_file_index is not None:
+                current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+                current_spectrum.fit_model = fit_mode
+
             if current_spectrum.corrected_data is None:
                 x=current_spectrum.data[:,0]
                 y=current_spectrum.data[:,1]
@@ -879,71 +889,21 @@ class MainWindow(QMainWindow):
                 x=current_spectrum.corrected_data[:,0]
                 y=current_spectrum.corrected_data[:,1]
 
-            pk, prop = find_peaks(y, height = max(y)/2, width=10)
-            #print([x[a] for a in pk])
-            if guess_peak == None :
-                guess_peak = x[pk[np.argmax(prop['peak_heights'])]]
-
-            #print('Guess : ', guess_peak)
-            pinit = [y[0], 1-y[0], guess_peak, 2e-1]
-
-            init = [Single_Gaussian(wvl, *pinit) for wvl in x]
-
-            popt, pcov = curve_fit(Single_Gaussian, x, y, p0=pinit)
-
-            current_spectrum.fit_result = {"opti":popt,"cov":pcov}
-
-            self.plot_fit(current_spectrum)
-
-
-    def Ruby_fit(self, guess_peak=None):
-        if self.current_selected_file_index is not None:
-            current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
-            if current_spectrum.corrected_data is None:
-                x=current_spectrum.data[:,0]
-                y=current_spectrum.data[:,1]
-            else :
-                x=current_spectrum.corrected_data[:,0]
-                y=current_spectrum.corrected_data[:,1]
-
-            pk, prop = find_peaks(y, height = max(y)/2, width=10)
-            #print([x[a] for a in pk])
-            if guess_peak == None:
-                guess_peak = x[pk[np.argmax(prop['peak_heights'])]]
-
-            #print('Guess : ', guess_peak)
-            
-            # This was for two gaussians:
-            # pinit = [y[0], 1-y[0], guess_peak-1.5, 2e-1,  1-y[0], guess_peak, 2e-1]
-            # This is for two voigts:
-            pinit = [y[0], 1-y[0], guess_peak-1.5, 2e-2, 2e-1,  
-                           1-y[0], guess_peak,     2e-2, 2e-1]
-
-            fitbounds = ( [0,           0,  690,   0,   0,  
-                                        0,  690,   0,   0],
-                          [np.inf, np.inf,  900,   2,   2,  
-                                   np.inf,  900,   2,   2] )
-
-            init = [Double_Voigt(wvl, *pinit) for wvl in x]
-  #         self.axes.scatter(x, init, label='init')
-
-            popt, pcov = curve_fit(Double_Voigt, 
-                                   x, 
-                                   y, 
-                                   p0=pinit,
-                                   bounds=fitbounds)
-
-            #print(popt)
-
-            current_spectrum.fit_result = {"opti":popt,"cov":pcov}
-
-            self.plot_fit(current_spectrum)
-            
-            # this was for two gaussians:
-            # R1 = np.max([popt[2], popt[5]])
-            # this is for two voigts:
-            R1 = np.max([popt[2], popt[6]])
-            
+            if fit_mode.type == 'point':
+                # special case to implement
+                pass
+            elif fit_mode.type == 'peak':
+                res = self.do_fit(fit_mode, x, y, guess_peak=x_click) # identify x, feed it to toolbox, store toolbox state in spectum.fit_config and plot fit result
+                #print('done fit')
+                current_spectrum.fit_config = deepcopy(self.buffer)
+                current_spectrum.fit_result = res
+                self.plot_fit(current_spectrum)
+                self.toggle_click_fit()
+                self.click_fit_button.setChecked(False)
+            else:
+                print('Click to fit not implemented')
+                self.toggle_click_fit()
+                self.click_fit_button.setChecked(False)
 
     def Raman_fit(self, guess_peak=None):
         if self.current_selected_file_index is not None:
@@ -1004,83 +964,6 @@ class MainWindow(QMainWindow):
         else:
             self.DataTableWindow.show()
             self.PvPmPlotWindow.show()
-
-    def plot_PvPm(self):
-        self.PvPmPlot.axes.clear()
-        self.PvPmPlot.axes.set_ylabel(r'$P$ (GPa)')
-        self.PvPmPlot.axes.set_xlabel(r"$P_m$ (bar)")
-        temp = self.PvPm_df.replace('', np.nan).dropna(subset=['Pm', 'P'])
-        self.PvPmPlot.axes.plot(temp['Pm'].astype(np.float16), temp['P'].astype(np.float16), marker='.')
-        self.PvPmPlot.canvas.draw()
-
-    def save_PvPm(self):
-        if hasattr(self, 'dir_name'):
-            options = QFileDialog.Options()
-            options |= QFileDialog.DontUseNativeDialog
-            file_name, _ = QFileDialog.getSaveFileName(self, "Save Table", self.dir_name, "All Files (*)", options=options)
-            temp = self.PvPm_df.replace('', np.nan).dropna(subset=['Pm', 'P'])
-            temp.to_csv(file_name+".csv")
-
-        else:
-            msg=QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("No directory selected.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
-
-
-    def open_PvPm(self):
-        if hasattr(self, 'dir_name'):
-            options = QFileDialog.Options()
-            options |= QFileDialog.DontUseNativeDialog
-            file_name, _ = QFileDialog.getOpenFileName(self, "Save Table", self.dir_name, "All Files (*)", options=options)
-            self.PvPm_df = pd.read_csv(file_name, delimiter = ',', index_col=0)
-
-            self.update_PvPm()
-        else:
-            msg=QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("No directory selected.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
-
-
-    def toggle_click_fit(self):
-        self.click_enabled = not self.click_enabled
-        
-    def click_fit(self, event):
-        if self.click_enabled and event.button == 1 and event.inaxes:
-            x_click, y_click = event.xdata, event.ydata
-
-            fit_mode  = self.models[ self.fit_model_combo.currentText() ]
-
-            if self.current_selected_file_index is not None:
-                current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
-                current_spectrum.fit_model = fit_mode
-
-            if current_spectrum.corrected_data is None:
-                x=current_spectrum.data[:,0]
-                y=current_spectrum.data[:,1]
-            else :
-                x=current_spectrum.corrected_data[:,0]
-                y=current_spectrum.corrected_data[:,1]
-
-            if fit_mode.type == 'point':
-                # special case to implement
-                pass
-            elif fit_mode.type == 'peak':
-                res = self.do_fit(fit_mode, x, y, guess_peak=x_click) # identify x, feed it to toolbox, store toolbox state in spectum.fit_config and plot fit result
-                #print('done fit')
-                current_spectrum.fit_config = deepcopy(self.buffer)
-                current_spectrum.fit_result = res
-                self.plot_fit(current_spectrum)
-                self.toggle_click_fit()
-                self.click_fit_button.setChecked(False)
-            else:
-                print('Click to fit not implemented')
-                self.toggle_click_fit()
-                self.click_fit_button.setChecked(False)
-                
 
     def CHull_Bg(self):
         current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
