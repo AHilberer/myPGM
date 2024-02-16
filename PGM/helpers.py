@@ -4,6 +4,7 @@ from copy import deepcopy
 from scipy.optimize import minimize
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, QAbstractListModel, QModelIndex
 from scipy.signal import find_peaks
+from inspect import getfullargspec
 
 class MySpectrumItem:
     def __init__(self, name, path):
@@ -19,6 +20,7 @@ class MySpectrumItem:
         self.fit_model = None
 
     def normalize_data(self):
+        self.data[:,1] = self.data[:,1]-np.min(self.data[:,1])
         self.data[:,1]=self.data[:,1]/max(self.data[:,1])
 
 class CustomFileListModel(QAbstractListModel):
@@ -82,32 +84,51 @@ class GaugeFitModel():
         self.type = type
         self.color = color  # color printed in calibration combobox
 
-    def get_pinit(self, x, y):
+    def get_pinit(self, x, y, guess_peak=None):
     
         pinit = list()
         
         xbin = x[1] - x[0] # nm/px or /!\ cm-1/px
-        pk, prop = find_peaks(y, height = max(y)/2, width=0.1/xbin)
-        
-        pinit.append( y[0] )  # background
-        if self.name == 'Ruby Voigt':
-            for i in range(len(pk)):
-                pinit.append( prop['peak_heights'][i] )    # height
-                pinit.append( x[pk[i]] )                   # position
-                pinit.append( prop['widths'][i] * xbin/2 ) # sigma 
-                pinit.append( prop['widths'][i] * xbin/2 ) # gamma
-
-        elif self.name == 'Ruby Gaussian':
-            for i in range(len(pk)):
-                pinit.append( prop['peak_heights'][i] )    # height
-                pinit.append( x[pk[i]] )                   # position
-                pinit.append( prop['widths'][i] * xbin )   # sigma 
- 
-        elif self.name == 'Samarium Gaussian':
-            pinit.append( prop['peak_heights'][0] )    # height
-            pinit.append( x[pk[0]] )                   # position
-            pinit.append( prop['widths'][0] * xbin )   # sigma
-        
+        if guess_peak == None:
+            pk, prop = find_peaks(y - np.min(y), height = np.ptp(y)/2, width=0.1/xbin)
+            pk = pk[np.argsort(prop['peak_heights'])]
+            prop['peak_heights'].sort()
+            pinit.append( y[0] )
+            params = getfullargspec(self.func).args[1:]
+            if (len(params)-1)%3 == 0:
+                param_per_peak = 3
+                peak_number = (len(params)-1)//3
+                for i in range(peak_number):
+                    pinit.append( 0.5 )                         # height
+                    pinit.append( x[pk[i]]  )                   # position
+                    pinit.append( prop['widths'][i] * xbin )    # sigma
+                   #print(prop['widths'][i] * xbin)
+            elif (len(params)-1)%4 == 0:
+                param_per_peak = 4
+                peak_number = (len(params)-1)//4
+                for i in range(peak_number):
+                    pinit.append( 0.5 )                         # height
+                    pinit.append( x[pk[i]]  )                   # position
+                    pinit.append( prop['widths'][i] * xbin/2 ) # sigma
+                    pinit.append( prop['widths'][i] * xbin/2 ) # gamma
+        else:
+            pinit.append( y[0] )
+            params = getfullargspec(self.func).args[1:]
+            if (len(params)-1)%3 == 0:
+                param_per_peak = 3
+                peak_number = (len(params)-1)//3
+                for i in range(peak_number):
+                    pinit.append( 0.5 )                         # height
+                    pinit.append( guess_peak  )                   # position
+                    pinit.append( 0.5 )    # sigma
+            elif (len(params)-1)%4 == 0:
+                param_per_peak = 4
+                peak_number = (len(params)-1)//4
+                for i in range(peak_number):
+                    pinit.append( 0.5 )                         # height
+                    pinit.append( guess_peak  )                   # position
+                    pinit.append( 0.5 ) # sigma
+                    pinit.append( 0.5 ) # gamma
         return pinit
 
 

@@ -92,20 +92,9 @@ class MainWindow(QMainWindow):
 #####################################################################################
 #? Calibrations setup
         
-        calib_list = [Ruby2020, 
-                      SamariumDatchi, 
-                      Akahama2006, 
-                      cBNDatchi]
-        
         self.calibrations = {a.name:a for a in calib_list}
-        print(self.calibrations)
 #####################################################################################
-#? Fit models setup
-        
-        model_list = [RubyGauss, 
-                      RubyVoigt, 
-                      SamariumGauss, 
-                      ]
+#? Fit models setups
         
         self.models = {a.name:a for a in model_list}
 
@@ -182,7 +171,7 @@ class MainWindow(QMainWindow):
 
         self.calibration_combo = QComboBox()
         self.calibration_combo.setObjectName('calibration_combo')
-        self.calibration_combo.setMinimumWidth(100)
+        self.calibration_combo.setMinimumWidth(200)
         self.calibration_combo.addItems( self.calibrations.keys() )
         
         for k, v in self.calibrations.items():
@@ -240,7 +229,7 @@ class MainWindow(QMainWindow):
         Toolboxlayout.addWidget(MyVSeparator())
         #Toolboxlayout.addStretch()
 
-        Toolboxlayout.addLayout(param_form, stretch=3)
+        Toolboxlayout.addLayout(param_form, stretch=5)
 
         #Toolboxlayout.addStretch()
         Toolboxlayout.addWidget(MyVSeparator())
@@ -506,7 +495,7 @@ class MainWindow(QMainWindow):
 # #? Create special startup config for debugging
 
         if Setup_mode :
-            example_files = ['Example_diam_Raman.asc','Example_Ruby_1.asc','Example_Ruby_2.asc', 'Example_Ruby_3.asc']
+            example_files = ['Example_diam_Raman.asc','Example_Ruby_1.asc','Example_Ruby_2.asc', 'Example_Ruby_3.asc', 'Example_H2.txt']
             for i, file in enumerate(example_files):
                 latest_file_path= os.path.dirname(__file__)+'/resources/'+file
 
@@ -855,25 +844,18 @@ class MainWindow(QMainWindow):
             if fit_mode.type == 'point':
                 # special case to implement
                 pass
-            elif fit_mode.type == 'fit':
+            elif fit_mode.type == 'peak':
                 res = self.do_fit(fit_mode, x, y) # identify x, feed it to toolbox, store toolbox state in spectum.fit_config and plot fit result
                 current_spectrum.fit_config = deepcopy(self.buffer)
                 current_spectrum.fit_result = res
                 self.plot_fit(current_spectrum)
             else:
-                print('Not implemented')
+                print('Fit not implemented')
 
     def do_fit(self, model, x, y, guess_peak=None):
         
 
-        #pk, prop = find_peaks(y, height = max(y)/2, width=10)
-            #print([x[a] for a in pk])
-        #if guess_peak == None :
-        #    guess_peak = x[pk[np.argmax(prop['peak_heights'])]]
-        #pinit = [y[0], 1-y[0], guess_peak, 2e-1]
-        
-        
-        popt, pcov = curve_fit(model.func, x, y, p0=model.get_pinit(x, y))
+        popt, pcov = curve_fit(model.func, x, y, p0=model.get_pinit(x, y, guess_peak=guess_peak))
 
         # for now we use the number of args..
         if len(popt) < 7:       # Samarium
@@ -905,9 +887,9 @@ class MainWindow(QMainWindow):
             #print('Guess : ', guess_peak)
             pinit = [y[0], 1-y[0], guess_peak, 2e-1]
 
-            init = [Sm_model(wvl, *pinit) for wvl in x]
+            init = [Single_Gaussian(wvl, *pinit) for wvl in x]
 
-            popt, pcov = curve_fit(Sm_model, x, y, p0=pinit)
+            popt, pcov = curve_fit(Single_Gaussian, x, y, p0=pinit)
 
             current_spectrum.fit_result = {"opti":popt,"cov":pcov}
 
@@ -942,10 +924,10 @@ class MainWindow(QMainWindow):
                           [np.inf, np.inf,  900,   2,   2,  
                                    np.inf,  900,   2,   2] )
 
-            init = [Ruby_model_voigts(wvl, *pinit) for wvl in x]
+            init = [Double_Voigt(wvl, *pinit) for wvl in x]
   #         self.axes.scatter(x, init, label='init')
 
-            popt, pcov = curve_fit(Ruby_model_voigts, 
+            popt, pcov = curve_fit(Double_Voigt, 
                                    x, 
                                    y, 
                                    p0=pinit,
@@ -1000,7 +982,7 @@ class MainWindow(QMainWindow):
                 x=my_spectrum.corrected_data[:,0]
                 y=my_spectrum.corrected_data[:,1]
 
-            if my_spectrum.fit_model.type == 'fit':
+            if my_spectrum.fit_model.type == 'peak':
                 fitted = [my_spectrum.fit_model.func(wvl, *my_spectrum.fit_result['opti']) for wvl in x]
 
                 self.axes.plot(x, 
@@ -1013,7 +995,7 @@ class MainWindow(QMainWindow):
                 self.canvas.draw()
 
             else:
-                print('Not implemented')
+                print('Plot fit not implemented')
 
     def toggle_PvPm(self):
         if self.DataTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
@@ -1086,7 +1068,7 @@ class MainWindow(QMainWindow):
             if fit_mode.type == 'point':
                 # special case to implement
                 pass
-            elif fit_mode.type == 'fit':
+            elif fit_mode.type == 'peak':
                 res = self.do_fit(fit_mode, x, y, guess_peak=x_click) # identify x, feed it to toolbox, store toolbox state in spectum.fit_config and plot fit result
                 #print('done fit')
                 current_spectrum.fit_config = deepcopy(self.buffer)
@@ -1095,7 +1077,7 @@ class MainWindow(QMainWindow):
                 self.toggle_click_fit()
                 self.click_fit_button.setChecked(False)
             else:
-                print('Not implemented')
+                print('Click to fit not implemented')
                 self.toggle_click_fit()
                 self.click_fit_button.setChecked(False)
                 

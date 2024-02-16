@@ -80,3 +80,7 @@ cBNDatchi = helpers.HPCalibration(name = 'cBN Raman Datchi 2007',
 							      color = 'lightblue')
 
 
+calib_list = [Ruby2020, 
+                      SamariumDatchi, 
+                      Akahama2006, 
+                      cBNDatchi]
