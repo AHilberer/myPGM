@@ -15,7 +15,7 @@ def Ruby_model_voigts(x, c, a1, x1, sigma1, gamma1, a2, x2, sigma2, gamma2):
 
 
 RubyVoigt = helpers.GaugeFitModel(name = 'Ruby Voigt',
-							     func = Ruby_model_gauss,
+							     func = Ruby_model_voigts,
                                  type = 'fit',
                                  color = 'red')
 

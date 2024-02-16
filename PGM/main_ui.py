@@ -873,15 +873,27 @@ class MainWindow(QMainWindow):
                 print('Not implemented')
 
     def do_fit(self, model, x, y, guess_peak=None):
-        pk, prop = find_peaks(y, height = max(y)/2, width=10)
-            #print([x[a] for a in pk])
-        if guess_peak == None :
-            guess_peak = x[pk[np.argmax(prop['peak_heights'])]]
-        pinit = [y[0], 1-y[0], guess_peak, 2e-1]
+        
 
-        popt, pcov = curve_fit(model.func, x, y, p0=pinit)
-        best_x = popt[2] # to improve for 2 peak fit cases
+        #pk, prop = find_peaks(y, height = max(y)/2, width=10)
+            #print([x[a] for a in pk])
+        #if guess_peak == None :
+        #    guess_peak = x[pk[np.argmax(prop['peak_heights'])]]
+        #pinit = [y[0], 1-y[0], guess_peak, 2e-1]
+        
+        
+        popt, pcov = curve_fit(model.func, x, y, p0=model.get_pinit(x, y))
+
+        # for now we use the number of args..
+        if len(popt) < 7:       # Samarium
+            best_x = popt[2] 
+        elif len(popt) < 8:     # Ruby Gaussian
+            best_x = np.max([ popt[2], popt[5] ])
+        else:                   # Ruby Voigt
+            best_x = np.max([ popt[2], popt[6] ])
+
         self.x_spinbox.setValue(best_x)
+        
         return {"opti":popt,"cov":pcov}
 
     def Sm_fit(self, guess_peak=None):
