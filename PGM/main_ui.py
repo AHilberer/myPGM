@@ -683,8 +683,6 @@ class MainWindow(QMainWindow):
         self.current_file_path = selected_item.path
         self.current_file_label.setText(f"{self.current_file_path}")
         self.smoothing_factor.setValue(selected_item.current_smoothing)
-        if selected_item.fitted_gauge is not None:
-            self.fit_model_combo.setCurrentText(selected_item.fitted_gauge)
         if selected_item.fit_toolbox_config is not None:
             self.buffer = deepcopy(selected_item.fit_toolbox_config)
             self.Pm_spinbox.setValue(self.buffer.Pm)
