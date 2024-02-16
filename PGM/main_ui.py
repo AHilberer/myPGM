@@ -98,7 +98,7 @@ class MainWindow(QMainWindow):
                       cBNDatchi]
         
         self.calibrations = {a.name:a for a in calib_list}
-
+        print(self.calibrations)
 #####################################################################################
 #? Fit models setup
         
@@ -270,10 +270,12 @@ class MainWindow(QMainWindow):
                             .item(newind).background().color().getRgb() 
         self.calibration_combo.setStyleSheet("background-color: rgba{};\
                     selection-background-color: k;".format(col1))
+        
+
 #? Toolbox connections
         self.table_button.clicked.connect(self.toggle_PvPm)
 
-        self.calibration_combo.currentIndexChanged.connect(self.updatecalib)
+        self.calibration_combo.currentIndexChanged.connect(self.update_calib)
 
         self.Pm_spinbox.valueChanged.connect(self.update_toolbox)
         self.P_spinbox.valueChanged.connect(self.update_toolbox)
@@ -288,7 +290,9 @@ class MainWindow(QMainWindow):
 
 
 
-
+        self.update_calib(1)	
+		# for some reason updatecalib does not call update at __init__
+        self.update_toolbox(1)
         ##################################################################################### Main Bottom Panel ###################################################################################"" 
 
 #####################################################################################
@@ -419,17 +423,6 @@ class MainWindow(QMainWindow):
         self.fit_button.clicked.connect(self.fit)
         FitButtonsLayout.addWidget(self.fit_button)
 
-
-
-        self.calibration_combo = QComboBox()
-        self.calibration_combo.setObjectName('calibration_combo')
-        self.calibration_combo.setMinimumWidth(100)
-        self.calibration_combo.addItems( self.calibrations.keys() )
-        
-        
-
-
-
         self.fit_model_combo = QComboBox()
         self.fit_model_combo.setObjectName('fit_model_combo')
         self.fit_model_combo.setMinimumWidth(100)
@@ -542,7 +535,6 @@ class MainWindow(QMainWindow):
 #? Main window methods
     def add_to_table(self):
         self.data.add(self.buffer)
-    #    print(self.data)
 
     def removelast(self):
         if len(self.data) > 0:
@@ -579,7 +571,7 @@ class MainWindow(QMainWindow):
             
 
 
-    def updatecalib(self, s):
+    def update_calib(self, s):
 
         self.buffer.calib = self.calibrations[ self.calibration_combo.currentText() ]
         newind = self.calibration_combo.currentIndex()
@@ -865,7 +857,6 @@ class MainWindow(QMainWindow):
                 pass
             elif fit_mode.type == 'fit':
                 res = self.do_fit(fit_mode, x, y) # identify x, feed it to toolbox, store toolbox state in spectum.fit_config and plot fit result
-                print('done fit')
                 current_spectrum.fit_config = deepcopy(self.buffer)
                 current_spectrum.fit_result = res
                 self.plot_fit(current_spectrum)
