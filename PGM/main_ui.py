@@ -499,17 +499,9 @@ class MainWindow(QMainWindow):
                 file_name = file_info.fileName()
                 list_item = helpers.MySpectrumItem(file_name, latest_file_path)
 
-                with open(latest_file_path) as f:
-                    lines = f.readlines()
-                    if 'Date' in lines[0]:
-                        data = np.loadtxt(latest_file_path, skiprows=35, dtype=str)
-                        list_item.data = data.astype(np.float64)
-                        list_item.normalize_data()
 
-                    else:
-                        data = np.loadtxt(latest_file_path, dtype=str)
-                        list_item.data = data.astype(np.float64)
-                        list_item.normalize_data()
+                list_item.data = helpers.customparse_file2data(latest_file_path)
+                list_item.normalize_data()
                 
                 self.custom_model.addItem(list_item)
                 list_item.current_smoothing = self.smoothing_factor.value()
@@ -609,18 +601,9 @@ class MainWindow(QMainWindow):
                 file_name = file_info.fileName()
                 new_item = helpers.MySpectrumItem(file_name, file)
 
-                with open(file) as f:
-                    lines = f.readlines()
-                    if 'Date' in lines[0]:
-                        data = np.loadtxt(file, skiprows=35, dtype=str)
-                        new_item.data = data.astype(np.float64)
-                        new_item.normalize_data()
-
-                    else:
-                        data = np.loadtxt(file, dtype=str)
-                        new_item.data = data.astype(np.float64)
-                        new_item.normalize_data()
-                    new_item.current_smoothing = 1
+                new_item.data = helpers.customparse_file2data(file)
+                new_item.normalize_data()
+                new_item.current_smoothing = 1
                 self.custom_model.addItem(new_item)
                 
     
@@ -650,18 +633,10 @@ class MainWindow(QMainWindow):
                 file_name = file_info.fileName()
                 new_item = helpers.MySpectrumItem(file_name, file)
 
-                with open(file) as f:
-                    lines = f.readlines()
-                    if 'Date' in lines[0]:
-                        data = np.loadtxt(file, skiprows=35, dtype=str)
-                        new_item.data = data.astype(np.float64)
-                        new_item.normalize_data()
+                new_item.data = helpers.customparse_file2data(file)
+                new_item.normalize_data()
+                new_item.current_smoothing = 1
 
-                    else:
-                        data = np.loadtxt(file, dtype=str)
-                        new_item.data = data.astype(np.float64)
-                        new_item.normalize_data()
-                    new_item.current_smoothing = 1
                 self.custom_model.addItem(new_item)
             else:
                 msg=QMessageBox()
