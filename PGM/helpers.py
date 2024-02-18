@@ -2,10 +2,24 @@ import numpy as np
 import pandas as pd
 from copy import deepcopy
 from scipy.optimize import minimize
+from PyQt5.QtWidgets import QFrame
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, QAbstractListModel, QModelIndex
 from scipy.signal import find_peaks
 from inspect import getfullargspec
 import csv
+
+class MyHSeparator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.HLine)
+        self.setFrameShadow(QFrame.Sunken)
+
+class MyVSeparator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.VLine)
+        self.setFrameShadow(QFrame.Sunken)
+
 
 def customparse_file2data(f):
     with open(f, 'r') as file: # binary
