@@ -5,6 +5,33 @@ from scipy.optimize import minimize
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, QAbstractListModel, QModelIndex
 from scipy.signal import find_peaks
 from inspect import getfullargspec
+import csv
+
+def customparse_file2data(f):
+    with open(f, 'r') as file: # binary
+        # try to find delimiter in the 2000 last characters:
+        delimiter = csv.Sniffer().sniff(file.read()[-2000:]).delimiter
+        file.seek(0) # back to beginning
+        header_count = 0
+        for s in file:
+            sp = s.strip().split(delimiter)
+            if len(sp) != 2:
+                header_count += 1
+            else:
+                try:
+                    _ = list(map(float, sp))
+                    break
+                except:
+                    header_count += 1
+#        print(delimiter, header_count)
+        file.seek(0) # back to beginning
+        data = np.loadtxt(file, 
+                          delimiter=delimiter,
+                          skiprows=header_count, 
+                          dtype=str)
+    
+    return data.astype(np.float64)
+
 
 class MySpectrumItem:
     def __init__(self, name, path):
@@ -253,3 +280,10 @@ class HPDataTable(QObject):
         for xi in self.datalist:
             _df = pd.concat([_df, xi.df ], ignore_index=True)
         return _df
+
+
+if __name__ == '__main__':
+    import os
+    f1 = os.path.dirname(__file__)+'/resources/various_file_formats/'+'Example_Ruby_3_tab_very_long_header.asc'
+    
+    print(customparse_file2data(f1))
