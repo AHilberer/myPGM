@@ -1,9 +1,7 @@
 import os
 import numpy as np
 from copy import deepcopy
-from scipy.signal import find_peaks
 from scipy.optimize import curve_fit
-import pandas as pd
 from PyQt5.QtWidgets import (QMainWindow,
                              QLabel,
                              QPushButton,
@@ -12,22 +10,18 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QComboBox,
                              QVBoxLayout,
                              QHBoxLayout,
-                             QTableWidgetItem,
                              QDoubleSpinBox,
                              QGroupBox,
-                             QTableView,
-                             QStyledItemDelegate,
-                             QLineEdit,
                              QMessageBox, 
                              QAction,
                              QListView,
                              QGridLayout,
                              QStyle,
                              QFormLayout,
-                             QFrame
-                             
+                             QFrame,
+                             QSplitter,
                              )
-from PyQt5.QtCore import QFileInfo, Qt, QAbstractListModel, QModelIndex, pyqtSignal,QItemSelectionModel, pyqtSlot
+from PyQt5.QtCore import QFileInfo, Qt, QModelIndex,QItemSelectionModel, pyqtSlot
 from PyQt5.QtGui import QColor
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
@@ -48,18 +42,6 @@ from calibrations import *
 Setup_mode = True
 
 
-class MyHSeparator(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setFrameShape(QFrame.HLine)
-        self.setFrameShadow(QFrame.Sunken)
-
-class MyVSeparator(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setFrameShape(QFrame.VLine)
-        self.setFrameShadow(QFrame.Sunken)
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -69,8 +51,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("myPGM - PressureGaugeMonitor")
         x = 100
         y = 100
-        width = 1000
-        height = 1000
+        width = 800
+        height = 800
         self.setGeometry(x, y, width, height)
         #self.setWindowIcon(QIcon('resources/PGMicon.png'))
 
@@ -138,6 +120,7 @@ class MainWindow(QMainWindow):
         self.Pm_spinbox.setRange(-np.inf, np.inf)
         self.Pm_spinbox.setSingleStep(.1)
         self.Pm_spinbox.setStyleSheet("background: #C5E1FC;")
+        self.Pm_spinbox.setMinimumWidth(80)
 
         self.P_spinbox = QDoubleSpinBox()
         self.P_spinbox.setObjectName('P_spinbox')
@@ -145,11 +128,14 @@ class MainWindow(QMainWindow):
         self.P_spinbox.setRange(-np.inf, np.inf)
         self.P_spinbox.setSingleStep(.1)
         self.P_spinbox.setStyleSheet("background: #c6fcc5;")
+        self.P_spinbox.setMinimumWidth(80)
+
 
         self.x_spinbox = QDoubleSpinBox()
         self.x_spinbox.setObjectName('x_spinbox')
         self.x_spinbox.setDecimals(2)
         self.x_spinbox.setRange(-np.inf, +np.inf)
+        self.x_spinbox.setMinimumWidth(80)
 
         self.T_spinbox = QDoubleSpinBox()
         self.T_spinbox.setObjectName('T_spinbox')
@@ -171,7 +157,7 @@ class MainWindow(QMainWindow):
 
         self.calibration_combo = QComboBox()
         self.calibration_combo.setObjectName('calibration_combo')
-        self.calibration_combo.setMinimumWidth(200)
+        self.calibration_combo.setMinimumWidth(150)
         self.calibration_combo.addItems( self.calibrations.keys() )
         
         for k, v in self.calibrations.items():
@@ -226,19 +212,19 @@ class MainWindow(QMainWindow):
         Toolboxlayout.addLayout(calibration_form, stretch=1)
 
         #Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyVSeparator())
+        Toolboxlayout.addWidget(helpers.MyVSeparator())
         #Toolboxlayout.addStretch()
 
         Toolboxlayout.addLayout(param_form, stretch=5)
 
         #Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyVSeparator())
+        Toolboxlayout.addWidget(helpers.MyVSeparator())
         #Toolboxlayout.addStretch()
         
         Toolboxlayout.addLayout(pressure_form, stretch=2)
 
         #Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyVSeparator())
+        Toolboxlayout.addWidget(helpers.MyVSeparator())
         #Toolboxlayout.addStretch()
 
         Toolboxlayout.addLayout(actions_form, stretch=1)
@@ -381,7 +367,7 @@ class MainWindow(QMainWindow):
 
         CorrectionBoxLayout = QHBoxLayout()
 
-        self.CHullBg_button = QPushButton("CHull Background", self)
+        self.CHullBg_button = QPushButton("Background", self)
         self.CHullBg_button.clicked.connect(self.CHull_Bg)
         CorrectionBoxLayout.addWidget(self.CHullBg_button, stretch=3)
 
@@ -432,7 +418,10 @@ class MainWindow(QMainWindow):
 
         #####################################################################################
 # #? Setup data plotting section
+        PlotLayout = QVBoxLayout()
+        splitter = QSplitter(Qt.Vertical)
 
+        datawidget = QWidget()
         DataPlotBoxLayout = QVBoxLayout()
 
         spectrum_plot = MplCanvas(self)
@@ -447,11 +436,12 @@ class MainWindow(QMainWindow):
         DataPlotBoxLayout.addWidget(toolbar)
         self.canvas.mpl_connect('button_press_event', self.click_fit)
 
-        FitBoxLayout.addLayout(DataPlotBoxLayout)
+        datawidget.setLayout(DataPlotBoxLayout)        
 
 #####################################################################################
 # #? Setup derivative plotting section
-
+        
+        derivwidget = QWidget()
         DataPlotBoxLayout = QVBoxLayout()
 
         deriv_plot = MplCanvas(self)
@@ -465,8 +455,16 @@ class MainWindow(QMainWindow):
         DataPlotBoxLayout.addWidget(self.deriv_canvas)
         DataPlotBoxLayout.addWidget(deriv_toolbar)
         self.deriv_canvas.mpl_connect('button_press_event', self.click_fit)
+        derivwidget.setLayout(DataPlotBoxLayout)     
+        
+        splitter.addWidget(datawidget)
+        splitter.addWidget(derivwidget)
+        PlotLayout.addWidget(splitter)
+        splitter.setSizes([300,200])
+        #splitter.setStyleSheet("QSplitter::handle {background: rgb(55, 100, 110);} ")
+        FitBoxLayout.addLayout(PlotLayout)
 
-        FitBoxLayout.addLayout(DataPlotBoxLayout)
+
 
         self.add_fitted_button = QPushButton("Add current fit")
         self.add_fitted_button.clicked.connect(self.add_current_fit)
