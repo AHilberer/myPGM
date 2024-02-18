@@ -90,7 +90,7 @@ H2Vibron = helpers.HPCalibration(name = 'H2 Vibron <30GPa',
 							      xunit = 'cm-1',
 							      x0default = 4200,
 							      xstep = .1,
-							      color = 'royalblue')
+							      color = 'plum')
 
 
 calib_list = [Ruby2020, 

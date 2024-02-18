@@ -8,8 +8,6 @@ from scipy.signal import find_peaks
 from inspect import getfullargspec
 import csv
 
-
-
 class MyHSeparator(QFrame):
     def __init__(self):
         super().__init__()

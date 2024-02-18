@@ -18,7 +18,6 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QGridLayout,
                              QStyle,
                              QFormLayout,
-                             QFrame,
                              QSplitter,
                              )
 from PyQt5.QtCore import QFileInfo, Qt, QModelIndex,QItemSelectionModel, pyqtSlot
@@ -33,8 +32,6 @@ from fit_models import *
 from PvPm_plot_window import *
 from PvPm_table_window import *
 from Parameter_window import *
-
-from plot_canvas import *
 
 import helpers
 from calibrations import *
@@ -771,7 +768,7 @@ class MainWindow(QMainWindow):
                     x=current_spectrum.corrected_data[:,0]
                     y=current_spectrum.corrected_data[:,1]
                 dI = gaussian_filter1d(y,mode='nearest', sigma=1, order=1)
-                self.deriv_axes.scatter(x,dI,c = "skyblue",s = 5)
+                self.deriv_axes.scatter(x,dI,c = "gray",s = 5)
                 self.deriv_canvas.draw()
 
     def smoothen(self):
