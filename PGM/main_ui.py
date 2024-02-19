@@ -18,10 +18,9 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QGridLayout,
                              QStyle,
                              QFormLayout,
-                             QSplitter,
-                             )
-from PyQt5.QtCore import QFileInfo, Qt, QModelIndex,QItemSelectionModel, pyqtSlot
-from PyQt5.QtGui import QColor
+                             QSplitter)
+from PyQt5.QtCore import QFileInfo, Qt, QModelIndex,QItemSelectionModel, pyqtSlot, QSize
+from PyQt5.QtGui import QColor, QIcon
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 from scipy.ndimage import uniform_filter1d
@@ -359,36 +358,37 @@ class MainWindow(QMainWindow):
 
 
        #####################################################################################
-#? Data correction section
+#? Data correction + fit section
 
-        CorrectionBoxLayout = QHBoxLayout()
+        datafitbox = QHBoxLayout()
 
-        self.CHullBg_button = QPushButton("Background", self)
+        self.CHullBg_button = QPushButton(self)
         self.CHullBg_button.clicked.connect(self.CHull_Bg)
-        CorrectionBoxLayout.addWidget(self.CHullBg_button, stretch=3)
+
+        self.CHullBg_button.setIcon(QIcon('./resources/icons/auto_bg.png'))
+        self.CHullBg_button.setStyleSheet("background-color : white") 
+        self.CHullBg_button.setIconSize(QSize(45,45))
+        self.CHullBg_button.setFixedSize(QSize(50,50)) 
+
+        datafitbox.addWidget(self.CHullBg_button, stretch=3)
 
         
-        CorrectionBoxLayout.addWidget(QLabel('Smoothing window:', self), stretch=1)
+        datafitbox.addWidget(QLabel('Smoothing:', self), stretch=1)
 
         self.smoothing_factor = QDoubleSpinBox()
         self.smoothing_factor.setDecimals(0)
         self.smoothing_factor.setRange(1, +np.inf)
         self.smoothing_factor.setValue(1)
         self.smoothing_factor.valueChanged.connect(self.smoothen)
-        CorrectionBoxLayout.addWidget(self.smoothing_factor, stretch=3)
+        
+        datafitbox.addWidget(self.smoothing_factor, stretch=3)
 
-        FitBoxLayout.addLayout(CorrectionBoxLayout)
+        FitBoxLayout.addLayout(datafitbox)
 
-
-        #####################################################################################
-#? Setup Fitting section
-
-
-        FitButtonsLayout = QHBoxLayout()
 
         self.fit_button = QPushButton("Fit", self)
         self.fit_button.clicked.connect(self.fit)
-        FitButtonsLayout.addWidget(self.fit_button)
+        datafitbox.addWidget(self.fit_button)
 
         self.fit_model_combo = QComboBox()
         self.fit_model_combo.setObjectName('fit_model_combo')
@@ -400,15 +400,15 @@ class MainWindow(QMainWindow):
 
         self.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
         self.update_fit_model()
-        FitButtonsLayout.addWidget(self.fit_model_combo)
+        datafitbox.addWidget(self.fit_model_combo)
         
-        self.click_fit_button = QPushButton("Enable Click-to-Fit", self)
+        self.click_fit_button = QPushButton("Click-to-Fit", self)
         self.click_fit_button.setCheckable(True)
         self.click_fit_button.clicked.connect(self.toggle_click_fit)
-        FitButtonsLayout.addWidget(self.click_fit_button)
+        datafitbox.addWidget(self.click_fit_button)
         self.click_enabled = False
 
-        FitBoxLayout.addLayout(FitButtonsLayout)
+        FitBoxLayout.addLayout(datafitbox)
 
  
 
@@ -544,10 +544,8 @@ class MainWindow(QMainWindow):
             
 
 
-    def update_calib(self, s):
-
+    def update_calib(self, newind):
         self.buffer.calib = self.calibrations[ self.calibration_combo.currentText() ]
-        newind = self.calibration_combo.currentIndex()
 
         self.Tcor_Label.setText( self.buffer.calib.Tcor_name )
 
@@ -563,10 +561,10 @@ class MainWindow(QMainWindow):
 
         self.x_spinbox.setSingleStep(self.buffer.calib.xstep)
         self.x0_spinbox.setSingleStep(self.buffer.calib.xstep)
-
         # note that this should call update() but it does not at __init__ !!
         self.x0_spinbox.setValue(self.buffer.calib.x0default) 
-        self.plot_data()
+
+        #self.plot_data() # a priori no need to call plot_data here
 
 
     def add_current_fit(self):
