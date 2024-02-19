@@ -128,7 +128,7 @@ class GaugeFitModel():
     
         pinit = list()
         
-        xbin = x[1] - x[0] # nm/px or /!\ cm-1/px
+        xbin = x[1] - x[0] # nm/px or cm-1/px
         if guess_peak == None:
             pk, prop = find_peaks(y - np.min(y), height = np.ptp(y)/2, width=0.1/xbin)
             pk = pk[np.argsort(prop['peak_heights'])]
