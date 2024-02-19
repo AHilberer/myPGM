@@ -53,6 +53,7 @@ class MySpectrumItem:
         self.path = path
         self.data = None
         self.corrected_data = None
+        self.bg = None
         self.current_smoothing = None
         self.fit_result = None
         self.fit_toolbox_config = None
@@ -61,6 +62,7 @@ class MySpectrumItem:
     def normalize_data(self):
         self.data[:,1] = self.data[:,1]-np.min(self.data[:,1])
         self.data[:,1]=self.data[:,1]/max(self.data[:,1])
+
 
 class CustomFileListModel(QAbstractListModel):
     itemAdded = pyqtSignal()  # Signal emitted when an item is added
