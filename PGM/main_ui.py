@@ -193,18 +193,17 @@ class MainWindow(QMainWindow):
         self.removelast_button = QPushButton('-')
         self.removelast_button.setMinimumWidth(25)
 
-        self.table_button = QPushButton('Table')
+        self.table_button = QPushButton('P vs Pm')
         self.table_button.setMinimumWidth(70)
+        self.table_button.setMinimumHeight(60)
 
-        self.PmPplot_button = QPushButton('P vs Pm')
-        self.PmPplot_button.setMinimumWidth(70)
+        mini_actions_form = QVBoxLayout()
+        actions_form = QHBoxLayout()
 
-        actions_form = QGridLayout()
-
-        actions_form.addWidget(self.add_button, 0, 0)
-        actions_form.addWidget(self.removelast_button, 1, 0)
-        actions_form.addWidget(self.table_button, 0, 1)
-        actions_form.addWidget(self.PmPplot_button, 1, 1)
+        mini_actions_form.addWidget(self.add_button)
+        mini_actions_form.addWidget(self.removelast_button)
+        actions_form.addLayout(mini_actions_form)
+        actions_form.addWidget(self.table_button)
 
         Toolboxlayout.addLayout(calibration_form, stretch=1)
 
@@ -520,14 +519,14 @@ class MainWindow(QMainWindow):
         if self.P_spinbox.hasFocus():
             self.buffer.P = self.P_spinbox.value()
             
-            self.buffer.invcalcP()
-            self.x_spinbox.setValue(self.buffer.x)
+            try: 
+                self.buffer.invcalcP()
+                self.x_spinbox.setValue(self.buffer.x)
             
-            self.x_spinbox.setStyleSheet("background: #c6fcc5;") # green
-        
-        #    self.x_spinbox.setStyleSheet("background: #ff7575;") # red
-
-        else:
+                self.x_spinbox.setStyleSheet("background: #c6fcc5;") # green
+            except:
+                self.x_spinbox.setStyleSheet("background: #ff7575;") # red
+        else: # anything else than P has been manually changed:
             # read everything stupidly
             self.buffer.Pm = self.Pm_spinbox.value()
             self.buffer.x = self.x_spinbox.value()
