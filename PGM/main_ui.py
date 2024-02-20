@@ -412,8 +412,12 @@ class MainWindow(QMainWindow):
 
         datafitbox = QHBoxLayout()
 
-        self.fit_button = QPushButton("Fit", self)
+        self.fit_button = QPushButton(self)
         self.fit_button.clicked.connect(self.fit)
+        self.fit_button.setStyleSheet("background-color : white") 
+        self.fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/fit.png'))
+        self.fit_button.setIconSize(QSize(45,45))
+        self.fit_button.setFixedSize(QSize(50,50))
         datafitbox.addWidget(self.fit_button)
 
         self.fit_model_combo = QComboBox()
@@ -428,7 +432,11 @@ class MainWindow(QMainWindow):
         self.update_fit_model()
         datafitbox.addWidget(self.fit_model_combo)
         
-        self.click_fit_button = QPushButton("Click-to-Fit", self)
+        self.click_fit_button = QPushButton(self)
+        self.click_fit_button.setStyleSheet("background-color : white") 
+        self.click_fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/click_to_fit.png'))
+        self.click_fit_button.setIconSize(QSize(45,45))
+        self.click_fit_button.setFixedSize(QSize(50,50))
         self.click_fit_button.setCheckable(True)
         self.click_fit_button.clicked.connect(self.toggle_click_fit)
 
