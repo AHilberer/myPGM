@@ -367,14 +367,17 @@ class MainWindow(QMainWindow):
     
         self.CHullBg_button.clicked.connect(self.CHull_Bg)
 
-        self.CHullBg_button.setIcon(QIcon('./resources/icons/auto_bg.png'))
         self.CHullBg_button.setStyleSheet("background-color : white") 
+        self.CHullBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/auto_bg.png'))
         self.CHullBg_button.setIconSize(QSize(45,45))
         self.CHullBg_button.setFixedSize(QSize(50,50)) 
 
         datafitbox.addWidget(self.CHullBg_button, stretch=3)
 
-        self.ManualBg_button = QPushButton("Manual Bg", self)
+        self.ManualBg_button = QPushButton(self)
+        self.ManualBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/manual_bg.png'))
+        self.ManualBg_button.setIconSize(QSize(45,45))
+        self.ManualBg_button.setFixedSize(QSize(50,50))
         self.ManualBg_button.setCheckable(True)
         self.ManualBg_button.clicked.connect(self.toggle_ManualBg)
         self.click_ManualBg_enabled = False
@@ -977,10 +980,9 @@ class MainWindow(QMainWindow):
     def toggle_ManualBg(self):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:
             self.subtract_ManualBg()
-            self.ManualBg_button.setText("Manual Bg")
             self.ManualBg_points = []
         else:
-            self.ManualBg_button.setText("Manual Bg - Pending")
+            pass
         self.click_ManualBg_enabled = not self.click_ManualBg_enabled
 
     def set_ManualBg(self, event):
