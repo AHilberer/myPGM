@@ -386,7 +386,10 @@ class MainWindow(QMainWindow):
         self.current_spline = None
         datafitbox.addWidget(self.ManualBg_button, stretch=3)
 
-        self.ResetBg_button = QPushButton("Reset Bg", self)
+        self.ResetBg_button = QPushButton(self)
+        self.ResetBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/reset_bg.png'))
+        self.ResetBg_button.setIconSize(QSize(45,45))
+        self.ResetBg_button.setFixedSize(QSize(50,50))
         self.ResetBg_button.clicked.connect(self.Reset_Bg)
         datafitbox.addWidget(self.ResetBg_button, stretch=3)
         
