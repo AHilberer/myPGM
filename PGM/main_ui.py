@@ -363,7 +363,6 @@ class MainWindow(QMainWindow):
 
         datafitbox = QHBoxLayout()
 
-
         self.CHullBg_button = QPushButton(self)
     
         self.CHullBg_button.clicked.connect(self.CHull_Bg)
@@ -382,11 +381,11 @@ class MainWindow(QMainWindow):
         self.ManualBg_points = []
         self.plotted_Bg_points = None
         self.current_spline = None
-        CorrectionBoxLayout.addWidget(self.ManualBg_button, stretch=3)
+        datafitbox.addWidget(self.ManualBg_button, stretch=3)
 
         self.ResetBg_button = QPushButton("Reset Bg", self)
         self.ResetBg_button.clicked.connect(self.Reset_Bg)
-        CorrectionBoxLayout.addWidget(self.ResetBg_button, stretch=3)
+        datafitbox.addWidget(self.ResetBg_button, stretch=3)
         
         datafitbox.addWidget(QLabel('Smoothing:', self), stretch=1)
 
@@ -402,6 +401,8 @@ class MainWindow(QMainWindow):
 
         FitBoxLayout.addLayout(datafitbox)
 
+
+        datafitbox = QHBoxLayout()
 
         self.fit_button = QPushButton("Fit", self)
         self.fit_button.clicked.connect(self.fit)
@@ -424,11 +425,10 @@ class MainWindow(QMainWindow):
         self.click_fit_button.clicked.connect(self.toggle_click_fit)
 
         datafitbox.addWidget(self.click_fit_button)
-        self.click_enabled = False
+        self.click_fit_enabled = False
 
         FitBoxLayout.addLayout(datafitbox)
 
- 
 
         #####################################################################################
 # #? Setup data plotting section
