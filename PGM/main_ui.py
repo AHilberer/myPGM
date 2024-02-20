@@ -360,19 +360,20 @@ class MainWindow(QMainWindow):
 
        #####################################################################################
 #? Data correction + fit section
+        InteractionBox = QHBoxLayout()
 
-        datafitbox = QHBoxLayout()
+        CorrectionBox = QVBoxLayout()
+
+        BgBox = QHBoxLayout()
 
         self.CHullBg_button = QPushButton(self)
-    
         self.CHullBg_button.clicked.connect(self.CHull_Bg)
-
         self.CHullBg_button.setStyleSheet("background-color : white") 
         self.CHullBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/auto_bg.png'))
         self.CHullBg_button.setIconSize(QSize(45,45))
         self.CHullBg_button.setFixedSize(QSize(50,50)) 
 
-        datafitbox.addWidget(self.CHullBg_button, stretch=3)
+        BgBox.addWidget(self.CHullBg_button, stretch=3)
 
         self.ManualBg_button = QPushButton(self)
         self.ManualBg_button.setStyleSheet("background-color : white") 
@@ -385,7 +386,7 @@ class MainWindow(QMainWindow):
         self.ManualBg_points = []
         self.plotted_Bg_points = None
         self.current_spline = None
-        datafitbox.addWidget(self.ManualBg_button, stretch=3)
+        BgBox.addWidget(self.ManualBg_button, stretch=3)
 
         self.ResetBg_button = QPushButton(self)
         self.ResetBg_button.setStyleSheet("background-color : white") 
@@ -393,10 +394,11 @@ class MainWindow(QMainWindow):
         self.ResetBg_button.setIconSize(QSize(45,45))
         self.ResetBg_button.setFixedSize(QSize(50,50))
         self.ResetBg_button.clicked.connect(self.Reset_Bg)
-        datafitbox.addWidget(self.ResetBg_button, stretch=3)
+        BgBox.addWidget(self.ResetBg_button, stretch=3)
         
-        datafitbox.addWidget(QLabel('Smoothing:', self), stretch=1)
 
+        SmoothBox = QHBoxLayout()
+        SmoothBox.addWidget(QLabel('Smoothing:', self), stretch=1)
 
         self.smoothing_factor = QDoubleSpinBox()
         self.smoothing_factor.setDecimals(0)
@@ -404,13 +406,19 @@ class MainWindow(QMainWindow):
         self.smoothing_factor.setValue(1)
         self.smoothing_factor.valueChanged.connect(self.smoothen)
         
-        datafitbox.addWidget(self.smoothing_factor, stretch=3)
+        SmoothBox.addWidget(self.smoothing_factor, stretch=1)
+        
+        CorrectionBox.addLayout(BgBox)
+        CorrectionBox.addLayout(SmoothBox)
+
+        InteractionBox.addLayout(CorrectionBox)
+
+        InteractionBox.addWidget(helpers.MyVSeparator())
 
 
-        FitBoxLayout.addLayout(datafitbox)
+        FitOptionBox = QVBoxLayout()
 
-
-        datafitbox = QHBoxLayout()
+        FitButtonsBox = QHBoxLayout()
 
         self.fit_button = QPushButton(self)
         self.fit_button.clicked.connect(self.fit)
@@ -418,7 +426,19 @@ class MainWindow(QMainWindow):
         self.fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/fit.png'))
         self.fit_button.setIconSize(QSize(45,45))
         self.fit_button.setFixedSize(QSize(50,50))
-        datafitbox.addWidget(self.fit_button)
+        FitButtonsBox.addWidget(self.fit_button)
+        
+        self.click_fit_button = QPushButton(self)
+        self.click_fit_button.setStyleSheet("background-color : white") 
+        self.click_fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/click_to_fit.png'))
+        self.click_fit_button.setIconSize(QSize(45,45))
+        self.click_fit_button.setFixedSize(QSize(50,50))
+        self.click_fit_button.setCheckable(True)
+        self.click_fit_button.clicked.connect(self.toggle_click_fit)
+        self.click_fit_enabled = False
+        FitButtonsBox.addWidget(self.click_fit_button)
+        
+        FitOptionBox.addLayout(FitButtonsBox)
 
         self.fit_model_combo = QComboBox()
         self.fit_model_combo.setObjectName('fit_model_combo')
@@ -430,20 +450,11 @@ class MainWindow(QMainWindow):
 
         self.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
         self.update_fit_model()
-        datafitbox.addWidget(self.fit_model_combo)
-        
-        self.click_fit_button = QPushButton(self)
-        self.click_fit_button.setStyleSheet("background-color : white") 
-        self.click_fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/click_to_fit.png'))
-        self.click_fit_button.setIconSize(QSize(45,45))
-        self.click_fit_button.setFixedSize(QSize(50,50))
-        self.click_fit_button.setCheckable(True)
-        self.click_fit_button.clicked.connect(self.toggle_click_fit)
+        FitOptionBox.addWidget(self.fit_model_combo)
 
-        datafitbox.addWidget(self.click_fit_button)
-        self.click_fit_enabled = False
+        InteractionBox.addLayout(FitOptionBox)
 
-        FitBoxLayout.addLayout(datafitbox)
+        FitBoxLayout.addLayout(InteractionBox)
 
 
         #####################################################################################
