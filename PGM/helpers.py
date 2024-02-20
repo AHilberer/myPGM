@@ -160,15 +160,15 @@ class GaugeFitModel():
                 param_per_peak = 3
                 peak_number = (len(params)-1)//3
                 for i in range(peak_number):
-                    pinit.append( 0.5 )                         # height
-                    pinit.append( guess_peak  )                   # position
+                    pinit.append( 0.5 )             # height
+                    pinit.append( guess_peak -1.5*i ) # idiot trick for the 2nd peak
                     pinit.append( 0.5 )    # sigma
             elif (len(params)-1)%4 == 0:
                 param_per_peak = 4
                 peak_number = (len(params)-1)//4
                 for i in range(peak_number):
-                    pinit.append( 0.5 )                         # height
-                    pinit.append( guess_peak  )                   # position
+                    pinit.append( 0.5 )             # height
+                    pinit.append( guess_peak -1.5*i ) # idiot trick for the 2nd peak
                     pinit.append( 0.2 ) # sigma
                     pinit.append( 0.2 ) # gamma
         return pinit
