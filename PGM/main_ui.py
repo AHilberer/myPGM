@@ -375,6 +375,7 @@ class MainWindow(QMainWindow):
         datafitbox.addWidget(self.CHullBg_button, stretch=3)
 
         self.ManualBg_button = QPushButton(self)
+        self.ManualBg_button.setStyleSheet("background-color : white") 
         self.ManualBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/manual_bg.png'))
         self.ManualBg_button.setIconSize(QSize(45,45))
         self.ManualBg_button.setFixedSize(QSize(50,50))
@@ -387,6 +388,7 @@ class MainWindow(QMainWindow):
         datafitbox.addWidget(self.ManualBg_button, stretch=3)
 
         self.ResetBg_button = QPushButton(self)
+        self.ResetBg_button.setStyleSheet("background-color : white") 
         self.ResetBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/reset_bg.png'))
         self.ResetBg_button.setIconSize(QSize(45,45))
         self.ResetBg_button.setFixedSize(QSize(50,50))
