@@ -23,9 +23,7 @@ or manually install the required non-native python packages: numpy, pandas, matp
 
 ### 4) Run as a script:
 
-`$ python3 PGMonline/PGM_online.py`
-or
-`$ python3 PGMonline/PGM_offline.py`
+`$ python3 PGM/PGM.py`
 
 If you are using a virtual environment use
 
