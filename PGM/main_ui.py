@@ -18,15 +18,14 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QGridLayout,
                              QStyle,
                              QFormLayout,
-                             QSplitter,
-                             )
-from PyQt5.QtCore import QFileInfo, Qt, QModelIndex,QItemSelectionModel, pyqtSlot
-from PyQt5.QtGui import QColor
+                             QSplitter)
+from PyQt5.QtCore import QFileInfo, Qt, QModelIndex,QItemSelectionModel, pyqtSlot, QSize
+from PyQt5.QtGui import QColor, QIcon
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
-from scipy.ndimage import uniform_filter1d
+from scipy.ndimage import uniform_filter1d, gaussian_filter1d
 from scipy.spatial import ConvexHull
-from scipy.ndimage import gaussian_filter1d
+from scipy.interpolate import InterpolatedUnivariateSpline
 
 from fit_models import *
 from PvPm_plot_window import *
@@ -193,18 +192,17 @@ class MainWindow(QMainWindow):
         self.removelast_button = QPushButton('-')
         self.removelast_button.setMinimumWidth(25)
 
-        self.table_button = QPushButton('Table')
+        self.table_button = QPushButton('P vs Pm')
         self.table_button.setMinimumWidth(70)
+        self.table_button.setMinimumHeight(60)
 
-        self.PmPplot_button = QPushButton('P vs Pm')
-        self.PmPplot_button.setMinimumWidth(70)
+        mini_actions_form = QVBoxLayout()
+        actions_form = QHBoxLayout()
 
-        actions_form = QGridLayout()
-
-        actions_form.addWidget(self.add_button, 0, 0)
-        actions_form.addWidget(self.removelast_button, 1, 0)
-        actions_form.addWidget(self.table_button, 0, 1)
-        actions_form.addWidget(self.PmPplot_button, 1, 1)
+        mini_actions_form.addWidget(self.add_button)
+        mini_actions_form.addWidget(self.removelast_button)
+        actions_form.addLayout(mini_actions_form)
+        actions_form.addWidget(self.table_button)
 
         Toolboxlayout.addLayout(calibration_form, stretch=1)
 
@@ -356,40 +354,91 @@ class MainWindow(QMainWindow):
         FileInfoBoxLayout.addWidget(self.dir_label)
 
         FitBoxLayout.addLayout(FileInfoBoxLayout)
+        FitBoxLayout.addWidget(helpers.MyHSeparator())
 
 
 
        #####################################################################################
-#? Data correction section
+#? Data correction + fit section
+        InteractionBox = QHBoxLayout()
 
-        CorrectionBoxLayout = QHBoxLayout()
+        CorrectionBox = QVBoxLayout()
 
-        self.CHullBg_button = QPushButton("Background", self)
+        BgBox = QHBoxLayout()
+
+        self.CHullBg_button = QPushButton(self)
         self.CHullBg_button.clicked.connect(self.CHull_Bg)
-        CorrectionBoxLayout.addWidget(self.CHullBg_button, stretch=3)
+        self.CHullBg_button.setStyleSheet("background-color : white") 
+        self.CHullBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/auto_bg.png'))
+        self.CHullBg_button.setIconSize(QSize(45,45))
+        self.CHullBg_button.setFixedSize(QSize(50,50)) 
 
+        BgBox.addWidget(self.CHullBg_button, stretch=3)
+
+        self.ManualBg_button = QPushButton(self)
+        self.ManualBg_button.setStyleSheet("background-color : white") 
+        self.ManualBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/manual_bg.png'))
+        self.ManualBg_button.setIconSize(QSize(45,45))
+        self.ManualBg_button.setFixedSize(QSize(50,50))
+        self.ManualBg_button.setCheckable(True)
+        self.ManualBg_button.clicked.connect(self.toggle_ManualBg)
+        self.click_ManualBg_enabled = False
+        self.ManualBg_points = []
+        self.plotted_Bg_points = None
+        self.current_spline = None
+        BgBox.addWidget(self.ManualBg_button, stretch=3)
+
+        self.ResetBg_button = QPushButton(self)
+        self.ResetBg_button.setStyleSheet("background-color : white") 
+        self.ResetBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/reset_bg.png'))
+        self.ResetBg_button.setIconSize(QSize(45,45))
+        self.ResetBg_button.setFixedSize(QSize(50,50))
+        self.ResetBg_button.clicked.connect(self.Reset_Bg)
+        BgBox.addWidget(self.ResetBg_button, stretch=3)
         
-        CorrectionBoxLayout.addWidget(QLabel('Smoothing window:', self), stretch=1)
+
+        SmoothBox = QHBoxLayout()
+        SmoothBox.addWidget(QLabel('Smoothing:', self), stretch=1)
 
         self.smoothing_factor = QDoubleSpinBox()
         self.smoothing_factor.setDecimals(0)
         self.smoothing_factor.setRange(1, +np.inf)
         self.smoothing_factor.setValue(1)
         self.smoothing_factor.valueChanged.connect(self.smoothen)
-        CorrectionBoxLayout.addWidget(self.smoothing_factor, stretch=3)
+        
+        SmoothBox.addWidget(self.smoothing_factor, stretch=1)
+        
+        CorrectionBox.addLayout(BgBox)
+        CorrectionBox.addLayout(SmoothBox)
 
-        FitBoxLayout.addLayout(CorrectionBoxLayout)
+        InteractionBox.addLayout(CorrectionBox)
+
+        InteractionBox.addWidget(helpers.MyVSeparator())
 
 
-        #####################################################################################
-#? Setup Fitting section
+        FitOptionBox = QVBoxLayout()
 
+        FitButtonsBox = QHBoxLayout()
 
-        FitButtonsLayout = QHBoxLayout()
-
-        self.fit_button = QPushButton("Fit", self)
+        self.fit_button = QPushButton(self)
         self.fit_button.clicked.connect(self.fit)
-        FitButtonsLayout.addWidget(self.fit_button)
+        self.fit_button.setStyleSheet("background-color : white") 
+        self.fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/fit.png'))
+        self.fit_button.setIconSize(QSize(45,45))
+        self.fit_button.setFixedSize(QSize(50,50))
+        FitButtonsBox.addWidget(self.fit_button)
+        
+        self.click_fit_button = QPushButton(self)
+        self.click_fit_button.setStyleSheet("background-color : white") 
+        self.click_fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/click_to_fit.png'))
+        self.click_fit_button.setIconSize(QSize(45,45))
+        self.click_fit_button.setFixedSize(QSize(50,50))
+        self.click_fit_button.setCheckable(True)
+        self.click_fit_button.clicked.connect(self.toggle_click_fit)
+        self.click_fit_enabled = False
+        FitButtonsBox.addWidget(self.click_fit_button)
+        
+        FitOptionBox.addLayout(FitButtonsBox)
 
         self.fit_model_combo = QComboBox()
         self.fit_model_combo.setObjectName('fit_model_combo')
@@ -401,17 +450,12 @@ class MainWindow(QMainWindow):
 
         self.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
         self.update_fit_model()
-        FitButtonsLayout.addWidget(self.fit_model_combo)
-        
-        self.click_fit_button = QPushButton("Enable Click-to-Fit", self)
-        self.click_fit_button.setCheckable(True)
-        self.click_fit_button.clicked.connect(self.toggle_click_fit)
-        FitButtonsLayout.addWidget(self.click_fit_button)
-        self.click_enabled = False
+        FitOptionBox.addWidget(self.fit_model_combo)
 
-        FitBoxLayout.addLayout(FitButtonsLayout)
+        InteractionBox.addLayout(FitOptionBox)
 
- 
+        FitBoxLayout.addLayout(InteractionBox)
+
 
         #####################################################################################
 # #? Setup data plotting section
@@ -431,7 +475,7 @@ class MainWindow(QMainWindow):
         toolbar = NavigationToolbar(self.canvas, self)
         DataPlotBoxLayout.addWidget(self.canvas)
         DataPlotBoxLayout.addWidget(toolbar)
-        self.canvas.mpl_connect('button_press_event', self.click_fit)
+        self.canvas.mpl_connect('button_press_event', self.plot_click)
 
         datawidget.setLayout(DataPlotBoxLayout)        
 
@@ -451,7 +495,7 @@ class MainWindow(QMainWindow):
         deriv_toolbar = NavigationToolbar(self.deriv_canvas, self)
         DataPlotBoxLayout.addWidget(self.deriv_canvas)
         DataPlotBoxLayout.addWidget(deriv_toolbar)
-        self.deriv_canvas.mpl_connect('button_press_event', self.click_fit)
+        self.deriv_canvas.mpl_connect('button_press_event', self.plot_click)
         derivwidget.setLayout(DataPlotBoxLayout)     
         
         splitter.addWidget(datawidget)
@@ -520,14 +564,14 @@ class MainWindow(QMainWindow):
         if self.P_spinbox.hasFocus():
             self.buffer.P = self.P_spinbox.value()
             
-            self.buffer.invcalcP()
-            self.x_spinbox.setValue(self.buffer.x)
+            try: 
+                self.buffer.invcalcP()
+                self.x_spinbox.setValue(self.buffer.x)
             
-            self.x_spinbox.setStyleSheet("background: #c6fcc5;") # green
-        
-        #    self.x_spinbox.setStyleSheet("background: #ff7575;") # red
-
-        else:
+                self.x_spinbox.setStyleSheet("background: #c6fcc5;") # green
+            except:
+                self.x_spinbox.setStyleSheet("background: #ff7575;") # red
+        else: # anything else than P has been manually changed:
             # read everything stupidly
             self.buffer.Pm = self.Pm_spinbox.value()
             self.buffer.x = self.x_spinbox.value()
@@ -545,10 +589,8 @@ class MainWindow(QMainWindow):
             
 
 
-    def update_calib(self, s):
-
+    def update_calib(self, newind):
         self.buffer.calib = self.calibrations[ self.calibration_combo.currentText() ]
-        newind = self.calibration_combo.currentIndex()
 
         self.Tcor_Label.setText( self.buffer.calib.Tcor_name )
 
@@ -564,10 +606,10 @@ class MainWindow(QMainWindow):
 
         self.x_spinbox.setSingleStep(self.buffer.calib.xstep)
         self.x0_spinbox.setSingleStep(self.buffer.calib.xstep)
-
         # note that this should call update() but it does not at __init__ !!
         self.x0_spinbox.setValue(self.buffer.calib.x0default) 
-        self.plot_data()
+
+        #self.plot_data() # a priori no need to call plot_data here
 
 
     def add_current_fit(self):
@@ -746,15 +788,16 @@ class MainWindow(QMainWindow):
                 self.axes.set_ylabel('Intensity')
                 self.axes.set_xlabel(f'{self.buffer.calib.xname} ({self.buffer.calib.xunit})')
                 if current_spectrum.corrected_data is None:
-                    self.axes.scatter(current_spectrum.data[:,0], 
-                                      current_spectrum.data[:,1],
-                                      c = 'gray', 
-                                      s = 5)
+                    x=current_spectrum.data[:,0]
+                    y=current_spectrum.data[:,1]
                 else :
-                    self.axes.scatter(current_spectrum.corrected_data[:,0], 
-                                      current_spectrum.corrected_data[:,1],
-                                      c = 'gray', 
-                                      s = 5)
+                    x=current_spectrum.corrected_data[:,0]
+                    y=current_spectrum.corrected_data[:,1]
+                
+                self.axes.scatter(x,y, c = 'gray', s = 5)
+
+                pad = 0.1
+                self.axes.set_ylim([min(y)-pad, max(y)+pad])
                 self.canvas.draw()
 
                 # derivative data
@@ -801,11 +844,17 @@ class MainWindow(QMainWindow):
             else :
                 x=current_spectrum.corrected_data[:,0]
                 y=current_spectrum.corrected_data[:,1]
-
-            res = self.do_fit(fit_mode, x, y)
-            current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
-            current_spectrum.fit_result = res
-            self.plot_fit(current_spectrum)
+            try:
+                res = self.do_fit(fit_mode, x, y)
+                current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
+                current_spectrum.fit_result = res
+                self.plot_fit(current_spectrum)
+            except:
+                msg=QMessageBox()
+                msg.setIcon(QMessageBox.Critical)
+                msg.setText("Attempted fit couldn't converge.")
+                msg.setWindowTitle("Fit error")
+                msg.exec_()
 
 
     def do_fit(self, model, x, y, guess_peak=None):
@@ -841,10 +890,17 @@ class MainWindow(QMainWindow):
             return {"opti":best_x,"cov":None}
 
     def toggle_click_fit(self):
-        self.click_enabled = not self.click_enabled
+        self.click_fit_enabled = not self.click_fit_enabled
         
-    def click_fit(self, event):
-        if self.click_enabled and event.button == 1 and event.inaxes:
+    def plot_click(self, event):
+        if self.click_fit_enabled :
+            self.click_to_fit(event)
+        elif self.click_ManualBg_enabled :
+            self.set_ManualBg(event)
+            pass
+        
+    def click_to_fit(self, event):
+        if self.click_fit_enabled and event.button == 1 and event.inaxes:
             x_click, y_click = event.xdata, event.ydata
 
             fit_mode  = self.models[ self.fit_model_combo.currentText() ]
@@ -881,6 +937,7 @@ class MainWindow(QMainWindow):
 
             self.toggle_click_fit()
             self.click_fit_button.setChecked(False)
+
 
 
     def plot_fit(self, my_spectrum):
@@ -943,3 +1000,92 @@ class MainWindow(QMainWindow):
         current_spectrum.corrected_data = np.column_stack((x,corrected))
         self.plot_data()
 
+
+    def toggle_ManualBg(self):
+        if self.click_ManualBg_enabled and self.ManualBg_points != []:
+            self.subtract_ManualBg()
+            self.ManualBg_points = []
+        else:
+            pass
+        self.click_ManualBg_enabled = not self.click_ManualBg_enabled
+
+    def set_ManualBg(self, event):
+        current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+        if self.click_ManualBg_enabled:
+            if event.button == 1 and event.inaxes:
+                x_click, y_click = event.xdata, event.ydata
+                self.ManualBg_points.append([x_click, y_click])
+                current_spectrum.bg = self.plot_ManualBg()
+                 
+
+    def plot_ManualBg(self):
+        interp = None
+        current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+        if current_spectrum.corrected_data is None:
+            x=current_spectrum.data[:,0]
+            y=current_spectrum.data[:,1]
+        else :
+            x=current_spectrum.corrected_data[:,0]
+            y=current_spectrum.corrected_data[:,1]
+        
+        temp = np.array(self.ManualBg_points)
+        x_bg = temp[:,0]
+        y_bg = temp[:,1]
+        if self.plotted_Bg_points is not None:
+            self.plotted_Bg_points.remove()
+            self.plotted_Bg_points = self.axes.scatter(x_bg,y_bg, marker='s', color='darkviolet')
+        else:
+            self.plotted_Bg_points = self.axes.scatter(x_bg,y_bg, marker='s', color='darkviolet')
+
+        #sort bg points
+        y_bg = y_bg[np.argsort(x_bg)] 
+        x_bg = np.sort(x_bg)
+      
+        # spline fit:
+        if len(x_bg) >= 2 :
+            spl_order = len(x_bg)-1 if len(x_bg)-1 <= 5 else 5
+            spl = InterpolatedUnivariateSpline(x_bg, y_bg, k=spl_order)
+            interp = spl(x)
+            if self.current_spline is not None:
+                _ = [l.remove() for l in self.axes.lines]
+                self.current_spline = self.axes.plot(x, interp, color='darkviolet',label='bg')
+            else:
+                self.current_spline = self.axes.plot(x, interp, color='darkviolet',label='bg')
+            self.axes.legend(frameon=False)
+
+        self.canvas.draw()
+        pad = 0.1
+        self.axes.set_ylim([min(y)-pad, max(y)+pad])
+        return interp
+
+    def subtract_ManualBg(self):
+        current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+        if current_spectrum.corrected_data is None:
+            x=current_spectrum.data[:,0]
+            y=current_spectrum.data[:,1]
+        else :
+            x=current_spectrum.corrected_data[:,0]
+            y=current_spectrum.corrected_data[:,1]
+        corrected = y - current_spectrum.bg
+        current_spectrum.corrected_data = np.column_stack((x,corrected))
+        self.plot_data()
+
+    def Reset_Bg(self):
+        current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+        current_spectrum.corrected_data = None
+        current_spectrum.bg = None
+        self.plot_data()
+
+
+if __name__ == '__main__': 
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from scipy.interpolate import InterpolatedUnivariateSpline
+    rng = np.random.default_rng()
+    x = np.linspace(-3, 3, 50)
+    y = np.exp(-x**2) + 0.1 * rng.standard_normal(50)
+    spl = InterpolatedUnivariateSpline(x, y, k=3)
+    plt.plot(x, y, 'ro', ms=5)
+    xs = np.linspace(-3, 3, 1000)
+    plt.plot(xs, spl(xs), 'g', lw=3, alpha=0.7)
+    plt.show()

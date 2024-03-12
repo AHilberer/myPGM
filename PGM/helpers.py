@@ -53,6 +53,7 @@ class MySpectrumItem:
         self.path = path
         self.data = None
         self.corrected_data = None
+        self.bg = None
         self.current_smoothing = None
         self.fit_result = None
         self.fit_toolbox_config = None
@@ -61,6 +62,7 @@ class MySpectrumItem:
     def normalize_data(self):
         self.data[:,1] = self.data[:,1]-np.min(self.data[:,1])
         self.data[:,1]=self.data[:,1]/max(self.data[:,1])
+
 
 class CustomFileListModel(QAbstractListModel):
     itemAdded = pyqtSignal()  # Signal emitted when an item is added
@@ -128,7 +130,7 @@ class GaugeFitModel():
     
         pinit = list()
         
-        xbin = x[1] - x[0] # nm/px or /!\ cm-1/px
+        xbin = x[1] - x[0] # nm/px or cm-1/px
         if guess_peak == None:
             pk, prop = find_peaks(y - np.min(y), height = np.ptp(y)/2, width=0.1/xbin)
             pk = pk[np.argsort(prop['peak_heights'])]
@@ -158,15 +160,15 @@ class GaugeFitModel():
                 param_per_peak = 3
                 peak_number = (len(params)-1)//3
                 for i in range(peak_number):
-                    pinit.append( 0.5 )                         # height
-                    pinit.append( guess_peak  )                   # position
+                    pinit.append( 0.5 )             # height
+                    pinit.append( guess_peak -1.5*i ) # idiot trick for the 2nd peak
                     pinit.append( 0.5 )    # sigma
             elif (len(params)-1)%4 == 0:
                 param_per_peak = 4
                 peak_number = (len(params)-1)//4
                 for i in range(peak_number):
-                    pinit.append( 0.5 )                         # height
-                    pinit.append( guess_peak  )                   # position
+                    pinit.append( 0.5 )             # height
+                    pinit.append( guess_peak -1.5*i ) # idiot trick for the 2nd peak
                     pinit.append( 0.2 ) # sigma
                     pinit.append( 0.2 ) # gamma
         return pinit
