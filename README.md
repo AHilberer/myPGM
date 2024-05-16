@@ -1,6 +1,10 @@
 <h1 align="center"> myPGM - Pressure Gauge Monitor </h1>
- 
-myPGM - Pressure Gauge Monitor is a spectral pressure gauge fitting software for pressure determination in high pressure experiments. It currently supports ruby, samarium doped strontium borate, and diamond Raman edges scales.
+
+<div align="center">
+<img alt="Demo myPGM UI" src="PGM/resources/UI_demo.png"> </img>
+</div>
+
+**myPGM** is a spectral pressure gauge fitting software for pressure determination in high pressure experiments. It currently supports ruby, samarium doped strontium borate, and diamond Raman edges scales.
 
 ## Installation
 ### 1) Get a copy of the code:
@@ -23,9 +27,8 @@ or manually install the required non-native python packages: numpy, pandas, matp
 
 ### 4) Run as a script:
 
-`$ python3 PGMonline/PGM_online.py`
-or
-`$ python3 PGMonline/PGM_offline.py`
+`$ python3 PGM/PGM.py`
+
 
 If you are using a virtual environment use
 
