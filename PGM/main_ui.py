@@ -179,10 +179,12 @@ class MainWindow(QMainWindow):
         param_form.addLayout(form_x)
         param_form.addLayout(form_T)
 
-        self.Tcor_Label = QLabel('NA')
 
         calibration_form = QFormLayout()
         calibration_form.addRow(QLabel('Calibration: '), self.calibration_combo)
+        
+        self.Tcor_Label = QLabel('NA')
+        self.Tcor_Label.setText( self.buffer.calib.Tcor_name )
         calibration_form.addRow(QLabel('T correction: '), self.Tcor_Label)
 
 
@@ -507,7 +509,7 @@ class MainWindow(QMainWindow):
 
 
 
-        self.add_fitted_button = QPushButton("Add current fit")
+        self.add_fitted_button = QPushButton("Add fit to table")
         self.add_fitted_button.clicked.connect(self.add_current_fit)
         FitBoxLayout.addWidget(self.add_fitted_button)
 
@@ -617,6 +619,7 @@ class MainWindow(QMainWindow):
             current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
             if current_spectrum.fit_toolbox_config is not None:
                 current_spectrum.fit_toolbox_config.file = current_spectrum.name
+                current_spectrum.fit_toolbox_config.Pm = self.buffer.Pm
                 self.data.add(current_spectrum.fit_toolbox_config)
 
     def toggle_params(self, checked):

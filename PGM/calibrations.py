@@ -13,12 +13,12 @@ def Pruby2020(l, T, l0, T0):
 #  F. Datchi, High Pressure Research, 27:4, 447-463, DOI: 10.1080/08957950701659593 
 def PsamDatchi1997(l, T, l0, T0):
     dT = T - T0
-#    dlcorr = -8.7e-5 * dT + 4.62e-6 * dT**2 -2.38e-9 * dT**3    # problem here !? (Datchi HPR 2007)
-#    if T >= 500:
-#        dlcorr = 1.06e-4 * (T-500) + 1.5e-7 * (T-500)**2    # these Queyroux p. 68
-#    else:
-#        dlcorr = 0
-    dlcorr=0
+    dlcorr = -8.7e-5 * dT + 4.62e-6 * dT**2 -2.38e-9 * dT**3    # problem here !? (Datchi HPR 2007)
+    if T >= 500:
+        dlcorr = 1.06e-4 * (T-500) + 1.5e-7 * (T-500)**2    # these Queyroux p. 68
+    else:
+        dlcorr = 0
+    #dlcorr=0
     dl = (l-dlcorr) - l0
     P = 4.032 * dl * (1 + 9.29e-3 * dl) / (1 + 2.32e-2 * dl)
     return P
@@ -63,9 +63,9 @@ Ruby2020 = helpers.HPCalibration(name = 'Ruby2020',
                                  xstep = .01,
                                  color = 'lightcoral')
         
-SamariumDatchi = helpers.HPCalibration(name = 'Samarium Borate Datchi 1997',
+SamariumDatchi = helpers.HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        func = PsamDatchi1997,
-                                       Tcor_name='NA',
+                                       Tcor_name='Datchi 2007 (?)',
                                        xname = 'lambda',
                                        xunit = 'nm',
                                        x0default = 685.41,
