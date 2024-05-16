@@ -1,6 +1,10 @@
-# myPGM - Pressure Gauge Monitor
- 
-myPGM - Pressure Gauge Monitor is a spectral pressure gauge fitting software for pressure determination in high pressure experiments. It currently supports ruby, samarium doped strontium borate, and diamond Raman edges scales.
+<h1 align="center"> myPGM - Pressure Gauge Monitor </h1>
+
+<div align="center">
+<img alt="Demo myPGM UI" src="PGM/resources/UI_demo.png"> </img>
+</div>
+
+**myPGM** is a spectral pressure gauge fitting software for pressure determination in high pressure experiments. It currently supports ruby, samarium doped strontium borate, and diamond Raman edges scales.
 
 ## Installation
 ### 1) Get a copy of the code:

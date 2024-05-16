@@ -179,10 +179,12 @@ class MainWindow(QMainWindow):
         param_form.addLayout(form_x)
         param_form.addLayout(form_T)
 
-        self.Tcor_Label = QLabel('NA')
 
         calibration_form = QFormLayout()
         calibration_form.addRow(QLabel('Calibration: '), self.calibration_combo)
+        
+        self.Tcor_Label = QLabel('NA')
+        self.Tcor_Label.setText( self.buffer.calib.Tcor_name )
         calibration_form.addRow(QLabel('T correction: '), self.Tcor_Label)
 
 
@@ -366,20 +368,20 @@ class MainWindow(QMainWindow):
 
         BgBox = QHBoxLayout()
 
-        self.CHullBg_button = QPushButton(self)
+        self.CHullBg_button = QPushButton('Auto Bg', self)
         self.CHullBg_button.clicked.connect(self.CHull_Bg)
-        self.CHullBg_button.setStyleSheet("background-color : white") 
-        self.CHullBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/auto_bg.png'))
-        self.CHullBg_button.setIconSize(QSize(45,45))
-        self.CHullBg_button.setFixedSize(QSize(50,50)) 
+        #self.CHullBg_button.setStyleSheet("background-color : white") 
+        #self.CHullBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/auto_bg.png'))
+        #self.CHullBg_button.setIconSize(QSize(45,45))
+        #self.CHullBg_button.setFixedSize(QSize(50,50)) 
 
         BgBox.addWidget(self.CHullBg_button, stretch=3)
 
-        self.ManualBg_button = QPushButton(self)
-        self.ManualBg_button.setStyleSheet("background-color : white") 
-        self.ManualBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/manual_bg.png'))
-        self.ManualBg_button.setIconSize(QSize(45,45))
-        self.ManualBg_button.setFixedSize(QSize(50,50))
+        self.ManualBg_button = QPushButton('Manual Bg', self)
+        #self.ManualBg_button.setStyleSheet("background-color : white") 
+        #self.ManualBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/manual_bg.png'))
+        #self.ManualBg_button.setIconSize(QSize(45,45))
+        #self.ManualBg_button.setFixedSize(QSize(50,50))
         self.ManualBg_button.setCheckable(True)
         self.ManualBg_button.clicked.connect(self.toggle_ManualBg)
         self.click_ManualBg_enabled = False
@@ -388,11 +390,11 @@ class MainWindow(QMainWindow):
         self.current_spline = None
         BgBox.addWidget(self.ManualBg_button, stretch=3)
 
-        self.ResetBg_button = QPushButton(self)
-        self.ResetBg_button.setStyleSheet("background-color : white") 
-        self.ResetBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/reset_bg.png'))
-        self.ResetBg_button.setIconSize(QSize(45,45))
-        self.ResetBg_button.setFixedSize(QSize(50,50))
+        self.ResetBg_button = QPushButton('Reset Bg', self)
+        #self.ResetBg_button.setStyleSheet("background-color : white") 
+        #self.ResetBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/reset_bg.png'))
+        #self.ResetBg_button.setIconSize(QSize(45,45))
+        #self.ResetBg_button.setFixedSize(QSize(50,50))
         self.ResetBg_button.clicked.connect(self.Reset_Bg)
         BgBox.addWidget(self.ResetBg_button, stretch=3)
         
@@ -418,21 +420,21 @@ class MainWindow(QMainWindow):
 
         FitOptionBox = QVBoxLayout()
 
-        FitButtonsBox = QHBoxLayout()
+        FitButtonsBox = QVBoxLayout()
 
-        self.fit_button = QPushButton(self)
+        self.fit_button = QPushButton('Fit', self)
         self.fit_button.clicked.connect(self.fit)
-        self.fit_button.setStyleSheet("background-color : white") 
-        self.fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/fit.png'))
-        self.fit_button.setIconSize(QSize(45,45))
-        self.fit_button.setFixedSize(QSize(50,50))
+        #self.fit_button.setStyleSheet("background-color : white") 
+        #self.fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/fit.png'))
+        #self.fit_button.setIconSize(QSize(45,45))
+        #self.fit_button.setFixedSize(QSize(50,50))
         FitButtonsBox.addWidget(self.fit_button)
         
-        self.click_fit_button = QPushButton(self)
-        self.click_fit_button.setStyleSheet("background-color : white") 
-        self.click_fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/click_to_fit.png'))
-        self.click_fit_button.setIconSize(QSize(45,45))
-        self.click_fit_button.setFixedSize(QSize(50,50))
+        self.click_fit_button = QPushButton('Click-to-fit', self)
+        #self.click_fit_button.setStyleSheet("background-color : white") 
+        #self.click_fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/click_to_fit.png'))
+        #self.click_fit_button.setIconSize(QSize(45,45))
+        #self.click_fit_button.setFixedSize(QSize(50,50))
         self.click_fit_button.setCheckable(True)
         self.click_fit_button.clicked.connect(self.toggle_click_fit)
         self.click_fit_enabled = False
@@ -507,7 +509,7 @@ class MainWindow(QMainWindow):
 
 
 
-        self.add_fitted_button = QPushButton("Add current fit")
+        self.add_fitted_button = QPushButton("Add fit to table")
         self.add_fitted_button.clicked.connect(self.add_current_fit)
         FitBoxLayout.addWidget(self.add_fitted_button)
 
@@ -617,6 +619,7 @@ class MainWindow(QMainWindow):
             current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
             if current_spectrum.fit_toolbox_config is not None:
                 current_spectrum.fit_toolbox_config.file = current_spectrum.name
+                current_spectrum.fit_toolbox_config.Pm = self.buffer.Pm
                 self.data.add(current_spectrum.fit_toolbox_config)
 
     def toggle_params(self, checked):
@@ -1005,9 +1008,13 @@ class MainWindow(QMainWindow):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:
             self.subtract_ManualBg()
             self.ManualBg_points = []
+            self.ManualBg_button.setText('Manual Bg')
         else:
             pass
         self.click_ManualBg_enabled = not self.click_ManualBg_enabled
+        #if self.click_ManualBg_enabled:
+        #    self.ManualBg_button.setText('test')
+
 
     def set_ManualBg(self, event):
         current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
