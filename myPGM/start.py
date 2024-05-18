@@ -7,11 +7,14 @@ from main_ui import *
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
-    #file = open("PGM/styles.qss",'r')
+    #file = open("myPGM/styles.qss",'r')
 
-    #with file:
-    #    qss = file.read()
-    #    app.setStyleSheet(qss)
+    try:
+        with file:
+            qss = file.read()
+            app.setStyleSheet(qss)
+    except:
+        pass
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())

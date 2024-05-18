@@ -115,7 +115,7 @@ class MainWindow(QMainWindow):
         self.Pm_spinbox.setDecimals(2)
         self.Pm_spinbox.setRange(-np.inf, np.inf)
         self.Pm_spinbox.setSingleStep(.1)
-        self.Pm_spinbox.setStyleSheet("background: #C5E1FC;")
+        self.Pm_spinbox.setStyleSheet("background: #0066CC;")
         self.Pm_spinbox.setMinimumWidth(80)
 
         self.P_spinbox = QDoubleSpinBox()
@@ -123,7 +123,7 @@ class MainWindow(QMainWindow):
         self.P_spinbox.setDecimals(3)
         self.P_spinbox.setRange(-np.inf, np.inf)
         self.P_spinbox.setSingleStep(.1)
-        self.P_spinbox.setStyleSheet("background: #c6fcc5;")
+        self.P_spinbox.setStyleSheet("background: #4a8542;")
         self.P_spinbox.setMinimumWidth(80)
 
 
@@ -570,7 +570,7 @@ class MainWindow(QMainWindow):
                 self.buffer.invcalcP()
                 self.x_spinbox.setValue(self.buffer.x)
             
-                self.x_spinbox.setStyleSheet("background: #c6fcc5;") # green
+                self.x_spinbox.setStyleSheet("background: #4a8542;") # green
             except:
                 self.x_spinbox.setStyleSheet("background: #ff7575;") # red
         else: # anything else than P has been manually changed:
@@ -585,7 +585,7 @@ class MainWindow(QMainWindow):
                 self.buffer.calcP()
                 self.P_spinbox.setValue(self.buffer.P)
                 
-                self.P_spinbox.setStyleSheet("background: #c6fcc5;") # green
+                self.P_spinbox.setStyleSheet("background: #4a8542;") # green
             except:
                 self.P_spinbox.setStyleSheet("background: #ff7575;") # red
             
