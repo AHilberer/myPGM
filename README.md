@@ -39,7 +39,6 @@ or manually install the required non-native python packages: numpy, pandas, matp
 
 `$ python3 PGM/PGM.py`
 
-
 If you are using a virtual environment use
 
 `$ deactivate`
