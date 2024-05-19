@@ -76,23 +76,35 @@ class MainWindow(QMainWindow):
         
         self.models = {a.name:a for a in model_list}
 
-#####################################################################################
-# #? Exit button setup
-        menubar = self.menuBar()
-        exit_menu = menubar.addMenu(' Exit')
-
-        exit_action = QAction(' Exit', self)
-        exit_action.triggered.connect(self.close)
-        exit_menu.addAction(exit_action)    
 
 #####################################################################################
 # #? Setup Parameters table window
-
+        menubar = self.menuBar()
         self.ParamWindow = ParameterWindow()
         param_menu = menubar.addMenu('Parameters')
         open_param_action = QAction('Change parameters', self)
         open_param_action.triggered.connect(self.toggle_params)
         param_menu.addAction(open_param_action)
+
+#####################################################################################
+# #? Setup Theme switch menu
+        theme_menu = menubar.addMenu('Theme')
+
+        dark_action = QAction('Dark mode', self)
+        light_action = QAction('Light Mode', self)
+        #dark_action.triggered.connect(self.switch_to_dark)
+        #light_action.triggered.connect(self.switch_to_light)
+        theme_menu.addAction(dark_action)
+        theme_menu.addAction(light_action)
+
+
+#####################################################################################
+# #? Exit button setup
+        exit_menu = menubar.addMenu('Exit')
+
+        exit_action = QAction(' Exit', self)
+        exit_action.triggered.connect(self.close)
+        exit_menu.addAction(exit_action)    
 
 #####################################################################################
         # this will be our initial state
