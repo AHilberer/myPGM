@@ -37,7 +37,9 @@ or manually install the required non-native python packages: numpy, pandas, matp
 
 ### 4) Run as a script:
 
-`$ python3 PGM/PGM.py`
+Start the software using :
+
+`$ python3 start.py`
 
 If you are using a virtual environment use
 
