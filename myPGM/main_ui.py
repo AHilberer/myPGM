@@ -42,7 +42,6 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-
         # Setup Main window parameters
         self.setWindowTitle("myPGM - PressureGaugeMonitor")
         x = 100
@@ -76,23 +75,35 @@ class MainWindow(QMainWindow):
         
         self.models = {a.name:a for a in model_list}
 
+
+#####################################################################################
+# #? Setup Parameters table window
+        menubar = self.menuBar()
+        #self.ParamWindow = ParameterWindow()
+        #param_menu = menubar.addMenu('Parameters')
+        #open_param_action = QAction('Change parameters', self)
+        #open_param_action.triggered.connect(self.toggle_params)
+        #param_menu.addAction(open_param_action)
+
+#####################################################################################
+# #? Setup Theme switch menu
+        theme_menu = menubar.addMenu('Theme')
+
+        dark_action = QAction('Dark mode', self)
+        light_action = QAction('Light Mode', self)
+        dark_action.triggered.connect(self.switch_to_dark)
+        light_action.triggered.connect(self.switch_to_light)
+        theme_menu.addAction(dark_action)
+        theme_menu.addAction(light_action)
+
+
 #####################################################################################
 # #? Exit button setup
-        menubar = self.menuBar()
-        exit_menu = menubar.addMenu(' Exit')
+        exit_menu = menubar.addMenu('Exit')
 
         exit_action = QAction(' Exit', self)
         exit_action.triggered.connect(self.close)
         exit_menu.addAction(exit_action)    
-
-#####################################################################################
-# #? Setup Parameters table window
-
-        self.ParamWindow = ParameterWindow()
-        param_menu = menubar.addMenu('Parameters')
-        open_param_action = QAction('Change parameters', self)
-        open_param_action.triggered.connect(self.toggle_params)
-        param_menu.addAction(open_param_action)
 
 #####################################################################################
         # this will be our initial state
@@ -106,7 +117,7 @@ class MainWindow(QMainWindow):
                                      file = 'No')
  
         
-     ##################################################################################### Main Top Panel ###################################################################################"" 
+##################################### Main Top Panel ################################################################################### 
 # #? PRL style toolbox
         ToolboxGroup = QGroupBox('Pressure toolbox')
         Toolboxlayout = QHBoxLayout()
@@ -115,7 +126,7 @@ class MainWindow(QMainWindow):
         self.Pm_spinbox.setDecimals(2)
         self.Pm_spinbox.setRange(-np.inf, np.inf)
         self.Pm_spinbox.setSingleStep(.1)
-        self.Pm_spinbox.setStyleSheet("background: #C5E1FC;")
+        self.Pm_spinbox.setStyleSheet("background: #0066CC;")
         self.Pm_spinbox.setMinimumWidth(80)
 
         self.P_spinbox = QDoubleSpinBox()
@@ -123,7 +134,7 @@ class MainWindow(QMainWindow):
         self.P_spinbox.setDecimals(3)
         self.P_spinbox.setRange(-np.inf, np.inf)
         self.P_spinbox.setSingleStep(.1)
-        self.P_spinbox.setStyleSheet("background: #c6fcc5;")
+        self.P_spinbox.setStyleSheet("background: #4a8542;")
         self.P_spinbox.setMinimumWidth(80)
 
 
@@ -551,6 +562,27 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 #? Main window methods
+    def switch_to_dark(self):
+        file = open("myPGM/dark-mode.qss",'r')
+        try:
+            with file:
+                qss = file.read()
+                self.setStyleSheet(qss)
+                self.DataTableWindow.setStyleSheet(qss)
+                self.PvPmPlotWindow.setStyleSheet(qss)
+        except:
+            pass
+    
+    def switch_to_light(self):
+        file = open("myPGM/light-mode.qss",'r')
+        try:
+            with file:
+                qss = file.read()
+                self.setStyleSheet(qss)
+                self.DataTableWindow.setStyleSheet(qss)
+                self.PvPmPlotWindow.setStyleSheet(qss)
+        except:
+            pass
                 
     def add_to_table(self):
         self.buffer.file = 'No'
@@ -570,7 +602,7 @@ class MainWindow(QMainWindow):
                 self.buffer.invcalcP()
                 self.x_spinbox.setValue(self.buffer.x)
             
-                self.x_spinbox.setStyleSheet("background: #c6fcc5;") # green
+                self.x_spinbox.setStyleSheet("background: #4a8542;") # green
             except:
                 self.x_spinbox.setStyleSheet("background: #ff7575;") # red
         else: # anything else than P has been manually changed:
@@ -585,7 +617,7 @@ class MainWindow(QMainWindow):
                 self.buffer.calcP()
                 self.P_spinbox.setValue(self.buffer.P)
                 
-                self.P_spinbox.setStyleSheet("background: #c6fcc5;") # green
+                self.P_spinbox.setStyleSheet("background: #4a8542;") # green
             except:
                 self.P_spinbox.setStyleSheet("background: #ff7575;") # red
             
@@ -1085,14 +1117,4 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == '__main__': 
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from scipy.interpolate import InterpolatedUnivariateSpline
-    rng = np.random.default_rng()
-    x = np.linspace(-3, 3, 50)
-    y = np.exp(-x**2) + 0.1 * rng.standard_normal(50)
-    spl = InterpolatedUnivariateSpline(x, y, k=3)
-    plt.plot(x, y, 'ro', ms=5)
-    xs = np.linspace(-3, 3, 1000)
-    plt.plot(xs, spl(xs), 'g', lw=3, alpha=0.7)
-    plt.show()
+    print("Only MainWindow was executed.")

@@ -1,0 +1,91 @@
+QMainWindow {
+  background: #202020;
+}
+
+QLabel {
+color: #ededed;
+}
+
+/*QGroupBox {
+background-color: #303030;
+border: 0px solid #2e2e2e;
+margin-top: 3ex;
+}
+
+QGroupBox:title {
+color: #ededed;
+}*/
+
+QGroupBox {
+  border: 0px solid #606060;
+  background-color: #252525;
+  border-radius: 4px;
+  padding: 2px;
+  margin-top: 6px;
+  margin-bottom: 4px;
+}
+
+QGroupBox::title {
+  color: #ededed;
+  subcontrol-origin: margin;
+  subcontrol-position: top left;
+  left: 4px;
+  padding-left: 2px;
+  padding-right: 4px;
+  padding-top: -4px;
+}
+
+QPushButton {
+color: #ededed;
+background-color: #202020;
+/*border-radius: 8px;*/
+/*border: 0px solid #2e2e2e;*/ 
+}
+QPushButton:checked {
+background-color: darkorchid;
+}
+
+
+QDoubleSpinBox {
+background-color: #202020;
+color: #ededed;
+}
+QListView {
+color: #ededed;
+background-color: #202020;
+}
+
+QMessageBox {
+background-color: #202020;
+}
+
+MyVSeparator {
+background-color: #606060 ;
+}
+MyHSeparator {
+background-color: #606060 ;
+}
+
+HPTableWindow {
+background-color: #303030;
+}
+
+QTableWidget {
+background-color: #202020;
+color: #ededed; 
+}
+
+QHeaderView::section {
+background-color: #202020;
+color: #ededed; 
+}
+QHeaderView {
+background-color: #202020;
+}
+QTableCornerButton::section {
+background-color: #303030;
+}
+
+PmPPlotWindow {
+background-color: #303030;
+}

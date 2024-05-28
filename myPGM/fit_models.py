@@ -28,32 +28,32 @@ def Double_Lorentzian(x, c, a1, x1, gamma1, a2, x2, gamma2):
 DoubleVoigt = helpers.GaugeFitModel(name = 'Double Voigt',
                                  func = Double_Voigt,
                                  type = 'peak',
-                                 color = 'lightcoral')
+                                 color = 'firebrick')
 
 DoubleGaussian = helpers.GaugeFitModel(name = 'Double Gaussian',
                                  func = Double_Gaussian,
                                  type = 'peak',
-                                 color = 'lightcoral')
+                                 color = 'firebrick')
 
 DoubleLorentzian = helpers.GaugeFitModel(name = 'Double Lorentzian',
                                  func = Double_Lorentzian,
                                  type = 'peak',
-                                 color = 'lightcoral')
+                                 color = 'firebrick')
 
 SingleLorentzian = helpers.GaugeFitModel(name = 'Single Lorentzian',
                                  func = Single_Lorentzian,
                                  type = 'peak',
-                                 color = 'khaki')
+                                 color = 'mediumseagreen')
 
 SingleVoigt= helpers.GaugeFitModel(name = 'Single Voigt',
                                     func = Single_Voigt,
                                     type = 'peak',
-                                    color = 'khaki')
+                                    color = 'mediumseagreen')
                 
 SingleGaussian = helpers.GaugeFitModel(name = 'Single Gaussian',
                                     func = Single_Gaussian,
                                     type = 'peak',
-                                    color = 'khaki')
+                                    color = 'mediumseagreen')
 
 RamanEdge = helpers.GaugeFitModel(name = 'Raman Edge',
                                     func = None,

@@ -61,7 +61,7 @@ Ruby2020 = helpers.HPCalibration(name = 'Ruby2020',
                                  xunit = 'nm',
                                  x0default = 694.28,
                                  xstep = .01,
-                                 color = 'lightcoral')
+                                 color = 'firebrick')
         
 SamariumDatchi = helpers.HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        func = PsamDatchi1997,

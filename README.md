@@ -15,40 +15,60 @@ It currently supports the following pressure scales:
 
 **myPGM** supports a simple file management system to process multiple spectra and follow pressure evolution during a typical diamond anvil cell experiment (the external pressure control is set to be membrane pressure for membrane DAC experiments, for now).
 
+This piece of software is still a work in progress so do not hesitate to open issues on this GitHub page or to contact the authors if you notice any bugs.
+
+New versions may come regularly on this page before a first full release, so comme back for more features !
+
+
 ## Installation from source
 
 ### 1) Get a copy of the code:
 
-`$ git clone https://github.com/AHilberer/myPGM.git`
-
-`$ cd myPGM`
+```bash
+git clone https://github.com/AHilberer/myPGM.git
+````
+```bash
+cd myPGM
+```
 
 ### 2) (Optional) Set up a virtual environment in the code folder:
 
-`$ python3 -m venv .venv`
+```bash
+python3 -m venv .venv
+```
+```bash
+source .venv/bin/activate
+```
 
-`$ source .venv/bin/activate`
+Run the code.
+
+To exit the virtual environment use:
+
+```bash
+deactivate
+```
+
 
 ### 3) Install the required dependencies:
 
-`$ python3 -m pip install -r requirements.txt `
+```bash
+python3 -m pip install -r requirements.txt
+```
 
 or manually install the required non-native python packages: numpy, pandas, matplotlib, scipy and PyQt5.
 
 ### 4) Run as a script:
 
-`$ python3 PGM/PGM.py`
+Start the software using :
 
-If you are using a virtual environment use
-
-`$ deactivate`
-
-to quit it.
+```bash
+python3 start.py
+```
 
 ## Executables
 Currently not available (WIP)
 
 ## Contributors
 
-- Antoine Hilberer
-- Alexis Forestier
+- __Antoine Hilberer__ - antoine.hilberer@cea.fr
+- __Alexis Forestier__
