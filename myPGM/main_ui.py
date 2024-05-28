@@ -79,11 +79,11 @@ class MainWindow(QMainWindow):
 #####################################################################################
 # #? Setup Parameters table window
         menubar = self.menuBar()
-        self.ParamWindow = ParameterWindow()
-        param_menu = menubar.addMenu('Parameters')
-        open_param_action = QAction('Change parameters', self)
-        open_param_action.triggered.connect(self.toggle_params)
-        param_menu.addAction(open_param_action)
+        #self.ParamWindow = ParameterWindow()
+        #param_menu = menubar.addMenu('Parameters')
+        #open_param_action = QAction('Change parameters', self)
+        #open_param_action.triggered.connect(self.toggle_params)
+        #param_menu.addAction(open_param_action)
 
 #####################################################################################
 # #? Setup Theme switch menu
