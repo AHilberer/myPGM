@@ -15,6 +15,7 @@ if __name__ == '__main__':
             app.setStyleSheet(qss)
     except:
         pass
+    
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())

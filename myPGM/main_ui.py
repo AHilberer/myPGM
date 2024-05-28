@@ -92,8 +92,8 @@ class MainWindow(QMainWindow):
 
         dark_action = QAction('Dark mode', self)
         light_action = QAction('Light Mode', self)
-        #dark_action.triggered.connect(self.switch_to_dark)
-        #light_action.triggered.connect(self.switch_to_light)
+        dark_action.triggered.connect(self.switch_to_dark)
+        light_action.triggered.connect(self.switch_to_light)
         theme_menu.addAction(dark_action)
         theme_menu.addAction(light_action)
 
@@ -118,7 +118,7 @@ class MainWindow(QMainWindow):
                                      file = 'No')
  
         
-     ##################################################################################### Main Top Panel ###################################################################################"" 
+##################################### Main Top Panel ################################################################################### 
 # #? PRL style toolbox
         ToolboxGroup = QGroupBox('Pressure toolbox')
         Toolboxlayout = QHBoxLayout()
@@ -563,6 +563,18 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 #? Main window methods
+    def switch_to_dark(self):
+        file = open("myPGM/dark-mode.qss",'r')
+
+        try:
+            with file:
+                qss = file.read()
+                self.setStyleSheet(qss)
+        except:
+            pass
+    
+    def switch_to_light(self):
+            pass
                 
     def add_to_table(self):
         self.buffer.file = 'No'
@@ -1097,14 +1109,4 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == '__main__': 
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from scipy.interpolate import InterpolatedUnivariateSpline
-    rng = np.random.default_rng()
-    x = np.linspace(-3, 3, 50)
-    y = np.exp(-x**2) + 0.1 * rng.standard_normal(50)
-    spl = InterpolatedUnivariateSpline(x, y, k=3)
-    plt.plot(x, y, 'ro', ms=5)
-    xs = np.linspace(-3, 3, 1000)
-    plt.plot(xs, spl(xs), 'g', lw=3, alpha=0.7)
-    plt.show()
+    print("Only MainWindow was executed.")
