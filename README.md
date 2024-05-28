@@ -24,26 +24,36 @@ New versions may come regularly on this page before a first full release, so com
 
 ### 1) Get a copy of the code:
 
-`$ git clone https://github.com/AHilberer/myPGM.git`
-
-`$ cd myPGM`
+```bash
+git clone https://github.com/AHilberer/myPGM.git
+````
+```bash
+cd myPGM
+```
 
 ### 2) (Optional) Set up a virtual environment in the code folder:
 
-`$ python3 -m venv .venv`
-
-`$ source .venv/bin/activate`
+```bash
+python3 -m venv .venv
+```
+```bash
+source .venv/bin/activate
+```
 
 Run the code.
 
 To exit the virtual environment use:
 
-`$ deactivate`
+```bash
+deactivate
+```
 
 
 ### 3) Install the required dependencies:
 
-`$ python3 -m pip install -r requirements.txt `
+```bash
+python3 -m pip install -r requirements.txt
+```
 
 or manually install the required non-native python packages: numpy, pandas, matplotlib, scipy and PyQt5.
 
@@ -51,7 +61,9 @@ or manually install the required non-native python packages: numpy, pandas, matp
 
 Start the software using :
 
-`$ python3 start.py`
+```bash
+python3 start.py
+```
 
 ## Executables
 Currently not available (WIP)
