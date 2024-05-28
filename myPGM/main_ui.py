@@ -42,7 +42,6 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-
         # Setup Main window parameters
         self.setWindowTitle("myPGM - PressureGaugeMonitor")
         x = 100
@@ -565,15 +564,24 @@ class MainWindow(QMainWindow):
 #? Main window methods
     def switch_to_dark(self):
         file = open("myPGM/dark-mode.qss",'r')
-
         try:
             with file:
                 qss = file.read()
                 self.setStyleSheet(qss)
+                self.DataTableWindow.setStyleSheet(qss)
+                self.PvPmPlotWindow.setStyleSheet(qss)
         except:
             pass
     
     def switch_to_light(self):
+        file = open("myPGM/light-mode.qss",'r')
+        try:
+            with file:
+                qss = file.read()
+                self.setStyleSheet(qss)
+                self.DataTableWindow.setStyleSheet(qss)
+                self.PvPmPlotWindow.setStyleSheet(qss)
+        except:
             pass
                 
     def add_to_table(self):
