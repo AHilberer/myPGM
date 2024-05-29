@@ -7,7 +7,7 @@ from main_ui import *
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
-    file = open("myPGM/light-mode.qss",'r')
+    file = open("light-mode.qss",'r')
 
     try:
         with file:

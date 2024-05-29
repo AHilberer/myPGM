@@ -563,7 +563,7 @@ class MainWindow(QMainWindow):
 #####################################################################################
 #? Main window methods
     def switch_to_dark(self):
-        file = open("myPGM/dark-mode.qss",'r')
+        file = open("dark-mode.qss",'r')
         try:
             with file:
                 qss = file.read()
@@ -574,7 +574,7 @@ class MainWindow(QMainWindow):
             pass
     
     def switch_to_light(self):
-        file = open("myPGM/light-mode.qss",'r')
+        file = open("light-mode.qss",'r')
         try:
             with file:
                 qss = file.read()
