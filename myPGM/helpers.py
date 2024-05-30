@@ -43,8 +43,13 @@ def customparse_file2data(f):
                           delimiter=delimiter,
                           skiprows=header_count, 
                           dtype=str)
-    
-    return data.astype(np.float64)
+    # in case of empty columns in ascii file... 
+    # only manage 2 columns    
+    try:
+        return data.astype(np.float64)
+    except ValueError:
+
+        return data[:,:2].astype(np.float64) 
 
 
 class MySpectrumItem:
