@@ -563,9 +563,8 @@ class MainWindow(QMainWindow):
 #####################################################################################
 #? Main window methods
     def switch_to_dark(self):
-        file = open("dark-mode.qss",'r')
         try:
-            with file:
+            with open("dark-mode.qss",'r') as file:
                 qss = file.read()
                 self.setStyleSheet(qss)
                 self.DataTableWindow.setStyleSheet(qss)
@@ -574,9 +573,8 @@ class MainWindow(QMainWindow):
             pass
     
     def switch_to_light(self):
-        file = open("light-mode.qss",'r')
         try:
-            with file:
+            with open("light-mode.qss",'r') as file:
                 qss = file.read()
                 self.setStyleSheet(qss)
                 self.DataTableWindow.setStyleSheet(qss)
