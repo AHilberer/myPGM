@@ -30,7 +30,6 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 from fit_models import *
 from PvPm_plot_window import *
 from PvPm_table_window import *
-from Parameter_window import *
 
 import helpers
 from calibrations import *
@@ -65,6 +64,9 @@ class MainWindow(QMainWindow):
         # Create a new panel on the right
         bottom_panel_layout = QHBoxLayout()
         main_layout.addLayout(bottom_panel_layout)
+
+        plt.style.use('myPGM_plot_style_light.mplstyle')
+
 
 #####################################################################################
 #? Calibrations setup
@@ -478,9 +480,9 @@ class MainWindow(QMainWindow):
         datawidget = QWidget()
         DataPlotBoxLayout = QVBoxLayout()
 
-        spectrum_plot = MplCanvas(self)
-        self.axes = spectrum_plot.axes
-        self.figure = spectrum_plot.figure
+        self.spectrum_plot = MplCanvas(self)
+        self.axes = self.spectrum_plot.axes
+        self.figure = self.spectrum_plot.figure
         self.canvas = FigureCanvas(self.figure)
         self.axes.set_ylabel('Intensity')
         self.axes.set_xlabel('spectral unit')
@@ -498,9 +500,9 @@ class MainWindow(QMainWindow):
         derivwidget = QWidget()
         DataPlotBoxLayout = QVBoxLayout()
 
-        deriv_plot = MplCanvas(self)
-        self.deriv_axes = deriv_plot.axes
-        self.deriv_figure = deriv_plot.figure
+        self.deriv_plot = MplCanvas(self)
+        self.deriv_axes = self.deriv_plot.axes
+        self.deriv_figure = self.deriv_plot.figure
         self.deriv_canvas = FigureCanvas(self.deriv_figure)
         self.deriv_axes.set_ylabel('Intensity')
         self.deriv_axes.set_xlabel('spectral unit')
@@ -571,6 +573,30 @@ class MainWindow(QMainWindow):
                 self.PvPmPlotWindow.setStyleSheet(qss)
         except:
             pass
+        plt.style.use('myPGM_plot_style_dark.mplstyle')
+
+        # some parameters seem to be unaffected by the style import ...
+        # thus we use the following fix
+        self.spectrum_plot.fig.set_facecolor('#202020')
+        self.spectrum_plot.axes.set_facecolor('#202020')
+        for subset in ['bottom','top','right', 'left']:
+            self.spectrum_plot.axes.spines[subset].set_color('white')
+        self.deriv_plot.fig.set_facecolor('#202020')
+        self.deriv_plot.axes.set_facecolor('#202020')
+        for subset in ['bottom','top','right', 'left']:
+            self.deriv_plot.axes.spines[subset].set_color('white')
+        self.PvPmPlotWindow.canvas.fig.set_facecolor('#202020')
+        self.PvPmPlotWindow.canvas.axes.set_facecolor('#202020')
+        for subset in ['bottom','top','right', 'left']:
+            self.PvPmPlotWindow.canvas.axes.spines[subset].set_color('white')
+        self.PvPmPlotWindow.updateplot()
+
+        self.plot_data()
+        if self.current_selected_file_index is not None:
+                current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+                if current_spectrum.fit_result is not None:
+                    self.plot_fit(current_spectrum)
+
     
     def switch_to_light(self):
         try:
@@ -581,7 +607,32 @@ class MainWindow(QMainWindow):
                 self.PvPmPlotWindow.setStyleSheet(qss)
         except:
             pass
-                
+        plt.style.use('myPGM_plot_style_light.mplstyle')
+
+        # some parameters seem to be unaffected by the style import ...
+        # thus we use the following fix
+        self.spectrum_plot.fig.set_facecolor('white')
+        self.spectrum_plot.axes.set_facecolor('white')
+        for subset in ['bottom','top','right', 'left']:
+            self.spectrum_plot.axes.spines[subset].set_color('black')
+        self.deriv_plot.fig.set_facecolor('white')
+        self.deriv_plot.axes.set_facecolor('white')
+        for subset in ['bottom','top','right', 'left']:
+            self.deriv_plot.axes.spines[subset].set_color('black')
+        self.PvPmPlotWindow.canvas.fig.set_facecolor('white')
+        self.PvPmPlotWindow.canvas.axes.set_facecolor('white')
+        for subset in ['bottom','top','right', 'left']:
+            self.PvPmPlotWindow.canvas.axes.spines[subset].set_color('black')
+        self.PvPmPlotWindow.updateplot()
+
+        self.plot_data()
+        if self.current_selected_file_index is not None:
+                current_spectrum = self.custom_model.data(self.current_selected_file_index, role=Qt.UserRole)
+                if current_spectrum.fit_result is not None:
+                    self.plot_fit(current_spectrum)
+
+
+
     def add_to_table(self):
         self.buffer.file = 'No'
         self.data.add(self.buffer)
@@ -827,7 +878,7 @@ class MainWindow(QMainWindow):
                     x=current_spectrum.corrected_data[:,0]
                     y=current_spectrum.corrected_data[:,1]
                 
-                self.axes.scatter(x,y, c = 'gray', s = 5)
+                self.axes.scatter(x,y)
 
                 pad = 0.1
                 self.axes.set_ylim([min(y)-pad, max(y)+pad])
@@ -844,8 +895,11 @@ class MainWindow(QMainWindow):
                     x=current_spectrum.corrected_data[:,0]
                     y=current_spectrum.corrected_data[:,1]
                 dI = gaussian_filter1d(y,mode='nearest', sigma=1, order=1)
-                self.deriv_axes.scatter(x,dI,c = "gray",s = 5)
+                self.deriv_axes.scatter(x,dI)
                 self.deriv_canvas.draw()
+        else:
+            self.canvas.draw()
+            self.deriv_canvas.draw()
 
     def smoothen(self):
         if self.current_selected_file_index is not None:

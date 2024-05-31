@@ -5,14 +5,13 @@ from PyQt5.QtWidgets import (QWidget,
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
 
-
 #? Define plot canvas class
 
 class MplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
-        fig = plt.figure(figsize=(width, height), dpi=dpi, constrained_layout=True)
-        self.axes = fig.add_subplot(111)
-        super(MplCanvas, self).__init__(fig)
+        self.fig = plt.figure(figsize=(width, height), dpi=dpi, constrained_layout=True)
+        self.axes = self.fig.add_subplot(111)
+        super(MplCanvas, self).__init__(self.fig)
 
 
 class PmPPlotWindow(QWidget):
@@ -38,7 +37,7 @@ class PmPPlotWindow(QWidget):
 
 		self.setLayout(layout)
 
-#		self.updateplot()
+		self.updateplot()
 
 	def updateplot(self): 
 
