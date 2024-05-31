@@ -37,19 +37,16 @@ def customparse_file2data(f):
                     break
                 except:
                     header_count += 1
+
 #        print(delimiter, header_count)
         file.seek(0) # back to beginning
-        data = np.loadtxt(file, 
+        data1 = np.loadtxt(file,
                           delimiter=delimiter,
                           skiprows=header_count, 
                           dtype=str)
-    # in case of empty columns in ascii file... 
-    # only manage 2 columns    
-    try:
-        return data.astype(np.float64)
-    except ValueError:
-
-        return data[:,:2].astype(np.float64) 
+    # keep only the two first columns in any case:
+    data = data1[:,:2]
+    return data.astype(np.float64)
 
 
 class MySpectrumItem:
