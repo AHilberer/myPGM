@@ -1,1 +1,87 @@
-/* to be extended if needed */
+QMainWindow {
+  background: #ececec;
+}
+
+QLabel {
+color: black;
+}
+
+/*QGroupBox {
+background-color: white;
+border: 0px solid #2e2e2e;
+margin-top: 3ex;
+}
+
+QGroupBox:title {
+color: black;
+}*/
+/*
+QGroupBox {
+  border: 0px solid #606060;
+  background-color: white;
+  border-radius: 4px;
+  padding: 2px;
+  margin-top: 6px;
+  margin-bottom: 4px;
+}*/
+QGroupBox {
+  background-color: #ececec
+}
+QGroupBox::title {
+  color: black;
+}
+
+QPushButton {
+color: black;
+background-color: #ececec;
+/*border-radius: 8px;*/
+/*border: 0px solid #2e2e2e;*/ 
+}
+QPushButton:checked {
+background-color: darkorchid;
+}
+
+
+QDoubleSpinBox {
+background-color: #ececec;
+color: black;
+}
+QListView {
+color: black;
+background-color: #ececec;
+}
+
+QMessageBox {
+background-color: #ececec;
+}
+
+MyVSeparator {
+background-color: #606060 ;
+}
+MyHSeparator {
+background-color: #606060 ;
+}
+
+HPTableWindow {
+background-color: #ececec;
+}
+
+QTableWidget {
+background-color: #ececec;
+color: black; 
+}
+
+QHeaderView::section {
+background-color: white;
+color: black; 
+}
+QHeaderView {
+background-color: white;
+}
+QTableCornerButton::section {
+background-color: white;
+}
+
+PmPPlotWindow {
+background-color: #ececec;
+}
