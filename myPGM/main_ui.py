@@ -715,6 +715,8 @@ class MainWindow(QMainWindow):
     def add_file(self):
         file_dialog = QFileDialog()
         file_dialog.setFileMode(QFileDialog.ExistingFiles)
+        file_dialog.setNameFilter("Text and ASC files (*.txt *.asc);;All Files (*)")
+
         if file_dialog.exec_():
             selected_files = file_dialog.selectedFiles()
             for file in selected_files:
@@ -726,7 +728,6 @@ class MainWindow(QMainWindow):
                 new_item.normalize_data()
                 new_item.current_smoothing = 1
                 self.custom_model.addItem(new_item)
-                
     
     @pyqtSlot()
     def delete_file(self):
