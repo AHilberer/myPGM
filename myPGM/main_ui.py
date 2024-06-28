@@ -420,9 +420,14 @@ class MainWindow(QMainWindow):
         self.smoothing_factor.setRange(1, +np.inf)
         self.smoothing_factor.setValue(1)
         self.smoothing_factor.valueChanged.connect(self.smoothen)
-        
         SmoothBox.addWidget(self.smoothing_factor, stretch=1)
         
+        self.Derivative_button = QPushButton('Toggle derivative', self)
+        #self.Derivative_button.setCheckable(True)
+        self.Derivative_button.clicked.connect(self.Toggle_derivative)
+        self.Derivative_enabled = False
+        SmoothBox.addWidget(self.Derivative_button, stretch=2)
+
         CorrectionBox.addLayout(BgBox)
         CorrectionBox.addLayout(SmoothBox)
 
@@ -475,7 +480,7 @@ class MainWindow(QMainWindow):
         #####################################################################################
 # #? Setup data plotting section
         PlotLayout = QVBoxLayout()
-        splitter = QSplitter(Qt.Vertical)
+        self.splitter = QSplitter(Qt.Vertical)
 
         datawidget = QWidget()
         DataPlotBoxLayout = QVBoxLayout()
@@ -513,10 +518,12 @@ class MainWindow(QMainWindow):
         self.deriv_canvas.mpl_connect('button_press_event', self.plot_click)
         derivwidget.setLayout(DataPlotBoxLayout)     
         
-        splitter.addWidget(datawidget)
-        splitter.addWidget(derivwidget)
-        PlotLayout.addWidget(splitter)
-        splitter.setSizes([300,200])
+        self.splitter.addWidget(datawidget)
+        self.splitter.addWidget(derivwidget)
+        PlotLayout.addWidget(self.splitter)
+        self.splitter.setSizes([300,200])
+        self.splitter.widget(1).hide()
+
         #splitter.setStyleSheet("QSplitter::handle {background: rgb(55, 100, 110);} ")
         FitBoxLayout.addLayout(PlotLayout)
 
@@ -703,13 +710,13 @@ class MainWindow(QMainWindow):
                 current_spectrum.fit_toolbox_config.Pm = self.buffer.Pm
                 self.data.add(current_spectrum.fit_toolbox_config)
 
-    def toggle_params(self, checked):
-        if self.ParamWindow.isVisible():
-            self.ParamWindow.hide()
 
+    def Toggle_derivative(self, checked):
+        if self.Derivative_enabled:
+            self.splitter.widget(1).hide()
         else:
-            self.ParamWindow.show()
-
+            self.splitter.widget(1).show()
+        self.Derivative_enabled = not self.Derivative_enabled
 
     @pyqtSlot()
     def add_file(self):
