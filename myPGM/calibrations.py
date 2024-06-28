@@ -42,6 +42,16 @@ def PAkahama2006(nu, T, nu0, T0):
     p = K0 * (dnu/nu0) * (1 + 0.5 * (K0p -1)*dnu/nu0)
     return p 
 
+
+# Eremets et al., Nat Commun 14, 907 (2023). https://doi.org/10.1038/s41467-023-36429-9
+def PEremets2023(nu, T, nu0, T0):
+    A  = 517 # GPa
+    B = 764 # GPa
+    dnu = nu - nu0 
+    p = A * (dnu/nu0) + B * (dnu/nu0)**2
+    return p 
+
+
 # Homemade:
 def H2_Vibron(nu, T=0, nu0=0, T0=0):
     f = np.polynomial.polynomial.Polynomial(
@@ -80,6 +90,15 @@ Akahama2006 = helpers.HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
                                     x0default = 1333,
                                     xstep = .1,
                                     color = 'darkgrey')
+
+Eremets2023 = helpers.HPCalibration(name = 'Diamond Raman Edge Eremets 2023',
+                                    func = PEremets2023,
+                                    Tcor_name='NA',
+                                    xname = 'nu',
+                                    xunit = 'cm-1',
+                                    x0default = 1332.5,
+                                    xstep = .1,
+                                    color = 'steelblue')
         
 cBNDatchi = helpers.HPCalibration(name = 'cBN Raman Datchi 2007',
                                   func = PcBN,
@@ -102,9 +121,11 @@ H2Vibron = helpers.HPCalibration(name = 'H2 Vibron <30GPa',
 
 calib_list = [Ruby2020, 
                       SamariumDatchi, 
-                      Akahama2006, 
+                      Akahama2006,
+                      Eremets2023,
+                      H2Vibron,
                       cBNDatchi,
-                      H2Vibron]
+                      ]
 
 
 if __name__ == '__main__': 
