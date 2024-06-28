@@ -56,10 +56,10 @@ background-color: #ececec;
 }
 
 MyVSeparator {
-background-color: #606060 ;
+background-color: #bbbbbb ;
 }
 MyHSeparator {
-background-color: #606060 ;
+background-color: #bbbbbb ;
 }
 
 HPTableWindow {
