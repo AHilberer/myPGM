@@ -2,7 +2,8 @@ import os
 import numpy as np
 from copy import deepcopy
 from scipy.optimize import curve_fit
-from PyQt5.QtWidgets import (QMainWindow,
+from PyQt5.QtWidgets import (QApplication,
+                             QMainWindow,
                              QLabel,
                              QPushButton,
                              QFileDialog,
@@ -571,6 +572,10 @@ class MainWindow(QMainWindow):
 
 #####################################################################################
 #? Main window methods
+    def closeEvent(self, event):
+        for window in QApplication.topLevelWidgets():
+            window.close()
+
     def switch_to_dark(self):
         try:
             with open("dark-mode.qss",'r') as file:
