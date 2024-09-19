@@ -87,7 +87,7 @@ Akahama2006 = helpers.HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
                                     Tcor_name='NA',
                                     xname = 'nu',
                                     xunit = 'cm-1',
-                                    x0default = 1333,
+                                    x0default = 1334,
                                     xstep = .1,
                                     color = 'darkgrey')
 
