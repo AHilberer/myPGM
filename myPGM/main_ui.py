@@ -724,6 +724,8 @@ class MainWindow(QMainWindow):
     def add_file(self):
         file_dialog = QFileDialog()
         file_dialog.setFileMode(QFileDialog.ExistingFiles)
+        file_dialog.setNameFilter("Text and ASC files (*.txt *.asc);;All Files (*)")
+
         if file_dialog.exec_():
             selected_files = file_dialog.selectedFiles()
             for file in selected_files:
