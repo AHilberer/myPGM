@@ -52,6 +52,13 @@ def PEremets2023(nu, T, nu0, T0):
     return p 
 
 
+def PHilberer2025(nu, T, nu0, T0):
+    K0  = 576.521119539528 # GPa
+    K0p = 3.2571168198326683
+    dnu = nu - nu0 
+    p = K0 * (dnu/nu0) * (1 + 0.5 * (K0p -1)*dnu/nu0)
+    return p
+
 # Homemade:
 def H2_Vibron(nu, T=0, nu0=0, T0=0):
     f = np.polynomial.polynomial.Polynomial(
@@ -81,7 +88,16 @@ SamariumDatchi = helpers.HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        x0default = 685.41,
                                        xstep = .01,
                                        color = 'mediumseagreen')
-        
+
+Hilberer2025 = helpers.HPCalibration(name = 'Diamond Raman Edge Hilberer 2025',
+                                    func = PHilberer2025,
+                                    Tcor_name='NA',
+                                    xname = 'nu',
+                                    xunit = 'cm-1',
+                                    x0default = 1334,
+                                    xstep = .1,
+                                    color = 'orangered')
+
 Akahama2006 = helpers.HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
                                     func = PAkahama2006,
                                     Tcor_name='NA',
@@ -120,7 +136,8 @@ H2Vibron = helpers.HPCalibration(name = 'H2 Vibron <30GPa',
 
 
 calib_list = [Ruby2020, 
-                      SamariumDatchi, 
+                      SamariumDatchi,
+                      Hilberer2025,
                       Akahama2006,
                       Eremets2023,
                       H2Vibron,

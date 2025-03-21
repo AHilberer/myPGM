@@ -46,6 +46,7 @@ from PvPm_table_window import *
 
 import helpers
 from calibrations import *
+import matplotlib.pyplot as plt
 
 Setup_mode = True
 

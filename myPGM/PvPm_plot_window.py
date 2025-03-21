@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
-from PyQt5.QtWidgets import (QWidget,
-                             QVBoxLayout,)
+import pyqtgraph as pg
+
+from PyQt5.QtWidgets import (QWidget,QMainWindow,
+							 QVBoxLayout,)
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
@@ -8,55 +10,53 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 #? Define plot canvas class
 
 class MplCanvas(FigureCanvas):
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
-        self.fig = plt.figure(figsize=(width, height), dpi=dpi, constrained_layout=True)
-        self.axes = self.fig.add_subplot(111)
-        super(MplCanvas, self).__init__(self.fig)
+	def __init__(self, parent=None, width=5, height=4, dpi=100):
+		self.fig = plt.figure(figsize=(width, height), dpi=dpi, constrained_layout=True)
+		self.axes = self.fig.add_subplot(111)
+		super(MplCanvas, self).__init__(self.fig)
 
 
-class PmPPlotWindow(QWidget):
+class PmPPlotWindow(QMainWindow):
 	def __init__(self, HPDataTable_, calibrations_):
 		super().__init__()
-
+		
 		self.setWindowTitle("PvPm Plot")
 		self.setGeometry(1000, 550, 450, 350)
 
-		#centerPoint = QDesktopWidget().availableGeometry().center()
-		#thePosition = (centerPoint.x() + 300, centerPoint.y() - 400)
-		#self.move(*thePosition)
+		self.plot_graph = pg.PlotWidget()
+		self.setCentralWidget(self.plot_graph)
+		self.plot_graph.setBackground("w")
+		self.pens = {}
+		#self.plot_graph.setTitle("Temperature vs Time", color="b", size="20pt")
+		styles = {"color": "black", "font-size": "16px"}
+		self.plot_graph.setLabel("left", "P (GPa)", **styles)
+		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+		self.plot_graph.addLegend()
+		self.plot_graph.showGrid(x=True, y=True)
 
 		self.data = HPDataTable_
 		self.calibrations = calibrations_
-
-		self.canvas = MplCanvas(self, width=5, height=4, dpi=100)
-		self.toolbar = NavigationToolbar(self.canvas, self)		
-		layout = QVBoxLayout()
-
-		layout.addWidget(self.toolbar)
-		layout.addWidget(self.canvas)
-
-		self.setLayout(layout)
+		self.lines = {}
 
 		self.updateplot()
 
 	def updateplot(self): 
-
-		self.canvas.axes.cla()
-
-		self.canvas.axes.set_xlabel('Pm (bar)')
-		self.canvas.axes.set_ylabel('P (GPa)')
-
 		gr = self.data.df.groupby('calib')
 		groups = gr.groups.keys()
-
+		
 		for g in groups:
 			subdf = gr.get_group(g)
-			self.canvas.axes.plot(subdf['Pm'], 
-								  subdf['P'], 
-								  marker='o',
-								  color=self.calibrations[g].color,
-								  label=g)
-		if len(groups) != 0:
-			self.canvas.axes.legend()
-		self.canvas.draw()
+			if g in list(self.lines.keys()):
+				self.lines[g].setData(list(subdf['Pm']), list(subdf['P']))
+				
+			else :
+				self.pens[g] = pg.mkPen(color=self.calibrations[g].color)
+				self.lines[g] = self.plot_graph.plot(
+					list(subdf['Pm']),
+					list(subdf['P']),
+					name=g,
+					pen=self.pens[g],
+					symbol="o",
+					symbolSize=8,
+					symbolBrush=self.calibrations[g].color,)
 
