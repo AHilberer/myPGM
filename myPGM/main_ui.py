@@ -578,7 +578,7 @@ class MainWindow(QMainWindow):
                 qss = file.read()
                 self.setStyleSheet(qss)
                 self.DataTableWindow.setStyleSheet(qss)
-                self.PvPmPlotWindow.setStyleSheet(qss)
+                #self.PvPmPlotWindow.setStyleSheet(qss)
         except:
             pass
         plt.style.use("myPGM_plot_style_dark.mplstyle")
@@ -593,10 +593,14 @@ class MainWindow(QMainWindow):
         self.deriv_plot.axes.set_facecolor("#202020")
         for subset in ["bottom", "top", "right", "left"]:
             self.deriv_plot.axes.spines[subset].set_color("white")
-        self.PvPmPlotWindow.canvas.fig.set_facecolor("#202020")
-        self.PvPmPlotWindow.canvas.axes.set_facecolor("#202020")
-        for subset in ["bottom", "top", "right", "left"]:
-            self.PvPmPlotWindow.canvas.axes.spines[subset].set_color("white")
+        # self.PvPmPlotWindow.canvas.fig.set_facecolor("#202020")
+        # self.PvPmPlotWindow.canvas.axes.set_facecolor("#202020")
+        # for subset in ["bottom", "top", "right", "left"]:
+        #     self.PvPmPlotWindow.canvas.axes.spines[subset].set_color("white")
+        self.PvPmPlotWindow.plot_graph.setBackground("#202020")
+        styles = {"color": "white", "font-size": "16px"}
+        self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
+        self.PvPmPlotWindow.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
         self.PvPmPlotWindow.updateplot()
 
         self.plot_data()
@@ -613,7 +617,7 @@ class MainWindow(QMainWindow):
                 qss = file.read()
                 self.setStyleSheet(qss)
                 self.DataTableWindow.setStyleSheet(qss)
-                self.PvPmPlotWindow.setStyleSheet(qss)
+                #self.PvPmPlotWindow.setStyleSheet(qss)
         except:
             pass
         plt.style.use("myPGM_plot_style_light.mplstyle")
@@ -628,10 +632,10 @@ class MainWindow(QMainWindow):
         self.deriv_plot.axes.set_facecolor("white")
         for subset in ["bottom", "top", "right", "left"]:
             self.deriv_plot.axes.spines[subset].set_color("black")
-        self.PvPmPlotWindow.canvas.fig.set_facecolor("white")
-        self.PvPmPlotWindow.canvas.axes.set_facecolor("white")
-        for subset in ["bottom", "top", "right", "left"]:
-            self.PvPmPlotWindow.canvas.axes.spines[subset].set_color("black")
+        self.PvPmPlotWindow.plot_graph.setBackground("white")
+        styles = {"color": "blavk", "font-size": "16px"}
+        self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
+        self.PvPmPlotWindow.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
         self.PvPmPlotWindow.updateplot()
 
         self.plot_data()

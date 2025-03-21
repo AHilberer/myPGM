@@ -25,9 +25,9 @@ class PmPPlotWindow(QMainWindow):
 
 		self.plot_graph = pg.PlotWidget()
 		self.setCentralWidget(self.plot_graph)
-		self.plot_graph.setBackground("w")
 		self.pens = {}
 		#self.plot_graph.setTitle("Temperature vs Time", color="b", size="20pt")
+		self.plot_graph.setBackground("white")
 		styles = {"color": "black", "font-size": "16px"}
 		self.plot_graph.setLabel("left", "P (GPa)", **styles)
 		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
