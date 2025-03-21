@@ -3,3 +3,4 @@ matplotlib
 scipy
 pandas
 PyQt5
+pyqtgraph
