@@ -1,20 +1,7 @@
 import matplotlib.pyplot as plt
 import pyqtgraph as pg
 
-from PyQt5.QtWidgets import (QWidget,QMainWindow,
-							 QVBoxLayout,)
-
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
-
-
-#? Define plot canvas class
-
-class MplCanvas(FigureCanvas):
-	def __init__(self, parent=None, width=5, height=4, dpi=100):
-		self.fig = plt.figure(figsize=(width, height), dpi=dpi, constrained_layout=True)
-		self.axes = self.fig.add_subplot(111)
-		super(MplCanvas, self).__init__(self.fig)
-
+from PyQt5.QtWidgets import (QMainWindow,)
 
 class PmPPlotWindow(QMainWindow):
 	def __init__(self, HPDataTable_, calibrations_):

@@ -42,7 +42,6 @@ from PvPm_table_window import *
 
 import helpers
 from calibrations import *
-import matplotlib.pyplot as plt
 
 Setup_mode = True
 
@@ -74,7 +73,6 @@ class MainWindow(QMainWindow):
         bottom_panel_layout = QHBoxLayout()
         main_layout.addLayout(bottom_panel_layout)
 
-        plt.style.use("myPGM_plot_style_light.mplstyle")
 
         #####################################################################################
         # ? Calibrations setup
@@ -485,12 +483,10 @@ class MainWindow(QMainWindow):
         self.data_scatter = pg.ScatterPlotItem(symbol='o', size=4, brush='grey')
         self.data_widget.addItem(self.data_scatter)
         self.data_fit_pen = pg.mkPen(color='red', width=3)
-        self.data_fit_line = self.data_widget.plot(
-                    [],
-                    [],
-					name='Fit',
-					pen=self.data_fit_pen,
-					)
+        self.data_bg_pen = pg.mkPen(color='darkviolet', width=3)
+        self.data_bg_scatter = pg.ScatterPlotItem(symbol='s', size=8, brush='darkviolet')
+        self.data_fit_line = pg.PlotDataItem(name='Fit',pen=self.data_fit_pen,)
+        self.data_bg_line = pg.PlotDataItem(name='Bg',pen=self.data_bg_pen)
         self.data_edge_marker = pg.InfiniteLine(pos=None, angle=90, pen=self.data_fit_pen, movable=False)
 
         self.data_scatter.scene().sigMouseClicked.connect(self.data_plot_click)
@@ -577,7 +573,6 @@ class MainWindow(QMainWindow):
         except:
             pass
         self.plot_label_color = "white"
-        plt.style.use("myPGM_plot_style_dark.mplstyle")
 
         # some parameters seem to be unaffected by the style import ...
         # thus we use the following fix
@@ -614,18 +609,10 @@ class MainWindow(QMainWindow):
         except:
             pass
         self.plot_label_color = "black"
-        plt.style.use("myPGM_plot_style_light.mplstyle")
 
         # some parameters seem to be unaffected by the style import ...
         # thus we use the following fix
-        #self.spectrum_plot.fig.set_facecolor("white")
-        #self.spectrum_plot.axes.set_facecolor("white")
-        #for subset in ["bottom", "top", "right", "left"]:
-        #    self.spectrum_plot.axes.spines[subset].set_color("black")
-        self.deriv_plot.fig.set_facecolor("white")
-        self.deriv_plot.axes.set_facecolor("white")
-        for subset in ["bottom", "top", "right", "left"]:
-            self.deriv_plot.axes.spines[subset].set_color("black")
+        
         self.PvPmPlotWindow.plot_graph.setBackground("white")
         styles = {"color": self.plot_label_color, "font-size": "16px"}
         self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
@@ -1054,6 +1041,7 @@ class MainWindow(QMainWindow):
                     click_point = vb.mapSceneToView(scene_coords)
 
             x_click, y_click = click_point.x(), click_point.y()
+
             fit_mode = self.models[self.fit_model_combo.currentText()]
 
             if self.current_selected_file_index is not None:
@@ -1160,22 +1148,30 @@ class MainWindow(QMainWindow):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:
             self.subtract_ManualBg()
             self.ManualBg_points = []
+            self.data_bg_line.setData([],[])
             self.ManualBg_button.setText("Manual Bg")
+            self.data_widget.removeItem(self.data_bg_line)
+            self.data_widget.removeItem(self.data_bg_scatter)
+
         else:
-            pass
+            self.data_widget.addItem(self.data_bg_line)
+            self.data_widget.addItem(self.data_bg_scatter)
         self.click_ManualBg_enabled = not self.click_ManualBg_enabled
         # if self.click_ManualBg_enabled:
         #    self.ManualBg_button.setText('test')
 
-    def set_ManualBg(self, event):
+    def set_ManualBg(self, mouseClickEvent):
         current_spectrum = self.custom_model.data(
             self.current_selected_file_index, role=Qt.UserRole
         )
         if self.click_ManualBg_enabled:
-            if event.button == 1 and event.inaxes:
-                x_click, y_click = event.xdata, event.ydata
-                self.ManualBg_points.append([x_click, y_click])
-                current_spectrum.bg = self.plot_ManualBg()
+            scene_coords = mouseClickEvent.scenePos()
+            vb = self.data_widget.plotItem.vb
+            if self.data_widget.sceneBoundingRect().contains(scene_coords):
+                click_point = vb.mapSceneToView(scene_coords)
+                x_click, y_click = click_point.x(), click_point.y()
+            self.ManualBg_points.append([x_click, y_click])
+            current_spectrum.bg = self.plot_ManualBg()
 
     def plot_ManualBg(self):
         interp = None
@@ -1192,16 +1188,9 @@ class MainWindow(QMainWindow):
         temp = np.array(self.ManualBg_points)
         x_bg = temp[:, 0]
         y_bg = temp[:, 1]
-        if self.plotted_Bg_points is not None:
-            self.plotted_Bg_points.remove()
-            self.plotted_Bg_points = self.axes.scatter(
-                x_bg, y_bg, marker="s", color="darkviolet"
-            )
-        else:
-            self.plotted_Bg_points = self.axes.scatter(
-                x_bg, y_bg, marker="s", color="darkviolet"
-            )
-
+        
+        self.data_bg_scatter.setData(x_bg,y_bg)
+        
         # sort bg points
         y_bg = y_bg[np.argsort(x_bg)]
         x_bg = np.sort(x_bg)
@@ -1211,20 +1200,7 @@ class MainWindow(QMainWindow):
             spl_order = len(x_bg) - 1 if len(x_bg) - 1 <= 5 else 5
             spl = InterpolatedUnivariateSpline(x_bg, y_bg, k=spl_order)
             interp = spl(x)
-            if self.current_spline is not None:
-                _ = [l.remove() for l in self.axes.lines]
-                self.current_spline = self.axes.plot(
-                    x, interp, color="darkviolet", label="bg"
-                )
-            else:
-                self.current_spline = self.axes.plot(
-                    x, interp, color="darkviolet", label="bg"
-                )
-            self.axes.legend(frameon=False)
-
-        self.canvas.draw()
-        pad = 0.1
-        self.axes.set_ylim([min(y) - pad, max(y) + pad])
+            self.data_bg_line.setData(x,interp)
         return interp
 
     def subtract_ManualBg(self):
