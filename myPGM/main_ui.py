@@ -32,10 +32,6 @@ from PyQt5.QtCore import (
 )
 from PyQt5.QtGui import QColor, QIcon
 
-from matplotlib.backends.backend_qt5agg import (
-    FigureCanvasQTAgg as FigureCanvas,
-    NavigationToolbar2QT as NavigationToolbar,
-)
 from scipy.ndimage import uniform_filter1d, gaussian_filter1d
 from scipy.spatial import ConvexHull
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -477,13 +473,14 @@ class MainWindow(QMainWindow):
         # #? Setup data plotting section
         PlotLayout = QVBoxLayout()
         self.splitter = QSplitter(Qt.Vertical)
-
-        self.data_widget = pg.PlotWidget()
         self.plot_label_color = "black"
+
+        # #? Actual spectral data
+        self.data_widget = pg.PlotWidget()
         self.data_widget.setBackground("white")
         styles = {"color": "black", "font-size": "16px"}
-        self.data_widget.setLabel("left", "Spectral unit", **styles)
-        self.data_widget.setLabel("bottom", "Intensity (a.u.)", **styles)
+        self.data_widget.setLabel("bottom", "Spectral unit", **styles)
+        self.data_widget.setLabel("left", "Intensity (a.u.)", **styles)
 
         self.data_scatter = pg.ScatterPlotItem(symbol='o', size=4, brush='grey')
         self.data_widget.addItem(self.data_scatter)
@@ -496,44 +493,25 @@ class MainWindow(QMainWindow):
 					)
         self.data_edge_marker = pg.InfiniteLine(pos=None, angle=90, pen=self.data_fit_pen, movable=False)
 
-        self.data_scatter.scene().sigMouseClicked.connect(self.plot_click)
-        #data_widget = QWidget()
-        # DataPlotBoxLayout = QVBoxLayout()
-        # self.spectrum_plot = MplCanvas(self)
-        # self.axes = self.spectrum_plot.axes
-        # self.figure = self.spectrum_plot.figure
-        # self.canvas = FigureCanvas(self.figure)
-        # self.axes.set_ylabel("Intensity")
-        # self.axes.set_xlabel("spectral unit")
-
-        # toolbar = NavigationToolbar(self.canvas, self)
-        # DataPlotBoxLayout.addWidget(self.canvas)
-        # DataPlotBoxLayout.addWidget(toolbar)
-        # #self.canvas.mpl_connect("button_press_event", self.plot_click)
-
-        # data_widget.setLayout(DataPlotBoxLayout)
+        self.data_scatter.scene().sigMouseClicked.connect(self.data_plot_click)
 
         #####################################################################################
         # #? Setup derivative plotting section
+        self.deriv_widget = pg.PlotWidget()
+        self.deriv_widget.setBackground("white")
+        styles = {"color": "black", "font-size": "16px"}
+        self.deriv_widget.setLabel("bottom", "Spectral unit", **styles)
+        self.deriv_widget.setLabel("left", "I' (a.u.)", **styles)
 
-        derivwidget = QWidget()
-        DataPlotBoxLayout = QVBoxLayout()
+        self.deriv_scatter = pg.ScatterPlotItem(symbol='o', size=4, brush='grey')
+        self.deriv_widget.addItem(self.deriv_scatter)
+        self.deriv_edge_marker = pg.InfiniteLine(pos=None, angle=90, pen=self.data_fit_pen, movable=False)
 
-        self.deriv_plot = MplCanvas(self)
-        self.deriv_axes = self.deriv_plot.axes
-        self.deriv_figure = self.deriv_plot.figure
-        self.deriv_canvas = FigureCanvas(self.deriv_figure)
-        self.deriv_axes.set_ylabel("Intensity")
-        self.deriv_axes.set_xlabel("spectral unit")
+        self.deriv_scatter.scene().sigMouseClicked.connect(self.deriv_plot_click)
 
-        deriv_toolbar = NavigationToolbar(self.deriv_canvas, self)
-        DataPlotBoxLayout.addWidget(self.deriv_canvas)
-        DataPlotBoxLayout.addWidget(deriv_toolbar)
-        self.deriv_canvas.mpl_connect("button_press_event", self.plot_click)
-        derivwidget.setLayout(DataPlotBoxLayout)
 
         self.splitter.addWidget(self.data_widget)
-        self.splitter.addWidget(derivwidget)
+        self.splitter.addWidget(self.deriv_widget)
         PlotLayout.addWidget(self.splitter)
         self.splitter.setSizes([300, 200])
         self.splitter.widget(1).hide()
@@ -603,18 +581,11 @@ class MainWindow(QMainWindow):
 
         # some parameters seem to be unaffected by the style import ...
         # thus we use the following fix
-        #self.spectrum_plot.fig.set_facecolor("#202020")
-        #self.spectrum_plot.axes.set_facecolor("#202020")
-        #for subset in ["bottom", "top", "right", "left"]:
-        #    self.spectrum_plot.axes.spines[subset].set_color("white")
+
         self.deriv_plot.fig.set_facecolor("#202020")
         self.deriv_plot.axes.set_facecolor("#202020")
         for subset in ["bottom", "top", "right", "left"]:
             self.deriv_plot.axes.spines[subset].set_color("white")
-        # self.PvPmPlotWindow.canvas.fig.set_facecolor("#202020")
-        # self.PvPmPlotWindow.canvas.axes.set_facecolor("#202020")
-        # for subset in ["bottom", "top", "right", "left"]:
-        #     self.PvPmPlotWindow.canvas.axes.spines[subset].set_color("white")
         self.PvPmPlotWindow.plot_graph.setBackground("#202020")
         styles = {"color": self.plot_label_color, "font-size": "16px"}
         self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
@@ -924,13 +895,15 @@ class MainWindow(QMainWindow):
 
     def plot_data(self):
         self.data_widget.removeItem(self.data_edge_marker)
+        self.deriv_widget.removeItem(self.deriv_edge_marker)
+
 
         if self.current_selected_file_index is not None:
             current_spectrum = self.custom_model.data(
                 self.current_selected_file_index, role=Qt.UserRole
             )
             if hasattr(current_spectrum, "data"):
-                # spectral data
+    # spectral data
                 self.data_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
                 self.data_widget.setLabel("left", 'Intensity')
 
@@ -944,26 +917,26 @@ class MainWindow(QMainWindow):
                 self.data_scatter.setData(x, y)
                 self.data_widget.autoRange()
 
+                # self.data_widget.addItem(pg.LinearRegionItem(values=(x[0]+(x[-1]-x[0])/3, x[0]+2*(x[-1]-x[0])/3),
+                # orientation='vertical',
+                # brush=None,
+                # pen=pg.mkPen(color='green'),
+                # hoverBrush=None,
+                # hoverPen=None,
+                # movable=True,
+                # swapMode='sort',
+                # ))
 
-        #         # derivative data
-        #         self.deriv_axes.clear()
-        #         self.deriv_axes.set_ylabel(r"dI/d$\nu$")
-        #         self.deriv_axes.set_xlabel(
-        #             f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})"
-        #         )
-        #         if current_spectrum.corrected_data is None:
-        #             x = current_spectrum.data[:, 0]
-        #             y = current_spectrum.data[:, 1]
-        #         else:
-        #             x = current_spectrum.corrected_data[:, 0]
-        #             y = current_spectrum.corrected_data[:, 1]
-        #         dI = gaussian_filter1d(y, mode="nearest", sigma=1, order=1)
-        #         self.deriv_axes.scatter(x, dI)
-        #         self.deriv_canvas.draw()
-        # else:
-        #     self.canvas.draw()
-        #     self.deriv_canvas.draw()
-        # pass
+    # derivative data
+                self.deriv_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
+                self.deriv_widget.setLabel("left", 'Intensity')
+
+                dI = gaussian_filter1d(y, mode="nearest", sigma=1, order=1)
+                self.deriv_scatter.setData(x, dI)
+                self.deriv_widget.autoRange()
+        else:
+            pass
+        
 
     def smoothen(self):
         if self.current_selected_file_index is not None:
@@ -1058,21 +1031,28 @@ class MainWindow(QMainWindow):
     def toggle_click_fit(self):
         self.click_fit_enabled = not self.click_fit_enabled
 
-    def plot_click(self, event):
-        #print('click')
+    def data_plot_click(self, event):
         if self.click_fit_enabled:
-            self.click_to_fit(event)
+            self.click_to_fit(event, 'data')
         elif self.click_ManualBg_enabled:
             self.set_ManualBg(event)
             pass
-
-    def click_to_fit(self, mouseClickEvent):
+    def deriv_plot_click(self, event):
         if self.click_fit_enabled:
-            vb = self.data_widget.plotItem.vb
+            self.click_to_fit(event, 'deriv')
+
+    def click_to_fit(self, mouseClickEvent, window):
+        if self.click_fit_enabled:
             scene_coords = mouseClickEvent.scenePos()
-            if self.data_widget.sceneBoundingRect().contains(scene_coords):
-                click_point = vb.mapSceneToView(scene_coords)
-            #click_point = self.data_scatter.getViewBox().mapSceneToView(mouseClickEvent.pos())
+            if window == 'data':
+                vb = self.data_widget.plotItem.vb
+                if self.data_widget.sceneBoundingRect().contains(scene_coords):
+                    click_point = vb.mapSceneToView(scene_coords)
+            elif window == 'deriv':
+                vb = self.deriv_widget.plotItem.vb
+                if self.deriv_widget.sceneBoundingRect().contains(scene_coords):
+                    click_point = vb.mapSceneToView(scene_coords)
+
             x_click, y_click = click_point.x(), click_point.y()
             fit_mode = self.models[self.fit_model_combo.currentText()]
 
@@ -1112,6 +1092,7 @@ class MainWindow(QMainWindow):
 
     def plot_fit(self, my_spectrum):
         self.data_widget.removeItem(self.data_edge_marker)
+        self.deriv_widget.removeItem(self.deriv_edge_marker)
         self.data_widget.removeItem(self.data_fit_line)
 
         if my_spectrum.fit_result is not None:
@@ -1135,15 +1116,12 @@ class MainWindow(QMainWindow):
             elif my_spectrum.fit_model.type == "edge":
                 self.data_edge_marker.setValue(my_spectrum.fit_result["opti"])
                 self.data_widget.addItem(self.data_edge_marker)
+                self.deriv_edge_marker.setValue(my_spectrum.fit_result["opti"])
+                self.deriv_widget.addItem(self.deriv_edge_marker)
 
-                self.deriv_axes.axvline(
-                    my_spectrum.fit_result["opti"], color="red", ls="--", label="edge"
-                )
                 self.data_widget.setTitle(f"Fitted pressure : {my_spectrum.fit_toolbox_config.P : > 10.2f} GPa",
                                            color=self.plot_label_color, size="16pt")
-                
-                
-                self.deriv_canvas.draw()
+                                
             else:
                 print("Plot fit not implemented")
         else:
