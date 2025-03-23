@@ -73,6 +73,7 @@ class MainWindow(QMainWindow):
         bottom_panel_layout = QHBoxLayout()
         main_layout.addLayout(bottom_panel_layout)
 
+        pg.setConfigOption('leftButtonPan', False)
 
         #####################################################################################
         # ? Calibrations setup
@@ -479,7 +480,6 @@ class MainWindow(QMainWindow):
         styles = {"color": "black", "font-size": "16px"}
         self.data_widget.setLabel("bottom", "Spectral unit", **styles)
         self.data_widget.setLabel("left", "Intensity (a.u.)", **styles)
-
         self.data_scatter = pg.ScatterPlotItem(symbol='o', size=4, brush='grey')
         self.data_widget.addItem(self.data_scatter)
         self.data_fit_pen = pg.mkPen(color='red', width=3)

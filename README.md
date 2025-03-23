@@ -17,7 +17,7 @@ It currently supports the following pressure scales:
 
 This piece of software is still a work in progress so do not hesitate to open issues on this GitHub page or to contact the authors if you notice any bugs.
 
-New versions may come regularly on this page before a first full release, so comme back for more features !
+New versions may come regularly on this page before a first full release, so come back for more features !
 
 
 ## Installation from source
