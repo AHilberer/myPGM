@@ -577,10 +577,6 @@ class MainWindow(QMainWindow):
         # some parameters seem to be unaffected by the style import ...
         # thus we use the following fix
 
-        self.deriv_plot.fig.set_facecolor("#202020")
-        self.deriv_plot.axes.set_facecolor("#202020")
-        for subset in ["bottom", "top", "right", "left"]:
-            self.deriv_plot.axes.spines[subset].set_color("white")
         self.PvPmPlotWindow.plot_graph.setBackground("#202020")
         styles = {"color": self.plot_label_color, "font-size": "16px"}
         self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
@@ -588,6 +584,9 @@ class MainWindow(QMainWindow):
         self.data_widget.setBackground("#202020")
         self.data_widget.setLabel("left", **styles)
         self.data_widget.setLabel("bottom", **styles)
+        self.deriv_widget.setBackground("#202020")
+        self.deriv_widget.setLabel("left", **styles)
+        self.deriv_widget.setLabel("bottom", **styles)
         self.PvPmPlotWindow.updateplot()
 
         self.plot_data()
@@ -621,6 +620,9 @@ class MainWindow(QMainWindow):
         self.data_widget.setBackground("white")
         self.data_widget.setLabel("left", **styles)
         self.data_widget.setLabel("bottom", **styles)
+        self.deriv_widget.setBackground("white")
+        self.deriv_widget.setLabel("left", **styles)
+        self.deriv_widget.setLabel("bottom", **styles)
         self.PvPmPlotWindow.updateplot()
 
         self.plot_data()
