@@ -23,11 +23,14 @@ class MyVSeparator(QFrame):
 
 def customparse_file2data(f):
     with open(f, 'r') as file: # binary
-        # try to find delimiter in the 2000 last characters:
-        delimiter = csv.Sniffer().sniff(file.read()[-2000:]).delimiter
-        file.seek(0) # back to beginning
+        lines = file.readlines()
+        chars = ''.join(lines)
+        # try to find delimiter in 2000 characters in the middle:
+        start1 = int(len(chars)/2) - 1000
+        end1 = int(len(chars)/2) + 1000
+        delimiter = csv.Sniffer().sniff(chars[start1:end1]).delimiter
         header_count = 0
-        for s in file:
+        for s in lines:
             sp = s.strip().split(delimiter)
             if len(sp) != 2:
                 header_count += 1
@@ -38,18 +41,35 @@ def customparse_file2data(f):
                 except:
                     header_count += 1
 #        print(delimiter, header_count)
-        file.seek(0) # back to beginning
+        # same in case of footer
+        footer_count = 0
+        for s in reversed(lines):
+            sp = s.strip().split(delimiter)
+            if len(sp) != 2:
+                footer_count += 1
+            else:
+                try:
+                    _ = list(map(float, sp))
+                    break
+                except:
+                    footer_count += 1
+    #   print(len(lines)-header_count-footer_count)
+        file.seek(0) # back to the beginning
+        
+        max_lines = len(lines)-header_count-footer_count
         data = np.loadtxt(file, 
                           delimiter=delimiter,
                           skiprows=header_count, 
+                          max_rows=max_lines,
                           dtype=str)
     # in case of empty columns in ascii file... 
     # only manage 2 columns    
-    try:
-        return data.astype(np.float64)
-    except ValueError:
+    #try:
+    #    return data.astype(np.float64)
+    #except ValueError:
 
-        return data[:,:2].astype(np.float64) 
+    # We only keep the two first columns in any cases:
+    return data[:,:2].astype(np.float64) 
 
 
 class MySpectrumItem:
@@ -305,6 +325,6 @@ class HPDataTable(QObject):
 
 if __name__ == '__main__':
     import os
-    f1 = os.path.dirname(__file__)+'/resources/various_file_formats/'+'Example_Ruby_3_tab_very_long_header.asc'
+    f1 = os.path.dirname(__file__)+'/resources/Example_Ruby_3_header_footer.asc'
     
     print(customparse_file2data(f1))
