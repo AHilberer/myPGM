@@ -9,6 +9,7 @@ from scipy.spatial import ConvexHull
 from scipy.ndimage import uniform_filter1d, gaussian_filter1d
 from scipy.optimize import curve_fit
 
+import matplotlib.pyplot as plt
 
 class PressureGaugeDataObject:
     """
@@ -65,9 +66,27 @@ class PressureGaugeDataObject:
         self.normalize_data()
         self.current_smoothing = 1
 
+    def set_calibration(self, calib):
+        """
+        Set the calibration for the pressure gauge data object.
+        :param calib: HPCalibration
+        """
+        self.calib = calib
+        self.x0 = self.calib.x0default
+        self.T0 = 0
+        self.T = 0
+
+    def set_fit_model(self, fit_model):
+        """
+        Set the fit model for the pressure gauge data object.
+        :param fit_model: GaugeFitModel
+        """
+        self.fit_model = fit_model
+
 
     def normalize_data(self):
         self.normalized_data = np.zeros(self.original_data.shape)
+        self.normalized_data[:,0] = self.original_data[:,0]
         self.normalized_data[:,1] = self.original_data[:,1]-np.min(self.original_data[:,1])
         self.normalized_data[:,1]=self.original_data[:,1]/max(self.original_data[:,1])
 
@@ -140,6 +159,7 @@ class PressureGaugeDataObject:
         :param fit_model: GaugeFitModel
         """
         x,y = self.get_data_to_process()
+        
         try:
             self.fit_result = self.fit_procedure(self.fit_model, x, y)
             if self.fit_model.type == "peak":
@@ -227,7 +247,7 @@ class GaugeFitModel():
         self.color = color  # color printed in calibration combobox
 
     def get_pinit(self, x, y, guess_peak=None):
-    
+        
         pinit = list()
         
         xbin = x[1] - x[0] # nm/px or cm-1/px
@@ -334,9 +354,19 @@ if __name__ == '__main__':
     data_manager = PressureGaugeDataManager()
     data_manager.add_instance(test_obj)
     print(data_manager)
-    print(data_manager.get_instance_by_id(test_obj.id))
     test_file = 'Example_Ruby_1.asc'
     test_path = os.path.dirname(__file__) + "/resources/" + test_file
     test_obj.load_spectral_data_file(test_file, test_path)
-    
+    print(data_manager.get_instance_by_id(test_obj.id))
+
+    # plt.figure()
+    # plt.plot(test_obj.original_data[:,0], test_obj.original_data[:,1])
+    # plt.show()
+    import calibrations
+    test_obj.set_calibration(calibrations.Ruby2020)
+    import fit_models
+    test_obj.set_fit_model(fit_models.DoubleLorentzian)
+    test_obj.fit_data()
+    print(f'Fitted ruby wavelength: {test_obj.x} nm')
+    print(f'Fitted pressure: {test_obj.P} GPa')
 
