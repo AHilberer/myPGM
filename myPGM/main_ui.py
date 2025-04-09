@@ -33,7 +33,6 @@ from PyQt5.QtCore import (
 from PyQt5.QtGui import QColor, QIcon
 
 from scipy.ndimage import uniform_filter1d, gaussian_filter1d
-from scipy.spatial import ConvexHull
 from scipy.interpolate import InterpolatedUnivariateSpline
 
 from fit_models import *
@@ -929,23 +928,6 @@ class MainWindow(QMainWindow):
             pass
         
 
-    def smoothen(self):
-        if self.current_selected_file_index is not None:
-            current_spectrum = self.custom_model.data(
-                self.current_selected_file_index, role=Qt.UserRole
-            )
-            smooth_window = int(self.smoothing_factor.value() // 1)
-            current_spectrum.current_smoothing = self.smoothing_factor.value()
-            current_spectrum.corrected_data = np.column_stack(
-                (
-                    current_spectrum.data[:, 0],
-                    uniform_filter1d(current_spectrum.data[:, 1], size=smooth_window),
-                )
-            )
-            self.plot_data()
-            if current_spectrum.fit_result is not None:
-                self.plot_fit(current_spectrum)
-
     def update_fit_model(self):
         col1 = (
             self.fit_model_combo.model()
@@ -1160,25 +1142,7 @@ class MainWindow(QMainWindow):
             self.DataTableWindow.show()
             self.PvPmPlotWindow.show()
 
-    def CHull_Bg(self):
-        current_spectrum = self.custom_model.data(
-            self.current_selected_file_index, role=Qt.UserRole
-        )
-        if current_spectrum.corrected_data is None:
-            x = current_spectrum.data[:, 0]
-            y = current_spectrum.data[:, 1]
-        else:
-            x = current_spectrum.corrected_data[:, 0]
-            y = current_spectrum.corrected_data[:, 1]
 
-        v = ConvexHull(np.column_stack((x, y))).vertices
-        v = np.roll(v, -v.argmin())
-        anchors = v[: v.argmax()]
-        bg = np.interp(x, x[anchors], y[anchors])
-        corrected = y - bg
-
-        current_spectrum.corrected_data = np.column_stack((x, corrected))
-        self.plot_data()
 
     def toggle_ManualBg(self):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:
@@ -1253,13 +1217,6 @@ class MainWindow(QMainWindow):
         current_spectrum.corrected_data = np.column_stack((x, corrected))
         self.plot_data()
 
-    def Reset_Bg(self):
-        current_spectrum = self.custom_model.data(
-            self.current_selected_file_index, role=Qt.UserRole
-        )
-        current_spectrum.corrected_data = None
-        current_spectrum.bg = None
-        self.plot_data()
 
 
 if __name__ == "__main__":
