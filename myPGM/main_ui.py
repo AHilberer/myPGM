@@ -488,7 +488,8 @@ class MainWindow(QMainWindow):
         self.data_fit_line = pg.PlotDataItem(name='Fit',pen=self.data_fit_pen,)
         self.data_bg_line = pg.PlotDataItem(name='Bg',pen=self.data_bg_pen)
         self.data_edge_marker = pg.InfiniteLine(pos=None, angle=90, pen=self.data_fit_pen, movable=False)
-
+        
+        self.data_widget.setMenuEnabled(False)
         self.data_scatter.scene().sigMouseClicked.connect(self.data_plot_click)
 
         #####################################################################################
@@ -503,6 +504,7 @@ class MainWindow(QMainWindow):
         self.deriv_widget.addItem(self.deriv_scatter)
         self.deriv_edge_marker = pg.InfiniteLine(pos=None, angle=90, pen=self.data_fit_pen, movable=False)
 
+        self.deriv_widget.setMenuEnabled(False)
         self.deriv_scatter.scene().sigMouseClicked.connect(self.deriv_plot_click)
 
 
@@ -1021,14 +1023,46 @@ class MainWindow(QMainWindow):
         self.click_fit_enabled = not self.click_fit_enabled
 
     def data_plot_click(self, event):
-        if self.click_fit_enabled:
-            self.click_to_fit(event, 'data')
-        elif self.click_ManualBg_enabled:
-            self.set_ManualBg(event)
-            pass
+        if event.button() == Qt.RightButton or (
+            event.button() == Qt.LeftButton
+            and event.modifiers() & Qt.ControlModifier
+        ):
+            view_range = np.array(self.data_widget.plotItem.vb.viewRange()) * 2
+            curve_data = self.data_scatter.getData()
+            x_range = np.max(curve_data[0]) - np.min(curve_data[0])
+            if (view_range[0][1] - view_range[0][0]) > x_range:
+                #self.auto_range = True
+                self.data_widget.autoRange()
+            else:
+                #self.auto_range = False
+                self.data_widget.plotItem.vb.scaleBy((2, 2))
+            #self.emit_sig_range_changed()
+        elif event.button() == Qt.LeftButton:
+            if self.click_fit_enabled:
+                self.click_to_fit(event, 'data')
+            elif self.click_ManualBg_enabled:
+                self.set_ManualBg(event)
+
+
+
     def deriv_plot_click(self, event):
-        if self.click_fit_enabled:
-            self.click_to_fit(event, 'deriv')
+        if event.button() == Qt.RightButton or (
+            event.button() == Qt.LeftButton
+            and event.modifiers() & Qt.ControlModifier
+        ):
+            view_range = np.array(self.deriv_widget.plotItem.vb.viewRange()) * 2
+            curve_data = self.deriv_scatter.getData()
+            x_range = np.max(curve_data[0]) - np.min(curve_data[0])
+            if (view_range[0][1] - view_range[0][0]) > x_range:
+                #self.auto_range = True
+                self.deriv_widget.autoRange()
+            else:
+                #self.auto_range = False
+                self.deriv_widget.plotItem.vb.scaleBy((2, 2))
+            #self.emit_sig_range_changed()
+        elif event.button() == Qt.LeftButton:
+            if self.click_fit_enabled:
+                self.click_to_fit(event, 'deriv')
 
     def click_to_fit(self, mouseClickEvent, window):
         if self.click_fit_enabled:
