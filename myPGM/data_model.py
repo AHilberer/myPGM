@@ -1,3 +1,4 @@
+import os
 import time
 import numpy as np
 from scipy.optimize import minimize
@@ -60,12 +61,13 @@ class PressureGaugeDataObject:
     def load_spectral_data_file(self, file_name, file_path):
         self.filename = file_name
         self.path = file_path
-        self.original_data = helpers.customparse_file2data(file_name)
+        self.original_data = helpers.customparse_file2data(self.path)
         self.normalize_data()
         self.current_smoothing = 1
 
 
     def normalize_data(self):
+        self.normalized_data = np.zeros(self.original_data.shape)
         self.normalized_data[:,1] = self.original_data[:,1]-np.min(self.original_data[:,1])
         self.normalized_data[:,1]=self.original_data[:,1]/max(self.original_data[:,1])
 
@@ -132,14 +134,14 @@ class PressureGaugeDataObject:
             self.corrected_data = np.column_stack((x, corrected))
         #self.plot_data()
 
-    def fit_data(self, fit_model):
+    def fit_data(self):
         """
-        Fit the spectrum using the selected model.
+        Fit the spectrum using the selected model, and update the pressure estimate.
+        :param fit_model: GaugeFitModel
         """
-        self.fit_model = fit_model
         x,y = self.get_data_to_process()
         try:
-            self.fit_result = self.fit_procedure(fit_model, x, y)
+            self.fit_result = self.fit_procedure(self.fit_model, x, y)
             if self.fit_model.type == "peak":
                 fitted = [self.fit_model.func(wvl, *self.fit_result["opti"]) for wvl in x]
                 self.fitted_data = np.column_stack((x, fitted))
@@ -333,3 +335,8 @@ if __name__ == '__main__':
     data_manager.add_instance(test_obj)
     print(data_manager)
     print(data_manager.get_instance_by_id(test_obj.id))
+    test_file = 'Example_Ruby_1.asc'
+    test_path = os.path.dirname(__file__) + "/resources/" + test_file
+    test_obj.load_spectral_data_file(test_file, test_path)
+    
+
