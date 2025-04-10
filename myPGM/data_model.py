@@ -5,11 +5,15 @@ from scipy.optimize import minimize
 from scipy.signal import find_peaks
 from inspect import getfullargspec
 import helpers
+import calibrations
+import fit_models
 from scipy.spatial import ConvexHull
 from scipy.ndimage import uniform_filter1d, gaussian_filter1d
 from scipy.optimize import curve_fit
+from collections.abc import MutableMapping
 
 import matplotlib.pyplot as plt
+
 
 class PressureGaugeDataObject:
     """
@@ -57,7 +61,11 @@ class PressureGaugeDataObject:
 
         :return: str
         """
-        return f"PressureGaugeDataObject(id={self.id}, name={self.filename}, path={self.path})"
+        return f"PressureGaugeDataObject(id={self.id}, name={self.filename}, P={self.P})"
+
+    def __str__(self):
+
+        return f"PressureGaugeDataObject(id={self.id}, name={self.filename}, P={self.P})"
 
     def load_spectral_data_file(self, file_name, file_path):
         self.filename = file_name
@@ -297,16 +305,33 @@ class GaugeFitModel():
     def __repr__(self):
         return 'GaugeFitModel : ' + str( self.__dict__ )
 
-class PressureGaugeDataManager:
-    """
-    A class to manage and store all instances of PressureGaugeDataObject.
-    """
 
-    def __init__(self):
-        """
-        Initialize the PressureGaugeDataManager with an empty list of objects.
-        """
-        self.instances = []
+
+
+class PressureGaugeDataManager(MutableMapping):
+    def __init__(self, *args, **kwargs):
+        '''Use the object dict'''
+
+        super().__init__()
+        self.__dict__.update(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        self.__dict__[key] = value
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __delitem__(self, key):
+        del self.__dict__[key]
+
+    def __iter__(self):
+        return iter(self.__dict__)
+
+    def __len__(self):
+        return len(self.__dict__)
+
+    def __repr__(self):
+        return f"{type(self).__name__} ({len(self.__dict__)} pressure gauge data point(s))"
 
     def add_instance(self, instance):
         """
@@ -315,58 +340,29 @@ class PressureGaugeDataManager:
         :param instance: PressureGaugeDataObject
         """
         if isinstance(instance, PressureGaugeDataObject):
-            self.instances.append(instance)
+            self.__dict__[instance.id] = instance
         else:
             raise TypeError("Only instances of PressureGaugeDataObject can be added.")
 
-    def get_instance_by_id(self, instance_id):
-        """
-        Retrieve a PressureGaugeDataObject instance by its ID.
-
-        :param instance_id: int
-        :return: PressureGaugeDataObject or None
-        """
-        for instance in self.instances:
-            if instance.id == instance_id:
-                return instance
-        return None
-
-    def remove_instance_by_id(self, instance_id):
-        """
-        Remove a PressureGaugeDataObject instance by its ID.
-
-        :param instance_id: int
-        """
-        self.instances = [inst for inst in self.instances if inst.id != instance_id]
-
-    def __repr__(self):
-        """
-        Return a string representation of the PressureGaugeDataManager.
-
-        :return: str
-        """
-        return f"PressureGaugeDataManager({len(self.instances)} instances)"
-
-
 if __name__ == '__main__':
 
-    test_obj = PressureGaugeDataObject()
     data_manager = PressureGaugeDataManager()
-    data_manager.add_instance(test_obj)
-    print(data_manager)
-    test_file = 'Example_Ruby_1.asc'
+    a = PressureGaugeDataObject()
+    data_manager.add_instance(a)
+    test_file = 'Example_Ruby_3.asc'
     test_path = os.path.dirname(__file__) + "/resources/" + test_file
-    test_obj.load_spectral_data_file(test_file, test_path)
-    print(data_manager.get_instance_by_id(test_obj.id))
+    
+    a.load_spectral_data_file(test_file, test_path)
 
     # plt.figure()
     # plt.plot(test_obj.original_data[:,0], test_obj.original_data[:,1])
     # plt.show()
-    import calibrations
-    test_obj.set_calibration(calibrations.Ruby2020)
-    import fit_models
-    test_obj.set_fit_model(fit_models.DoubleLorentzian)
-    test_obj.fit_data()
-    print(f'Fitted ruby wavelength: {test_obj.x} nm')
-    print(f'Fitted pressure: {test_obj.P} GPa')
+    a.set_calibration(calibrations.Ruby2020)
+    a.set_fit_model(fit_models.DoubleVoigt)
+    a.fit_data()
+    print(f'Fitted ruby wavelength: {a.x} nm')
+    print(f'Fitted pressure: {a.P} GPa')
+    print('##################################################################')
+    print([k for k in data_manager.values()])
 
+ 
