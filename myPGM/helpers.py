@@ -22,34 +22,43 @@ class MyVSeparator(QFrame):
 
 
 def customparse_file2data(f):
-    with open(f, 'r') as file: # binary
-        # try to find delimiter in the 2000 last characters:
-        delimiter = csv.Sniffer().sniff(file.read()[-2000:]).delimiter
-        file.seek(0) # back to beginning
-        header_count = 0
-        for s in file:
-            sp = s.strip().split(delimiter)
-            if len(sp) != 2:
-                header_count += 1
+    with open(f, 'r') as file:
+        # Skip initial lines to determine the delimiter
+        initial_skip = 100  
+        for _ in range(initial_skip):
+            file.readline()
+
+        # Read a chunk from the middle of the file to determine the delimiter
+        chunk_size = 2000
+        chunk = file.read(chunk_size)
+        file.seek(0)  # Reset file pointer to the beginning
+
+        delimiter = csv.Sniffer().sniff(chunk).delimiter
+
+        count = 0
+        data_lines = []
+        # Process the file line by line to determine header
+        # When it will reach footer, it will be exluded too
+        for line in file:
+            sp = line.strip().split(delimiter)
+            if len(sp) < 2:
+                count += 1
             else:
                 try:
                     _ = list(map(float, sp))
-                    break
-                except:
-                    header_count += 1
-#        print(delimiter, header_count)
-        file.seek(0) # back to beginning
-        data = np.loadtxt(file, 
-                          delimiter=delimiter,
-                          skiprows=header_count, 
-                          dtype=str)
-    # in case of empty columns in ascii file... 
-    # only manage 2 columns    
-    try:
-        return data.astype(np.float64)
-    except ValueError:
+                    data_lines.append(line)
+                except ValueError:
+                    count += 1
 
-        return data[:,:2].astype(np.float64) 
+        #print('delimiter : {}'.format(delimiter))
+        #print('count : {}'.format(count))
+
+        # Convert data_lines to a numpy array
+        data = np.array([line.strip().split(delimiter) for line in data_lines], 
+            dtype=np.float64)
+
+        #print('length: {}'.format(len(data)))
+        return data[:, :2]
 
 
 class MySpectrumItem:
@@ -305,6 +314,6 @@ class HPDataTable(QObject):
 
 if __name__ == '__main__':
     import os
-    f1 = os.path.dirname(__file__)+'/resources/various_file_formats/'+'Example_Ruby_3_tab_very_long_header.asc'
+    f1 = os.path.dirname(__file__)+'/resources/Example_Ruby_3_header_footer.asc'
     
     print(customparse_file2data(f1))

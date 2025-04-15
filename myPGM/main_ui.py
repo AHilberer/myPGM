@@ -664,6 +664,9 @@ class MainWindow(QMainWindow):
             self.buffer.x0 = self.x0_spinbox.value()
             self.buffer.T0 = self.T0_spinbox.value()
 
+            # 25/03/25 
+            # We may update x0 and T0 inside the HPCalibration here to keep it?
+
             try:
                 self.buffer.calcP()
                 self.P_spinbox.setValue(self.buffer.P)
