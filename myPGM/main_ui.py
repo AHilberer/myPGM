@@ -286,7 +286,6 @@ class MainWindow(QMainWindow):
         FileManagementBox.setLayout(FileManagementLayout)
 
         self.list_widget = FileListViewerWidget(self.model)
-        self.list_widget.object_selected.connect(self.plot_data)
 
         FileManagementLayout.addWidget(self.list_widget)
 
@@ -508,9 +507,7 @@ class MainWindow(QMainWindow):
 
     #####################################################################################
     # ? Main window methods
-    def fileSelected(self, obj_id):
-        self.current_selected_file_id = obj_id
-        self.plot_data(obj_id)
+
 
     def closeEvent(self, event):
         for window in QApplication.topLevelWidgets():
@@ -835,31 +832,24 @@ class MainWindow(QMainWindow):
                 new_index, QItemSelectionModel.Select
             )
 
-    def plot_data(self, obj_id):
-        obj = self.model.get(obj_id, None)
-
+    def plot_data(self, x, y):
         self.data_widget.removeItem(self.data_edge_marker)
         self.deriv_widget.removeItem(self.deriv_edge_marker)
+        
+        self.data_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
+        self.data_widget.setLabel("left", 'Intensity')
 
-
-        if obj.original_data is not None:
-            x, y = obj.get_data_to_process()
-            self.data_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
-            self.data_widget.setLabel("left", 'Intensity')
-
-            self.data_scatter.setData(x, y)
-            self.data_widget.autoRange()
+        self.data_scatter.setData(x, y)
+        self.data_widget.autoRange()
 
     # derivative data
-            self.deriv_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
-            self.deriv_widget.setLabel("left", 'Intensity')
+        self.deriv_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
+        self.deriv_widget.setLabel("left", 'Intensity')
 
-            dI = gaussian_filter1d(y, mode="nearest", sigma=1, order=1)
-            self.deriv_scatter.setData(x, dI)
-            self.deriv_widget.autoRange()
-        else:
-            pass
-        
+        dI = gaussian_filter1d(y, mode="nearest", sigma=1, order=1)
+        self.deriv_scatter.setData(x, dI)
+        self.deriv_widget.autoRange()
+
 
     def update_fit_model(self):
         col1 = (

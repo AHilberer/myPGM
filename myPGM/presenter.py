@@ -21,6 +21,8 @@ class Presenter:
                 "Example_Ruby_3.asc",
                 #"Example_H2.txt",
             ]
+        self.view.list_widget.object_selected.connect(self.update_data_plots)
+
 
     def initialize_example(self):
         for i, current_file in enumerate(self.example_files):
@@ -34,6 +36,13 @@ class Presenter:
         print([k for k in self.model.values()])
         self.view.list_widget.populate_list()
 
+    def update_data_plots(self, obj_id):
+        obj = self.model.get(obj_id, None)
+        if obj.original_data is not None:
+            x, y = obj.get_data_to_process()
+            self.view.plot_data(x,y)
+        else:
+            print('No data to be plotted.')
 
 
 if __name__ == '__main__':
