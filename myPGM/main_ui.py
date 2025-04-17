@@ -336,10 +336,6 @@ class MainWindow(QMainWindow):
         BgBox.addWidget(self.CHullBg_button, stretch=3)
 
         self.ManualBg_button = QPushButton("Manual Bg", self)
-        # self.ManualBg_button.setStyleSheet("background-color : white")
-        # self.ManualBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/manual_bg.png'))
-        # self.ManualBg_button.setIconSize(QSize(45,45))
-        # self.ManualBg_button.setFixedSize(QSize(50,50))
         self.ManualBg_button.setCheckable(True)
         self.ManualBg_button.clicked.connect(self.toggle_ManualBg)
         self.click_ManualBg_enabled = False
@@ -349,10 +345,6 @@ class MainWindow(QMainWindow):
         BgBox.addWidget(self.ManualBg_button, stretch=3)
 
         self.ResetBg_button = QPushButton("Reset Bg", self)
-        # self.ResetBg_button.setStyleSheet("background-color : white")
-        # self.ResetBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/reset_bg.png'))
-        # self.ResetBg_button.setIconSize(QSize(45,45))
-        # self.ResetBg_button.setFixedSize(QSize(50,50))
         #self.ResetBg_button.clicked.connect(self.Reset_Bg)
         BgBox.addWidget(self.ResetBg_button, stretch=3)
 
@@ -367,7 +359,6 @@ class MainWindow(QMainWindow):
         SmoothBox.addWidget(self.smoothing_factor, stretch=1)
 
         self.Derivative_button = QPushButton("Toggle derivative", self)
-        # self.Derivative_button.setCheckable(True)
         self.Derivative_button.clicked.connect(self.Toggle_derivative)
         self.Derivative_enabled = False
         SmoothBox.addWidget(self.Derivative_button, stretch=2)
@@ -385,17 +376,9 @@ class MainWindow(QMainWindow):
 
         self.fit_button = QPushButton("Fit", self)
         #self.fit_button.clicked.connect(self.fit)
-        # self.fit_button.setStyleSheet("background-color : white")
-        # self.fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/fit.png'))
-        # self.fit_button.setIconSize(QSize(45,45))
-        # self.fit_button.setFixedSize(QSize(50,50))
         FitButtonsBox.addWidget(self.fit_button)
 
         self.click_fit_button = QPushButton("Click-to-fit", self)
-        # self.click_fit_button.setStyleSheet("background-color : white")
-        # self.click_fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/click_to_fit.png'))
-        # self.click_fit_button.setIconSize(QSize(45,45))
-        # self.click_fit_button.setFixedSize(QSize(50,50))
         self.click_fit_button.setCheckable(True)
         #self.click_fit_button.clicked.connect(self.toggle_click_fit)
         self.click_fit_enabled = False
@@ -479,36 +462,11 @@ class MainWindow(QMainWindow):
 
         self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
 
-        # self.PvPmPlot = PvPmPlotWindow()
         self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
 
         self.data.changed.connect(self.DataTableWindow.table_widget.updatetable)
         self.data.changed.connect(self.PvPmPlotWindow.updateplot)
 
-        # #####################################################################################
-        # #? Create special startup config for debugging
-
-        # if demo_mode:
-        #     example_files = [
-        #         "Example_diam_Raman.asc",
-        #         "Example_Ruby_1.asc",
-        #         "Example_Ruby_2.asc",
-        #         "Example_Ruby_3.asc",
-        #         "Example_H2.txt",
-        #     ]
-        #     for i, file in enumerate(example_files):
-        #         latest_file_path = os.path.dirname(__file__) + "/resources/" + file
-
-        #         file_info = QFileInfo(latest_file_path)
-        #         file_name = file_info.fileName()
-        #         list_item = helpers.MySpectrumItem(file_name, latest_file_path)
-
-        #         list_item.data = helpers.customparse_file2data(latest_file_path)
-        #         list_item.normalize_data()
-
-        #         self.file_list_model.addItem(list_item)
-        #         list_item.current_smoothing = self.smoothing_factor.value()
-        #         self.plot_data()
 
     #####################################################################################
     # ? Main window methods
