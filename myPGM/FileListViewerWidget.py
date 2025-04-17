@@ -19,10 +19,10 @@ from PyQt5.QtCore import (
 class FileListViewerWidget(QWidget):
 
     object_selected = pyqtSignal(object)
-
-    def __init__(self, data_manager):
+    
+    def __init__(self):
         super().__init__()
-        self.data_manager = data_manager
+        self.files = {}
         self.init_ui()
 
     def init_ui(self):
@@ -34,7 +34,7 @@ class FileListViewerWidget(QWidget):
 
         # Optional refresh button
         refresh_button = QPushButton("Refresh List")
-        refresh_button.clicked.connect(self.populate_list)
+        #refresh_button.clicked.connect(self.populate_list)
         
 
         # File loading options
@@ -99,16 +99,6 @@ class FileListViewerWidget(QWidget):
         layout.addWidget(refresh_button)
 
         self.setLayout(layout)
-        self.populate_list()
-
-    def populate_list(self):
-        self.list_widget.clear()
-        for obj in self.data_manager.values():
-            if getattr(obj, "include_in_filelist", False):
-                text = f"[ID: {obj.id}] {obj.filename or 'Unnamed'} | P = {obj.P if obj.P is not None else 'N/A'} GPa"
-                item = QListWidgetItem(text)
-                item.setData(Qt.UserRole, obj.id)  # Store object ID for later if needed
-                self.list_widget.addItem(item)
 
     def on_item_selected(self, item):
             obj_id = item.data(Qt.UserRole)
@@ -136,7 +126,7 @@ if __name__ == '__main__': #! To be verified
         obj.include_in_filelist = (i % 2 == 0)  # include every other object
         manager.add_instance(obj)
 
-    viewer = FileListViewer(manager)
+    viewer = FileListViewerWidget(manager)
     viewer.show()
 
     sys.exit(app.exec_())

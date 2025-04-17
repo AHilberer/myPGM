@@ -78,6 +78,11 @@ class MainWindow(QMainWindow):
 
         pg.setConfigOption('leftButtonPan', False)
 
+
+        #####################################################################################
+        # ? Signals setup
+        theme_switched = pyqtSignal()
+
         #####################################################################################
         # ? Calibrations setup
 
@@ -285,9 +290,9 @@ class MainWindow(QMainWindow):
         FileManagementLayout = QVBoxLayout()
         FileManagementBox.setLayout(FileManagementLayout)
 
-        self.list_widget = FileListViewerWidget(self.model)
+        self.file_list_widget = FileListViewerWidget()
 
-        FileManagementLayout.addWidget(self.list_widget)
+        FileManagementLayout.addWidget(self.file_list_widget)
 
         bottom_panel_layout.addWidget(FileManagementBox, stretch=1)
 
@@ -358,7 +363,7 @@ class MainWindow(QMainWindow):
         self.smoothing_factor.setDecimals(0)
         self.smoothing_factor.setRange(1, +np.inf)
         self.smoothing_factor.setValue(1)
-        #self.smoothing_factor.valueChanged.connect(self.smoothen)
+        
         SmoothBox.addWidget(self.smoothing_factor, stretch=1)
 
         self.Derivative_button = QPushButton("Toggle derivative", self)
@@ -539,14 +544,7 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setLabel("bottom", **styles)
         self.PvPmPlotWindow.updateplot()
 
-        self.plot_data(self.current_selected_file_id)
-
-        if self.current_selected_file_index is not None:
-            current_spectrum = self.file_list_model.data(
-                self.current_selected_file_index, role=Qt.UserRole
-            )
-            if current_spectrum.fit_result is not None:
-                self.plot_fit(current_spectrum)
+        #self.theme_switched.emit() #need to replot data ?
 
     def switch_to_light(self):
         try:
@@ -575,13 +573,8 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setLabel("bottom", **styles)
         self.PvPmPlotWindow.updateplot()
 
-        self.plot_data(self.current_selected_file_id)
-        if self.current_selected_file_index is not None:
-            current_spectrum = self.file_list_model.data(
-                self.current_selected_file_index, role=Qt.UserRole
-            )
-            if current_spectrum.fit_result is not None:
-                self.plot_fit(current_spectrum)
+        #self.theme_switched.emit() #need to replot data ?
+
 
     def add_to_table(self):
         self.buffer.file = "No"
@@ -832,10 +825,14 @@ class MainWindow(QMainWindow):
                 new_index, QItemSelectionModel.Select
             )
 
+
     def plot_data(self, x, y):
         self.data_widget.removeItem(self.data_edge_marker)
         self.deriv_widget.removeItem(self.deriv_edge_marker)
-        
+        self.data_widget.removeItem(self.data_fit_line)
+        self.data_fit_line.setData([],[])
+        self.data_widget.setTitle('Not fitted', color=self.plot_label_color, size="16pt")
+
         self.data_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
         self.data_widget.setLabel("left", 'Intensity')
 
@@ -865,64 +862,7 @@ class MainWindow(QMainWindow):
 
         fit_mode = self.fit_model_combo.currentText()
 
-    def fit(self):
-        fit_mode = self.models[self.fit_model_combo.currentText()]
-        if self.current_selected_file_index is not None:
-            current_spectrum = self.file_list_model.data(
-                self.current_selected_file_index, role=Qt.UserRole
-            )
-            current_spectrum.fit_model = fit_mode
 
-            if current_spectrum.corrected_data is None:
-                x = current_spectrum.data[:, 0]
-                y = current_spectrum.data[:, 1]
-            else:
-                x = current_spectrum.corrected_data[:, 0]
-                y = current_spectrum.corrected_data[:, 1]
-            try:
-                res = self.do_fit(fit_mode, x, y)
-                current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
-                current_spectrum.fit_result = res
-                self.plot_fit(current_spectrum)
-            except:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setText("Attempted fit couldn't converge.")
-                msg.setWindowTitle("Fit error")
-                msg.exec_()
-
-    def do_fit(self, model, x, y, guess_peak=None):
-        if model.type == "peak":
-            try:
-                popt, pcov = curve_fit(
-                    model.func, x, y, p0=model.get_pinit(x, y, guess_peak=guess_peak)
-                )
-
-                # for now we use the number of args..
-                if len(popt) < 7:  # Samarium
-                    best_x = popt[2]
-                elif len(popt) < 8:  # Ruby Gaussian
-                    best_x = np.max([popt[2], popt[5]])
-                else:  # Ruby Voigt
-                    best_x = np.max([popt[2], popt[6]])
-
-                self.x_spinbox.setValue(best_x)
-                return {"opti": popt, "cov": pcov}
-
-            except RuntimeError:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setText("Attempted fit couldn't converge.")
-                msg.setWindowTitle("Fit error")
-                msg.exec_()
-                return
-            else:
-                return
-        elif model.type == "edge":
-            grad = np.gradient(y)
-            best_x = x[np.argmin(grad)]
-            self.x_spinbox.setValue(best_x)
-            return {"opti": best_x, "cov": None}
 
     def toggle_click_fit(self):
         self.click_fit_enabled = not self.click_fit_enabled
@@ -1019,43 +959,31 @@ class MainWindow(QMainWindow):
             self.toggle_click_fit()
             self.click_fit_button.setChecked(False)
 
-    def plot_fit(self, my_spectrum):
+    def plot_fit(self, P, fit_model, fit_result, x, y):
         self.data_widget.removeItem(self.data_edge_marker)
         self.deriv_widget.removeItem(self.deriv_edge_marker)
         self.data_widget.removeItem(self.data_fit_line)
 
-        if my_spectrum.fit_result is not None:
-            if my_spectrum.corrected_data is None:
-                x = my_spectrum.data[:, 0]
-                y = my_spectrum.data[:, 1]
-            else:
-                x = my_spectrum.corrected_data[:, 0]
-                y = my_spectrum.corrected_data[:, 1]
+        if fit_model.type == "peak":
+            fitted = [
+                fit_model.func(wvl, *fit_result["opti"])
+                for wvl in x
+            ]
+            self.data_fit_line.setData(x, fitted)
+            self.data_widget.addItem(self.data_fit_line)
+            self.data_widget.setTitle(f"Fitted pressure : {P : > 10.2f} GPa", color=self.plot_label_color, size="16pt")
 
-            if my_spectrum.fit_model.type == "peak":
-                fitted = [
-                    my_spectrum.fit_model.func(wvl, *my_spectrum.fit_result["opti"])
-                    for wvl in x
-                ]
-                self.data_fit_line.setData(x, fitted)
-                self.data_widget.addItem(self.data_fit_line)
-                self.data_widget.setTitle(f"Fitted pressure : {my_spectrum.fit_toolbox_config.P : > 10.2f} GPa",
-                                           color=self.plot_label_color, size="16pt")
+        elif fit_model.type == "edge":
+            self.data_edge_marker.setValue(fit_result["opti"])
+            self.data_widget.addItem(self.data_edge_marker)
+            self.deriv_edge_marker.setValue(fit_result["opti"])
+                
+            self.deriv_widget.addItem(self.deriv_edge_marker)
 
-            elif my_spectrum.fit_model.type == "edge":
-                self.data_edge_marker.setValue(my_spectrum.fit_result["opti"])
-                self.data_widget.addItem(self.data_edge_marker)
-                self.deriv_edge_marker.setValue(my_spectrum.fit_result["opti"])
-                self.deriv_widget.addItem(self.deriv_edge_marker)
-
-                self.data_widget.setTitle(f"Fitted pressure : {my_spectrum.fit_toolbox_config.P : > 10.2f} GPa",
-                                           color=self.plot_label_color, size="16pt")
+            self.data_widget.setTitle(f"Fitted pressure : {P : > 10.2f} GPa", color=self.plot_label_color, size="16pt")
                                 
-            else:
-                print("Plot fit not implemented")
         else:
-            self.data_fit_line.setData([],[])
-            self.data_widget.setTitle('Not fitted', color=self.plot_label_color, size="16pt")
+                print("Plot fit not implemented")
 
     def toggle_PvPm(self):
         if self.DataTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
