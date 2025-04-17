@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import (
     QStyle,
     QFormLayout,
     QSplitter,
+    
 )
 from PyQt5.QtCore import (
     QFileInfo,
@@ -29,6 +30,8 @@ from PyQt5.QtCore import (
     QItemSelectionModel,
     pyqtSlot,
     QSize,
+    QAbstractListModel,
+    pyqtSignal,
 )
 from PyQt5.QtGui import QColor, QIcon
 
@@ -42,13 +45,14 @@ from PvPm_table_window import *
 import helpers
 from calibrations import *
 
-Setup_mode = True
+from FileListViewerWidget import FileListViewerWidget
 
+demo_mode = True
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, model):
         super().__init__()
-
+        self.model = model
         # Setup Main window parameters
         self.setWindowTitle("myPGM - PressureGaugeMonitor")
         x = 100
@@ -280,70 +284,14 @@ class MainWindow(QMainWindow):
         FileManagementBox = QGroupBox("File management")
         FileManagementLayout = QVBoxLayout()
         FileManagementBox.setLayout(FileManagementLayout)
+
+        self.list_widget = FileListViewerWidget(self.model)
+        self.list_widget.object_selected.connect(self.plot_data)
+
+        FileManagementLayout.addWidget(self.list_widget)
+
         bottom_panel_layout.addWidget(FileManagementBox, stretch=1)
 
-        #####################################################################################
-        # ? Setup file loading section
-
-        FileLoadLayout = QGridLayout()
-
-        self.add_button = QPushButton("Add file", self)
-        pixmapi = getattr(QStyle, "SP_FileIcon")
-        icon = self.style().standardIcon(pixmapi)
-        self.add_button.setIcon(icon)
-        self.add_button.clicked.connect(self.add_file)
-        FileLoadLayout.addWidget(self.add_button, 0, 0)
-
-        self.delete_button = QPushButton("Delete file ", self)
-        pixmapi = getattr(QStyle, "SP_DialogDiscardButton")
-        icon = self.style().standardIcon(pixmapi)
-        self.delete_button.setIcon(icon)
-        self.delete_button.clicked.connect(self.delete_file)
-        FileLoadLayout.addWidget(self.delete_button, 0, 1)
-
-        self.selectdir_button = QPushButton("Select directory", self)
-        pixmapi = getattr(QStyle, "SP_DirIcon")
-        icon = self.style().standardIcon(pixmapi)
-        self.selectdir_button.setIcon(icon)
-        self.selectdir_button.clicked.connect(self.select_directory)
-        FileLoadLayout.addWidget(self.selectdir_button, 1, 0)
-
-        self.loadlatest_button = QPushButton("Load latest", self)
-        pixmapi = getattr(QStyle, "SP_BrowserReload")
-        icon = self.style().standardIcon(pixmapi)
-        self.loadlatest_button.setIcon(icon)
-        self.loadlatest_button.clicked.connect(self.load_latest_file)
-        FileLoadLayout.addWidget(self.loadlatest_button, 1, 1)
-
-        FileManagementLayout.addLayout(FileLoadLayout)
-
-        self.custom_model = helpers.CustomFileListModel()
-        self.list_widget = QListView(self)
-        self.list_widget.setModel(self.custom_model)
-        FileManagementLayout.addWidget(self.list_widget)
-        self.list_widget.clicked.connect(self.item_clicked)
-        self.current_selected_file_index = None
-        self.list_widget.selectionModel().selectionChanged.connect(
-            self.selection_changed
-        )
-
-        MoveLayout = QHBoxLayout()
-
-        self.up_button = QPushButton("Move up", self)
-        pixmapi = getattr(QStyle, "SP_ArrowUp")
-        icon = self.style().standardIcon(pixmapi)
-        self.up_button.setIcon(icon)
-        self.up_button.clicked.connect(self.move_up)
-        MoveLayout.addWidget(self.up_button)
-
-        self.down_button = QPushButton("Move down", self)
-        pixmapi = getattr(QStyle, "SP_ArrowDown")
-        icon = self.style().standardIcon(pixmapi)
-        self.down_button.setIcon(icon)
-        self.down_button.clicked.connect(self.move_down)
-        MoveLayout.addWidget(self.down_button)
-
-        FileManagementLayout.addLayout(MoveLayout)
 
         #####################################################################################
         # #? Setup right part of bottom panel
@@ -375,7 +323,7 @@ class MainWindow(QMainWindow):
         BgBox = QHBoxLayout()
 
         self.CHullBg_button = QPushButton("Auto Bg", self)
-        self.CHullBg_button.clicked.connect(self.CHull_Bg)
+        #self.CHullBg_button.clicked.connect(self.CHull_Bg)
         # self.CHullBg_button.setStyleSheet("background-color : white")
         # self.CHullBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/auto_bg.png'))
         # self.CHullBg_button.setIconSize(QSize(45,45))
@@ -401,7 +349,7 @@ class MainWindow(QMainWindow):
         # self.ResetBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/reset_bg.png'))
         # self.ResetBg_button.setIconSize(QSize(45,45))
         # self.ResetBg_button.setFixedSize(QSize(50,50))
-        self.ResetBg_button.clicked.connect(self.Reset_Bg)
+        #self.ResetBg_button.clicked.connect(self.Reset_Bg)
         BgBox.addWidget(self.ResetBg_button, stretch=3)
 
         SmoothBox = QHBoxLayout()
@@ -411,7 +359,7 @@ class MainWindow(QMainWindow):
         self.smoothing_factor.setDecimals(0)
         self.smoothing_factor.setRange(1, +np.inf)
         self.smoothing_factor.setValue(1)
-        self.smoothing_factor.valueChanged.connect(self.smoothen)
+        #self.smoothing_factor.valueChanged.connect(self.smoothen)
         SmoothBox.addWidget(self.smoothing_factor, stretch=1)
 
         self.Derivative_button = QPushButton("Toggle derivative", self)
@@ -432,7 +380,7 @@ class MainWindow(QMainWindow):
         FitButtonsBox = QVBoxLayout()
 
         self.fit_button = QPushButton("Fit", self)
-        self.fit_button.clicked.connect(self.fit)
+        #self.fit_button.clicked.connect(self.fit)
         # self.fit_button.setStyleSheet("background-color : white")
         # self.fit_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/fit.png'))
         # self.fit_button.setIconSize(QSize(45,45))
@@ -445,7 +393,7 @@ class MainWindow(QMainWindow):
         # self.click_fit_button.setIconSize(QSize(45,45))
         # self.click_fit_button.setFixedSize(QSize(50,50))
         self.click_fit_button.setCheckable(True)
-        self.click_fit_button.clicked.connect(self.toggle_click_fit)
+        #self.click_fit_button.clicked.connect(self.toggle_click_fit)
         self.click_fit_enabled = False
         FitButtonsBox.addWidget(self.click_fit_button)
 
@@ -459,7 +407,7 @@ class MainWindow(QMainWindow):
             ind = self.fit_model_combo.findText(k)
             self.fit_model_combo.model().item(ind).setBackground(QColor(v.color))
 
-        self.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
+        #self.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
         self.update_fit_model()
         FitOptionBox.addWidget(self.fit_model_combo)
 
@@ -489,7 +437,7 @@ class MainWindow(QMainWindow):
         self.data_edge_marker = pg.InfiniteLine(pos=None, angle=90, pen=self.data_fit_pen, movable=False)
         
         self.data_widget.setMenuEnabled(False)
-        self.data_scatter.scene().sigMouseClicked.connect(self.data_plot_click)
+        #self.data_scatter.scene().sigMouseClicked.connect(self.data_plot_click)
 
         #####################################################################################
         # #? Setup derivative plotting section
@@ -517,7 +465,7 @@ class MainWindow(QMainWindow):
         FitBoxLayout.addLayout(PlotLayout)
 
         self.add_fitted_button = QPushButton("Add fit to table")
-        self.add_fitted_button.clicked.connect(self.add_current_fit)
+        #self.add_fitted_button.clicked.connect(self.add_current_fit)
         FitBoxLayout.addWidget(self.add_fitted_button)
 
         #####################################################################################
@@ -536,30 +484,34 @@ class MainWindow(QMainWindow):
         # #####################################################################################
         # #? Create special startup config for debugging
 
-        if Setup_mode:
-            example_files = [
-                "Example_diam_Raman.asc",
-                "Example_Ruby_1.asc",
-                "Example_Ruby_2.asc",
-                "Example_Ruby_3.asc",
-                "Example_H2.txt",
-            ]
-            for i, file in enumerate(example_files):
-                latest_file_path = os.path.dirname(__file__) + "/resources/" + file
+        # if demo_mode:
+        #     example_files = [
+        #         "Example_diam_Raman.asc",
+        #         "Example_Ruby_1.asc",
+        #         "Example_Ruby_2.asc",
+        #         "Example_Ruby_3.asc",
+        #         "Example_H2.txt",
+        #     ]
+        #     for i, file in enumerate(example_files):
+        #         latest_file_path = os.path.dirname(__file__) + "/resources/" + file
 
-                file_info = QFileInfo(latest_file_path)
-                file_name = file_info.fileName()
-                list_item = helpers.MySpectrumItem(file_name, latest_file_path)
+        #         file_info = QFileInfo(latest_file_path)
+        #         file_name = file_info.fileName()
+        #         list_item = helpers.MySpectrumItem(file_name, latest_file_path)
 
-                list_item.data = helpers.customparse_file2data(latest_file_path)
-                list_item.normalize_data()
+        #         list_item.data = helpers.customparse_file2data(latest_file_path)
+        #         list_item.normalize_data()
 
-                self.custom_model.addItem(list_item)
-                list_item.current_smoothing = self.smoothing_factor.value()
-                self.plot_data()
+        #         self.file_list_model.addItem(list_item)
+        #         list_item.current_smoothing = self.smoothing_factor.value()
+        #         self.plot_data()
 
     #####################################################################################
     # ? Main window methods
+    def fileSelected(self, obj_id):
+        self.current_selected_file_id = obj_id
+        self.plot_data(obj_id)
+
     def closeEvent(self, event):
         for window in QApplication.topLevelWidgets():
             window.close()
@@ -590,10 +542,10 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setLabel("bottom", **styles)
         self.PvPmPlotWindow.updateplot()
 
-        self.plot_data()
+        self.plot_data(self.current_selected_file_id)
 
         if self.current_selected_file_index is not None:
-            current_spectrum = self.custom_model.data(
+            current_spectrum = self.file_list_model.data(
                 self.current_selected_file_index, role=Qt.UserRole
             )
             if current_spectrum.fit_result is not None:
@@ -626,9 +578,9 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setLabel("bottom", **styles)
         self.PvPmPlotWindow.updateplot()
 
-        self.plot_data()
+        self.plot_data(self.current_selected_file_id)
         if self.current_selected_file_index is not None:
-            current_spectrum = self.custom_model.data(
+            current_spectrum = self.file_list_model.data(
                 self.current_selected_file_index, role=Qt.UserRole
             )
             if current_spectrum.fit_result is not None:
@@ -698,7 +650,7 @@ class MainWindow(QMainWindow):
 
     def add_current_fit(self):
         if self.current_selected_file_index is not None:
-            current_spectrum = self.custom_model.data(
+            current_spectrum = self.file_list_model.data(
                 self.current_selected_file_index, role=Qt.UserRole
             )
             if current_spectrum.fit_toolbox_config is not None:
@@ -729,13 +681,13 @@ class MainWindow(QMainWindow):
                 new_item.data = helpers.customparse_file2data(file)
                 new_item.normalize_data()
                 new_item.current_smoothing = 1
-                self.custom_model.addItem(new_item)
+                self.file_list_model.addItem(new_item)
 
     @pyqtSlot()
     def delete_file(self):
         selected_index = self.list_widget.currentIndex()
         if selected_index.isValid():
-            self.custom_model.deleteItem(selected_index.row())
+            self.file_list_model.deleteItem(selected_index.row())
 
     def select_directory(self):
         options = QFileDialog.Options()
@@ -769,7 +721,7 @@ class MainWindow(QMainWindow):
                 new_item.normalize_data()
                 new_item.current_smoothing = 1
 
-                self.custom_model.addItem(new_item)
+                self.file_list_model.addItem(new_item)
             else:
                 msg = QMessageBox()
                 msg.setIcon(QMessageBox.Critical)
@@ -785,7 +737,7 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(QModelIndex)
     def item_clicked(self, index):
-        selected_item = self.custom_model.data(index, role=Qt.UserRole)
+        selected_item = self.file_list_model.data(index, role=Qt.UserRole)
         self.current_file_path = selected_item.path
         self.current_file_label.setText(f"{self.current_file_path}")
         self.smoothing_factor.setValue(selected_item.current_smoothing)
@@ -798,7 +750,7 @@ class MainWindow(QMainWindow):
             self.x0_spinbox.setValue(self.buffer.x0)
             self.T0_spinbox.setValue(self.buffer.T0)
             self.calibration_combo.setCurrentText(self.buffer.calib.name)
-        self.plot_data()
+        #self.plot_data()
         if selected_item.fit_result is not None:
             self.plot_fit(selected_item)
         else:
@@ -824,23 +776,23 @@ class MainWindow(QMainWindow):
             current_row = selected_index.row()
 
             # Get the item data of the selected item
-            item = self.custom_model.data(selected_index, role=Qt.UserRole)
+            item = self.file_list_model.data(selected_index, role=Qt.UserRole)
 
             # Remove the item from the current position
-            self.custom_model.beginRemoveRows(QModelIndex(), current_row, current_row)
-            del self.custom_model.items[current_row]
-            self.custom_model.endRemoveRows()
+            self.file_list_model.beginRemoveRows(QModelIndex(), current_row, current_row)
+            del self.file_list_model.items[current_row]
+            self.file_list_model.endRemoveRows()
 
             # Calculate the new row number after moving up
             new_row = current_row - 1
 
             # Insert the item at the new position
-            self.custom_model.beginInsertRows(QModelIndex(), new_row, new_row)
-            self.custom_model.items.insert(new_row, item)
-            self.custom_model.endInsertRows()
+            self.file_list_model.beginInsertRows(QModelIndex(), new_row, new_row)
+            self.file_list_model.items.insert(new_row, item)
+            self.file_list_model.endInsertRows()
 
             # Select the item at the new position
-            new_index = self.custom_model.index(new_row, 0)
+            new_index = self.file_list_model.index(new_row, 0)
             self.list_widget.selectionModel().clearSelection()
             # self.list_widget.selectionModel().setCurrentIndex(selected_index, QItemSelectionModel.Deselect)
 
@@ -854,76 +806,57 @@ class MainWindow(QMainWindow):
         # Check if there's a valid selection and if the selected index is not the first item
         if (
             selected_index.isValid()
-            and selected_index.row() < self.custom_model.rowCount()
+            and selected_index.row() < self.file_list_model.rowCount()
         ):
             self.list_widget.selectionModel().clearSelection()
             # Get the row number of the selected item
             current_row = selected_index.row()
 
             # Get the item data of the selected item
-            item = self.custom_model.data(selected_index, role=Qt.UserRole)
+            item = self.file_list_model.data(selected_index, role=Qt.UserRole)
 
             # Remove the item from the current position
-            self.custom_model.beginRemoveRows(QModelIndex(), current_row, current_row)
-            del self.custom_model.items[current_row]
-            self.custom_model.endRemoveRows()
+            self.file_list_model.beginRemoveRows(QModelIndex(), current_row, current_row)
+            del self.file_list_model.items[current_row]
+            self.file_list_model.endRemoveRows()
 
             # Calculate the new row number after moving up
             new_row = current_row + 1
 
             # Insert the item at the new position
-            self.custom_model.beginInsertRows(QModelIndex(), new_row, new_row)
-            self.custom_model.items.insert(new_row, item)
-            self.custom_model.endInsertRows()
+            self.file_list_model.beginInsertRows(QModelIndex(), new_row, new_row)
+            self.file_list_model.items.insert(new_row, item)
+            self.file_list_model.endInsertRows()
 
             # Select the item at the new position
-            new_index = self.custom_model.index(new_row, 0)
+            new_index = self.file_list_model.index(new_row, 0)
             self.list_widget.selectionModel().clearSelection()
             self.list_widget.selectionModel().setCurrentIndex(
                 new_index, QItemSelectionModel.Select
             )
 
-    def plot_data(self):
+    def plot_data(self, obj_id):
+        obj = self.model.get(obj_id, None)
+
         self.data_widget.removeItem(self.data_edge_marker)
         self.deriv_widget.removeItem(self.deriv_edge_marker)
 
 
-        if self.current_selected_file_index is not None:
-            current_spectrum = self.custom_model.data(
-                self.current_selected_file_index, role=Qt.UserRole
-            )
-            if hasattr(current_spectrum, "data"):
-    # spectral data
-                self.data_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
-                self.data_widget.setLabel("left", 'Intensity')
+        if obj.original_data is not None:
+            x, y = obj.get_data_to_process()
+            self.data_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
+            self.data_widget.setLabel("left", 'Intensity')
 
-                if current_spectrum.corrected_data is None:
-                    x = current_spectrum.data[:, 0]
-                    y = current_spectrum.data[:, 1]
-                else:
-                    x = current_spectrum.corrected_data[:, 0]
-                    y = current_spectrum.corrected_data[:, 1]
-
-                self.data_scatter.setData(x, y)
-                self.data_widget.autoRange()
-
-                # self.data_widget.addItem(pg.LinearRegionItem(values=(x[0]+(x[-1]-x[0])/3, x[0]+2*(x[-1]-x[0])/3),
-                # orientation='vertical',
-                # brush=None,
-                # pen=pg.mkPen(color='green'),
-                # hoverBrush=None,
-                # hoverPen=None,
-                # movable=True,
-                # swapMode='sort',
-                # ))
+            self.data_scatter.setData(x, y)
+            self.data_widget.autoRange()
 
     # derivative data
-                self.deriv_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
-                self.deriv_widget.setLabel("left", 'Intensity')
+            self.deriv_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
+            self.deriv_widget.setLabel("left", 'Intensity')
 
-                dI = gaussian_filter1d(y, mode="nearest", sigma=1, order=1)
-                self.deriv_scatter.setData(x, dI)
-                self.deriv_widget.autoRange()
+            dI = gaussian_filter1d(y, mode="nearest", sigma=1, order=1)
+            self.deriv_scatter.setData(x, dI)
+            self.deriv_widget.autoRange()
         else:
             pass
         
@@ -945,7 +878,7 @@ class MainWindow(QMainWindow):
     def fit(self):
         fit_mode = self.models[self.fit_model_combo.currentText()]
         if self.current_selected_file_index is not None:
-            current_spectrum = self.custom_model.data(
+            current_spectrum = self.file_list_model.data(
                 self.current_selected_file_index, role=Qt.UserRole
             )
             current_spectrum.fit_model = fit_mode
@@ -1063,7 +996,7 @@ class MainWindow(QMainWindow):
             fit_mode = self.models[self.fit_model_combo.currentText()]
 
             if self.current_selected_file_index is not None:
-                current_spectrum = self.custom_model.data(
+                current_spectrum = self.file_list_model.data(
                     self.current_selected_file_index, role=Qt.UserRole
                 )
                 current_spectrum.fit_model = fit_mode
@@ -1161,7 +1094,7 @@ class MainWindow(QMainWindow):
         #    self.ManualBg_button.setText('test')
 
     def set_ManualBg(self, mouseClickEvent):
-        current_spectrum = self.custom_model.data(
+        current_spectrum = self.file_list_model.data(
             self.current_selected_file_index, role=Qt.UserRole
         )
         if self.click_ManualBg_enabled:
@@ -1175,7 +1108,7 @@ class MainWindow(QMainWindow):
 
     def plot_ManualBg(self):
         interp = None
-        current_spectrum = self.custom_model.data(
+        current_spectrum = self.file_list_model.data(
             self.current_selected_file_index, role=Qt.UserRole
         )
         if current_spectrum.corrected_data is None:
@@ -1204,7 +1137,7 @@ class MainWindow(QMainWindow):
         return interp
 
     def subtract_ManualBg(self):
-        current_spectrum = self.custom_model.data(
+        current_spectrum = self.file_list_model.data(
             self.current_selected_file_index, role=Qt.UserRole
         )
         if current_spectrum.corrected_data is None:
@@ -1218,6 +1151,34 @@ class MainWindow(QMainWindow):
         self.plot_data()
 
 
+# class CustomFileListModel(QAbstractListModel):
+#     itemAdded = pyqtSignal()  # Signal emitted when an item is added
+#     itemDeleted = pyqtSignal()  # Signal emitted when an item is deleted
+
+#     def __init__(self, items=None, parent=None):
+#         super().__init__(parent)
+#         self.items = items or []
+
+#     def rowCount(self, parent=QModelIndex()):
+#         return len(self.items)
+
+#     def data(self, index, role=Qt.DisplayRole):
+#         if role == Qt.DisplayRole:
+#             return self.items[index.row()].name
+#         elif role == Qt.UserRole:
+#             return self.items[index.row()]
+
+#     def addItem(self, item):
+#         self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
+#         self.items.append(item)
+#         self.endInsertRows()
+#         self.itemAdded.emit()  # Emit signal to notify the view
+
+#     def deleteItem(self, index):
+#         self.beginRemoveRows(QModelIndex(), index, index)
+#         del self.items[index]
+#         self.endRemoveRows()
+#         self.itemDeleted.emit()  # Emit signal to notify the view
 
 if __name__ == "__main__":
     print("Only MainWindow was executed.")

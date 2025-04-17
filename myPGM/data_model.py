@@ -73,6 +73,8 @@ class PressureGaugeDataObject:
         self.original_data = helpers.customparse_file2data(self.path)
         self.normalize_data()
         self.current_smoothing = 1
+        self.include_in_filelist = True
+
 
     def set_calibration(self, calib):
         """
