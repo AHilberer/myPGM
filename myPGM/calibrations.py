@@ -1,6 +1,30 @@
-import helpers
 import numpy as np
 
+
+class HPCalibration():
+    ''' A general HP calibration object '''
+    def __init__(self, name, func, Tcor_name, 
+                    xname, xunit, x0default, xstep, color):
+        self.name = name
+        self.func = func
+        self.Tcor_name = Tcor_name
+        self.xname = xname
+        self.xunit = xunit
+        self.x0default = x0default
+        self.xstep = xstep  # x step in spinboxes using mousewheel
+        self.color = color  # color printed in calibration combobox
+
+    def __repr__(self):
+        return 'HPCalibration : ' + str( self.__dict__ )
+
+    def invfunc(self, p, *args, **kwargs):
+        res = minimize( lambda x: ( self.func(x, *args, **kwargs) - p )**2, 
+                                    x0=self.x0default, method='Powell', tol=1e-6)
+        
+        return res.x[0]
+
+
+        
 # Shen G., Wang Y., Dewaele A. et al. (2020) High Pres. Res. doi: 10.1080/08957959.2020.1791107
 def Pruby2020(l, T, l0, T0):
     dT = T - T0
@@ -71,7 +95,7 @@ def H2_Vibron(nu, T=0, nu0=0, T0=0):
     return f(nu)
 
 
-Ruby2020 = helpers.HPCalibration(name = 'Ruby2020',
+Ruby2020 = HPCalibration(name = 'Ruby2020',
                                  func = Pruby2020,
                                  Tcor_name='Datchi 2007',
                                  xname = 'lambda',
@@ -80,7 +104,7 @@ Ruby2020 = helpers.HPCalibration(name = 'Ruby2020',
                                  xstep = .01,
                                  color = 'firebrick')
         
-SamariumDatchi = helpers.HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
+SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        func = PsamDatchi1997,
                                        Tcor_name='Datchi 2007 (?)',
                                        xname = 'lambda',
@@ -89,7 +113,7 @@ SamariumDatchi = helpers.HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        xstep = .01,
                                        color = 'mediumseagreen')
 
-Hilberer2025 = helpers.HPCalibration(name = 'Diamond Raman Edge Hilberer 2025',
+Hilberer2025 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2025',
                                     func = PHilberer2025,
                                     Tcor_name='NA',
                                     xname = 'nu',
@@ -98,7 +122,7 @@ Hilberer2025 = helpers.HPCalibration(name = 'Diamond Raman Edge Hilberer 2025',
                                     xstep = .1,
                                     color = 'orangered')
 
-Akahama2006 = helpers.HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
+Akahama2006 = HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
                                     func = PAkahama2006,
                                     Tcor_name='NA',
                                     xname = 'nu',
@@ -107,7 +131,7 @@ Akahama2006 = helpers.HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
                                     xstep = .1,
                                     color = 'darkgrey')
 
-Eremets2023 = helpers.HPCalibration(name = 'Diamond Raman Edge Eremets 2023',
+Eremets2023 = HPCalibration(name = 'Diamond Raman Edge Eremets 2023',
                                     func = PEremets2023,
                                     Tcor_name='NA',
                                     xname = 'nu',
@@ -116,7 +140,7 @@ Eremets2023 = helpers.HPCalibration(name = 'Diamond Raman Edge Eremets 2023',
                                     xstep = .1,
                                     color = 'steelblue')
         
-cBNDatchi = helpers.HPCalibration(name = 'cBN Raman Datchi 2007',
+cBNDatchi = HPCalibration(name = 'cBN Raman Datchi 2007',
                                   func = PcBN,
                                   Tcor_name='Datchi 2007',
                                   xname = 'nu',
@@ -125,7 +149,7 @@ cBNDatchi = helpers.HPCalibration(name = 'cBN Raman Datchi 2007',
                                   xstep = .1,
                                   color = 'lightblue')
 
-H2Vibron = helpers.HPCalibration(name = 'H2 Vibron <30GPa',
+H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
                                   func = H2_Vibron,
                                   Tcor_name='NA',
                                   xname = 'nu',

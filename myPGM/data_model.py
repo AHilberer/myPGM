@@ -4,9 +4,9 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.signal import find_peaks
 from inspect import getfullargspec
-import helpers
-import calibrations
-import fit_models
+import myPGM.helpers
+import myPGM.calibrations
+import myPGM.fit_models
 from scipy.spatial import ConvexHull
 from scipy.ndimage import uniform_filter1d, gaussian_filter1d
 from scipy.optimize import curve_fit
@@ -70,7 +70,7 @@ class PressureGaugeDataObject:
     def load_spectral_data_file(self, file_name, file_path):
         self.filename = file_name
         self.path = file_path
-        self.original_data = helpers.customparse_file2data(self.path)
+        self.original_data = myPGM.helpers.customparse_file2data(self.path)
         self.normalize_data()
         self.current_smoothing = 1
         self.include_in_filelist = True
@@ -171,8 +171,8 @@ class PressureGaugeDataObject:
         x,y = self.get_data_to_process()
         
         try:
-            self.fit_result = self.fit_procedure(self.fit_model, x, y)
             
+            self.fit_result = self.fit_procedure(self.fit_model, x, y)
             if self.fit_model.type == "peak":
                 fitted = [self.fit_model.func(wvl, *self.fit_result["opti"]) for wvl in x]
                 self.fitted_data = np.column_stack((x, fitted))
@@ -196,118 +196,26 @@ class PressureGaugeDataObject:
             self.compute_P_from_x()
         except:
             raise RuntimeError("Fit failed to converge.")
-            # msg = QMessageBox()
-            # msg.setIcon(QMessageBox.Critical)
-            # msg.setText("Attempted fit couldn't converge.")
-            # msg.setWindowTitle("Fit error")
-            # msg.exec_()
+            
 
     def fit_procedure(self, model, x, y, guess_peak=None):
         if model.type == "peak":
             try:
                 popt, pcov = curve_fit(
                     model.func, x, y, p0=model.get_pinit(x, y, guess_peak=guess_peak)
-                )
+                    )
 
-                # self.x_spinbox.setValue(best_x)
+                    # self.x_spinbox.setValue(best_x)
                 return {"opti": popt, "cov": pcov}
 
-            except RuntimeError:
-                # msg = QMessageBox()
-                # msg.setIcon(QMessageBox.Critical)
-                # msg.setText("Attempted fit couldn't converge.")
-                # msg.setWindowTitle("Fit error")
-                # msg.exec_()
-                return
+            except:
+                 raise RuntimeError("Fit failed to converge.")
 
         elif model.type == "edge":
             grad = np.gradient(y)
             best_x = x[np.argmin(grad)]
             # self.x_spinbox.setValue(best_x)
             return {"opti": best_x, "cov": None}
-
-
-class HPCalibration():
-    ''' A general HP calibration object '''
-    def __init__(self, name, func, Tcor_name, 
-                    xname, xunit, x0default, xstep, color):
-        self.name = name
-        self.func = func
-        self.Tcor_name = Tcor_name
-        self.xname = xname
-        self.xunit = xunit
-        self.x0default = x0default
-        self.xstep = xstep  # x step in spinboxes using mousewheel
-        self.color = color  # color printed in calibration combobox
-
-    def __repr__(self):
-        return 'HPCalibration : ' + str( self.__dict__ )
-
-    def invfunc(self, p, *args, **kwargs):
-        res = minimize( lambda x: ( self.func(x, *args, **kwargs) - p )**2, 
-                                    x0=self.x0default, method='Powell', tol=1e-6)
-        
-        return res.x[0]
-
-
-class GaugeFitModel():
-    ''' A general pressure gauge fitting model object '''
-    def __init__(self, name, func,type, color):
-        self.name = name
-        self.func = func
-        self.type = type
-        self.color = color  # color printed in calibration combobox
-
-    def get_pinit(self, x, y, guess_peak=None):
-        
-        pinit = list()
-        
-        xbin = x[1] - x[0] # nm/px or cm-1/px
-        if guess_peak == None:
-            pk, prop = find_peaks(y - np.min(y), height = np.ptp(y)/2, width=0.1/xbin)
-            pk = pk[np.argsort(prop['peak_heights'])]
-            prop['peak_heights'].sort()
-            pinit.append( y[0] )
-            params = getfullargspec(self.func).args[1:]
-            if (len(params)-1)%3 == 0:
-                param_per_peak = 3
-                peak_number = (len(params)-1)//3
-                for i in range(peak_number):
-                    pinit.append( 0.5 )                         # height
-                    pinit.append( x[pk[i]]  )                   # position
-                    pinit.append( prop['widths'][i] * xbin )    # sigma
-                   #print(prop['widths'][i] * xbin)
-            elif (len(params)-1)%4 == 0:
-                param_per_peak = 4
-                peak_number = (len(params)-1)//4
-                for i in range(peak_number):
-                    pinit.append( 0.5 )                         # height
-                    pinit.append( x[pk[i]]  )                   # position
-                    pinit.append( prop['widths'][i] * xbin/2 ) # sigma
-                    pinit.append( prop['widths'][i] * xbin/2 ) # gamma
-        else:
-            pinit.append( y[0] )
-            params = getfullargspec(self.func).args[1:]
-            if (len(params)-1)%3 == 0:
-                param_per_peak = 3
-                peak_number = (len(params)-1)//3
-                for i in range(peak_number):
-                    pinit.append( 0.5 )             # height
-                    pinit.append( guess_peak -1.5*i ) # idiot trick for the 2nd peak
-                    pinit.append( 0.5 )    # sigma
-            elif (len(params)-1)%4 == 0:
-                param_per_peak = 4
-                peak_number = (len(params)-1)//4
-                for i in range(peak_number):
-                    pinit.append( 0.5 )             # height
-                    pinit.append( guess_peak -1.5*i ) # idiot trick for the 2nd peak
-                    pinit.append( 0.2 ) # sigma
-                    pinit.append( 0.2 ) # gamma
-        return pinit
-
-
-    def __repr__(self):
-        return 'GaugeFitModel : ' + str( self.__dict__ )
 
 
 
@@ -348,7 +256,7 @@ class PressureGaugeDataManager(MutableMapping):
         else:
             raise TypeError("Only instances of PressureGaugeDataObject can be added.")
 
-if __name__ == '__main__':
+if __name__ == '__main__': #! to be verified
 
     data_manager = PressureGaugeDataManager()
     a = PressureGaugeDataObject()

@@ -1,18 +1,16 @@
 import sys
 import os
-from PyQt5.QtWidgets import QApplication
-
-from data_model import PressureGaugeDataObject, PressureGaugeDataManager, HPCalibration, GaugeFitModel
-import calibrations
-import fit_models
-from main_ui import *
-
-from FileListViewerWidget import *
+from PyQt5.QtWidgets import QApplication, QListWidgetItem
+from PyQt5.QtCore import Qt
+from myPGM.data_model import PressureGaugeDataObject, PressureGaugeDataManager
+import myPGM.calibrations
+import myPGM.fit_models
 
 class Presenter:
-    def __init__(self, model: PressureGaugeDataManager, view: QWidget) -> None:
+    def __init__(self, model, view, test_mode=False):
         self.model = model
         self.view = view
+        self.test_mode = test_mode
         self.current_selected_file = None
         self.example_files = [
                 "Example_diam_Raman.asc",
@@ -22,28 +20,36 @@ class Presenter:
                 "Example_H2.txt",
             ]
 
+        self.initialize_calibrations_menu()
+        self.initialize_fit_models_menu()
+
+        self.view.startup_buffer()
+        self.view.update_fit_model()
+
+
+
         #? Setup Signal-Slot interactions
+        self.view.calibration_combo.currentIndexChanged.connect(self.view.update_calib)
 
         self.view.file_list_widget.object_selected.connect(self.file_selected_from_file_list)
 
         self.view.smoothing_factor.valueChanged.connect(self.smoothen)
         self.view.fit_button.clicked.connect(self.fit_current_file)
 
+        if self.test_mode:
+            self.initialize_example()
+
+    ##################################################################################""
         #? Methods 
 
-    def initialize_example(self):
-        for i, current_file in enumerate(self.example_files):
-            current_file_path = os.path.dirname(__file__) + "/resources/" + current_file
-            a = PressureGaugeDataObject()
-            self.model.add_instance(a)
-            a.load_spectral_data_file(current_file, current_file_path)
-            a.set_calibration(calibrations.Ruby2020)
-            a.set_fit_model(fit_models.DoubleVoigt)
-        
-        #for a in list(self.model.values())[:-1]:
-        #    a.fit_data()
-        print([k for k in self.model.values()])
-        self.populate_file_list()
+    def initialize_calibrations_menu(self):
+        self.view.load_calibrations({a.name: a for a in myPGM.calibrations.calib_list})
+        self.view.populate_calib_combo()
+
+    def initialize_fit_models_menu(self):
+        self.view.load_fit_models({a.name: a for a in myPGM.fit_models.model_list})
+        self.view.populate_fit_models_combo()
+
 
     def file_selected_from_file_list(self, obj_id):
         self.current_selected_file = obj_id
@@ -61,6 +67,7 @@ class Presenter:
         else:
             print('No data to be plotted.')
 
+
     def smoothen(self, smoothing_factor):
         if self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
@@ -69,6 +76,7 @@ class Presenter:
         else:
             return
     
+
     def populate_file_list(self):
         self.view.file_list_widget.list_widget.clear()
         for obj in self.model.values():
@@ -78,46 +86,35 @@ class Presenter:
                 item.setData(Qt.UserRole, obj.id)  # Store only object ID 
                 self.view.file_list_widget.list_widget.addItem(item)
 
+
     def fit_current_file(self):
         if self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
             obj.set_calibration(self.view.buffer.calib)
             obj.set_fit_model(self.view.fit_mode)
-            obj.fit_data()
-            self.update_data_plots(self.current_selected_file)
+            try:
+                obj.fit_data()
+                self.update_data_plots(self.current_selected_file)
+            except RuntimeError:
+                self.fit_error_popup()
 
 
-    # def update_calibration(self, new_calib):
-    #     if self.current_selected_file is not None:
-    #         obj = self.model.get(self.current_selected_file, None)
-    #         obj.set_calibration(new_calib)
-
-    # def update_fit_model(self, new_calib):
-    #     if self.current_selected_file is not None:
-    #         obj = self.model.get(self.current_selected_file, None)
-    #         obj.set_calibration(new_calib)
-
-if __name__ == '__main__':
-    os.chdir(os.path.abspath(__file__).replace(os.path.basename(__file__), ""))
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-
-    try:
-        with open("light-mode.qss", "r") as file:
-            qss = file.read()
-            app.setStyleSheet(qss)
-    except:
-        pass
-    model = PressureGaugeDataManager()
-    view = MainWindow(model)
-    presenter = Presenter(model, view)
-    presenter.view.show()
-    presenter.initialize_example()
-
-    sys.exit(app.exec_())
+    def fit_error_popup(self):
+        self.view.fit_error_popup_window()
 
 
-
-    
+    def initialize_example(self):
+        for i, current_file in enumerate(self.example_files):
+            current_file_path = os.path.dirname(__file__) + "/resources/" + current_file
+            a = PressureGaugeDataObject()
+            self.model.add_instance(a)
+            a.load_spectral_data_file(current_file, current_file_path)
+            a.set_calibration(myPGM.calibrations.Ruby2020)
+            a.set_fit_model(myPGM.fit_models.DoubleVoigt)
+        
+        #for a in list(self.model.values())[:-1]:
+        #    a.fit_data()
+        #print([k for k in self.model.values()])
+        self.populate_file_list()
 
  

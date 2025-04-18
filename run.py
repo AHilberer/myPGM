@@ -1,9 +1,9 @@
 import sys
 import os
 from PyQt5.QtWidgets import QApplication
-from main_ui import *
-from data_model import PressureGaugeDataManager
-from presenter import Presenter
+from UI.main_ui import MainWindow
+from myPGM.data_model import PressureGaugeDataManager
+from myPGM.presenter import Presenter
 
 # Run the application
 if __name__ == "__main__":
@@ -19,7 +19,7 @@ if __name__ == "__main__":
         pass
     model = PressureGaugeDataManager()
     view = MainWindow(model)
-    presenter = Presenter(model, view)
+    presenter = Presenter(model, view, test_mode=True)
     presenter.view.show()
     #presenter.initialize_example()
 

@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
     QHeaderView,
     QTableWidget,
 )
+from PyQt5.QtCore import Qt, QObject, pyqtSignal
 
 
 class HPTableWidget(QTableWidget):
@@ -172,3 +173,122 @@ class HPTableWindow(QWidget):
             return fileName
         else:
             return None
+
+
+class HPData():
+
+    def __init__(self, Pm, P, x, T, x0, T0, calib, file):
+        super().__init__()
+
+        self.Pm = Pm
+        self.P = P
+        self.x = x
+        self.T = T
+        self.x0 = x0
+        self.T0 = T0
+        self.calib = calib
+        self.file = file
+
+    def __repr__(self):
+        return str(self.df)
+
+    def calcP(self):
+        self.P = self.calib.func(self.x, self.T, self.x0, self.T0)
+
+    def invcalcP(self):
+        self.x = self.calib.invfunc(self.P, self.T, self.x0, self.T0)
+
+    # SOMETHING TO RETRIEVE THE CALIB OBJECT BY ITS NAME ?
+
+    @property
+    def df(self):       
+        _df = pd.DataFrame({'Pm': self.Pm,
+                            'P' : self.P, 
+                            'x' : self.x,
+                            'T' : self.T,
+                            'x0': self.x0,
+                            'T0': self.T0,
+                            'calib': self.calib.name,
+                            'file' : self.file}, index=[0])
+        return _df
+
+
+
+class HPDataTable(QObject):
+    
+    changed = pyqtSignal()
+
+    def __init__(self, df=None, calibrations=None):
+        super().__init__()  
+    
+        self.datalist = []
+
+        if df is not None:
+            self.reconstruct_from_df(df, calibrations)
+
+    def __repr__(self):
+        return str( self.df )
+
+    def __getitem__(self, index):
+        return self.datalist[index]
+
+    def __setitem__(self, index, HPDataobj):
+        self.datalist[index] = HPDataobj
+        self.changed.emit()
+
+    def __len__(self):
+        return len(self.datalist)
+
+
+    def recalc_item_P(self, index):
+        # method implemented to emit change!
+        self.datalist[index].calcP()
+        self.changed.emit()
+
+    def reinvcalc_item_P(self, index):
+        self.datalist[index].invcalcP()
+        self.changed.emit()
+
+    def setitemval(self, item, attr, val):
+        if val != getattr(self.datalist[item],attr): 
+            setattr(self.datalist[item], attr, val)
+            self.changed.emit()
+
+    def add(self, buffer):
+        # NB:  deepcopy fails if HPData inherits from QObject !
+        # deepcopy absolutely necessary here
+        # Here I work with the HPData object
+        self.datalist.append( deepcopy(buffer) )
+        self.changed.emit()
+
+    def removelast(self):
+        # Here I work with the HPData object
+        self.datalist = self.datalist[:-1]
+        self.changed.emit()
+
+    def removespecific(self, index):
+        del self.datalist[index]
+        self.changed.emit()
+
+    def reconstruct_from_df(self, df, calibrations):
+        # erases the previous content!
+        self.datalist = []
+        for _, row in df.iterrows():
+            HPdi = HPData(Pm = row['Pm'],
+                          P  = row['P'], 
+                          x  = row['x'], 
+                          T  = row['T'], 
+                          x0 = row['x0'], 
+                          T0 = row['T0'],
+                          calib = calibrations[row['calib']], # retrieve calib
+                          file = row['file'])
+            self.datalist.append(HPdi)
+        self.changed.emit()
+
+    @property
+    def df(self):
+        # should be used only as a REPRESENTATION of HPDataTable
+        _df = pd.DataFrame(columns=['Pm','P','x','T','x0','T0','calib','file'])
+        for xi in self.datalist:
+            _df = pd.concat([_df, xi.df ], ignore_index=True)
+        return _df

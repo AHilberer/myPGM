@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import (
     QStyle,
     QFormLayout,
     QSplitter,
+    QFrame,
     
 )
 from PyQt5.QtCore import (
@@ -38,14 +39,12 @@ from PyQt5.QtGui import QColor, QIcon
 from scipy.ndimage import uniform_filter1d, gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
 
-from fit_models import *
-from PvPm_plot_window import *
-from PvPm_table_window import *
+from UI.PvPm_plot_window import PmPPlotWindow
+from UI.PvPm_table_window import HPTableWidget, HPTableWindow, HPDataTable, HPData
 
-import helpers
-from calibrations import *
+from UI.FileListViewerWidget import FileListViewerWidget
 
-from FileListViewerWidget import FileListViewerWidget
+import pyqtgraph as pg
 
 demo_mode = True
 
@@ -54,7 +53,8 @@ class MainWindow(QMainWindow):
     #####################################################################################
         # ? Signals setup
     theme_switched = pyqtSignal()
-    calib_change_signal = pyqtSignal(object)
+    import_calib_signal = pyqtSignal(object)
+    import_fit_models_signal = pyqtSignal(object)
 
 
     def __init__(self, model):
@@ -87,15 +87,7 @@ class MainWindow(QMainWindow):
 
 
 
-        #####################################################################################
-        # ? Calibrations setup
-
-        self.calibrations = {a.name: a for a in calib_list}
-        #####################################################################################
-        # ? Fit models setups
-
-        self.models = {a.name: a for a in model_list}
-
+ 
         #####################################################################################
         # #? Setup Parameters table window
         menubar = self.menuBar()
@@ -125,17 +117,10 @@ class MainWindow(QMainWindow):
 
         #####################################################################################
         # this will be our initial state
-        self.buffer = helpers.HPData(
-            Pm=0,
-            P=0,
-            x=694.28,
-            T=298,
-            x0=694.28,
-            T0=298,
-            calib=self.calibrations["Ruby2020"],
-            file="No",
-        )
-
+        self.buffer = None
+        self.calibrations = None
+        self.fit_models = None
+        
         ##################################### Main Top Panel ###################################################################################
         # #? PRL style toolbox
         ToolboxGroup = QGroupBox("Pressure toolbox")
@@ -182,11 +167,7 @@ class MainWindow(QMainWindow):
         self.calibration_combo = QComboBox()
         self.calibration_combo.setObjectName("calibration_combo")
         self.calibration_combo.setMinimumWidth(150)
-        self.calibration_combo.addItems(self.calibrations.keys())
 
-        for k, v in self.calibrations.items():
-            ind = self.calibration_combo.findText(k)
-            self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
 
         self.x_label = QLabel("lambda (nm)")
         self.x0_label = QLabel("lambda0 (nm)")
@@ -211,7 +192,6 @@ class MainWindow(QMainWindow):
         calibration_form.addRow(QLabel("Calibration: "), self.calibration_combo)
 
         self.Tcor_Label = QLabel("NA")
-        self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
         calibration_form.addRow(QLabel("T correction: "), self.Tcor_Label)
 
         self.add_button = QPushButton("+")
@@ -235,19 +215,19 @@ class MainWindow(QMainWindow):
         Toolboxlayout.addLayout(calibration_form, stretch=1)
 
         # Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(helpers.MyVSeparator())
+        Toolboxlayout.addWidget(MyVSeparator())
         # Toolboxlayout.addStretch()
 
         Toolboxlayout.addLayout(param_form, stretch=5)
 
         # Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(helpers.MyVSeparator())
+        Toolboxlayout.addWidget(MyVSeparator())
         # Toolboxlayout.addStretch()
 
         Toolboxlayout.addLayout(pressure_form, stretch=2)
 
         # Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(helpers.MyVSeparator())
+        Toolboxlayout.addWidget(MyVSeparator())
         # Toolboxlayout.addStretch()
 
         Toolboxlayout.addLayout(actions_form, stretch=1)
@@ -255,24 +235,11 @@ class MainWindow(QMainWindow):
         ToolboxGroup.setLayout(Toolboxlayout)
         top_panel_layout.addWidget(ToolboxGroup)
 
-        self.Pm_spinbox.setValue(self.buffer.Pm)
-        self.P_spinbox.setValue(self.buffer.P)
-        self.x_spinbox.setValue(self.buffer.x)
-        self.T_spinbox.setValue(self.buffer.T)
-        self.x0_spinbox.setValue(self.buffer.x0)
-        self.T0_spinbox.setValue(self.buffer.T0)
-        self.calibration_combo.setCurrentText(self.buffer.calib.name)
-        newind = self.calibration_combo.currentIndex()
-        col1 = self.calibration_combo.model().item(newind).background().color().getRgb()
-        self.calibration_combo.setStyleSheet(
-            "background-color: rgba{};\
-                    selection-background-color: k;".format(col1)
-        )
+
 
         # ? Toolbox connections
         self.table_button.clicked.connect(self.toggle_PvPm)
 
-        self.calibration_combo.currentIndexChanged.connect(self.update_calib)
 
         self.Pm_spinbox.valueChanged.connect(self.update_toolbox)
         self.P_spinbox.valueChanged.connect(self.update_toolbox)
@@ -320,7 +287,7 @@ class MainWindow(QMainWindow):
         FileInfoBoxLayout.addWidget(self.dir_label)
 
         FitBoxLayout.addLayout(FileInfoBoxLayout)
-        FitBoxLayout.addWidget(helpers.MyHSeparator())
+        FitBoxLayout.addWidget(MyHSeparator())
 
         #####################################################################################
         # ? Data correction + fit section
@@ -372,7 +339,7 @@ class MainWindow(QMainWindow):
 
         InteractionBox.addLayout(CorrectionBox)
 
-        InteractionBox.addWidget(helpers.MyVSeparator())
+        InteractionBox.addWidget(MyVSeparator())
 
         FitOptionBox = QVBoxLayout()
 
@@ -393,13 +360,10 @@ class MainWindow(QMainWindow):
         self.fit_model_combo = QComboBox()
         self.fit_model_combo.setObjectName("fit_model_combo")
         self.fit_model_combo.setMinimumWidth(100)
-        self.fit_model_combo.addItems(self.models.keys())
-        for k, v in self.models.items():
-            ind = self.fit_model_combo.findText(k)
-            self.fit_model_combo.model().item(ind).setBackground(QColor(v.color))
+        
 
         self.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
-        self.update_fit_model()
+
         FitOptionBox.addWidget(self.fit_model_combo)
 
         InteractionBox.addLayout(FitOptionBox)
@@ -462,7 +426,7 @@ class MainWindow(QMainWindow):
         #####################################################################################
         # #? Setup PvPm table and plotwindow
 
-        self.data = helpers.HPDataTable()
+        self.data = HPDataTable()
 
         self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
 
@@ -537,6 +501,74 @@ class MainWindow(QMainWindow):
 
         #self.theme_switched.emit() #need to replot data ?
 
+    def load_calibrations(self, calib_dict):
+        self.calibrations = calib_dict
+        #{a.name: a for a in calib_list}
+
+    def load_fit_models(self, models_dict):
+        self.fit_models = models_dict
+        #{a.name: a for a in model_list}
+
+    def startup_buffer(self):
+        if self.calibrations is not None:
+            self.buffer = HPData(
+                Pm=0,
+                P=0,
+                x=694.28,
+                T=298,
+                x0=694.28,
+                T0=298,
+                calib=self.calibrations["Ruby2020"],
+                file="No",
+            )
+            self.Pm_spinbox.setValue(self.buffer.Pm)
+            self.P_spinbox.setValue(self.buffer.P)
+            self.x_spinbox.setValue(self.buffer.x)
+            self.T_spinbox.setValue(self.buffer.T)
+            self.x0_spinbox.setValue(self.buffer.x0)
+            self.T0_spinbox.setValue(self.buffer.T0)
+            self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
+            self.calibration_combo.setCurrentText(self.buffer.calib.name)
+            newind = self.calibration_combo.currentIndex()
+            col1 = self.calibration_combo.model().item(newind).background().color().getRgb()
+            self.calibration_combo.setStyleSheet(
+                "background-color: rgba{};\
+                        selection-background-color: k;".format(col1)
+            )
+        else:
+            raise ImportError('Error loading calibrations.')
+
+
+    def populate_calib_combo(self):
+        if self.calibrations is not None:
+            self.calibration_combo.addItems(self.calibrations.keys())
+
+            for k, v in self.calibrations.items():
+                ind = self.calibration_combo.findText(k)
+                self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
+        else:
+            raise ImportError('Error loading calibrations.')
+
+    def populate_fit_models_combo(self):
+        if self.fit_models is not None:
+            self.fit_model_combo.addItems(self.fit_models.keys())
+
+            for k, v in self.fit_models.items():
+                ind = self.fit_model_combo.findText(k)
+                self.fit_model_combo.model().item(ind).setBackground(QColor(v.color))
+            
+            col1 = (
+            self.fit_model_combo.model()
+            .item(self.fit_model_combo.currentIndex())
+            .background()
+            .color()
+            .getRgb()
+            )
+            self.fit_model_combo.setStyleSheet(
+                "background-color: rgba{};    selection-background-color: k;".format(col1)
+            )
+        else:
+            raise ImportError('Erro loading fit models.')
 
     def add_to_table(self):
         self.buffer.file = "No"
@@ -618,23 +650,23 @@ class MainWindow(QMainWindow):
             self.splitter.widget(1).show()
         self.Derivative_enabled = not self.Derivative_enabled
 
-    @pyqtSlot()
-    def add_file(self):
-        file_dialog = QFileDialog()
-        file_dialog.setFileMode(QFileDialog.ExistingFiles)
-        file_dialog.setNameFilter("Text and ASC files (*.txt *.asc);;All Files (*)")
+    # @pyqtSlot()
+    # def add_file(self):
+    #     file_dialog = QFileDialog()
+    #     file_dialog.setFileMode(QFileDialog.ExistingFiles)
+    #     file_dialog.setNameFilter("Text and ASC files (*.txt *.asc);;All Files (*)")
 
-        if file_dialog.exec_():
-            selected_files = file_dialog.selectedFiles()
-            for file in selected_files:
-                file_info = QFileInfo(file)
-                file_name = file_info.fileName()
-                new_item = helpers.MySpectrumItem(file_name, file)
+    #     if file_dialog.exec_():
+    #         selected_files = file_dialog.selectedFiles()
+    #         for file in selected_files:
+    #             file_info = QFileInfo(file)
+    #             file_name = file_info.fileName()
+    #             new_item = helpers.MySpectrumItem(file_name, file)
 
-                new_item.data = helpers.customparse_file2data(file)
-                new_item.normalize_data()
-                new_item.current_smoothing = 1
-                self.file_list_model.addItem(new_item)
+    #             new_item.data = helpers.customparse_file2data(file)
+    #             new_item.normalize_data()
+    #             new_item.current_smoothing = 1
+    #             self.file_list_model.addItem(new_item)
 
     @pyqtSlot()
     def delete_file(self):
@@ -652,41 +684,41 @@ class MainWindow(QMainWindow):
             self.dir_name = dir_name
             self.dir_label.setText(f"Selected directory: {dir_name}")
 
-    @pyqtSlot()
-    def load_latest_file(self):
-        if hasattr(self, "dir_name"):
-            file_names = [
-                f
-                for f in os.listdir(self.dir_name)
-                if os.path.isfile(os.path.join(self.dir_name, f)) and ".asc" in f
-            ]
-            if file_names:
-                file_names.sort(
-                    key=lambda f: os.path.getmtime(os.path.join(self.dir_name, f))
-                )
-                latest_file_name = file_names[-1]
-                file = os.path.join(self.dir_name, latest_file_name)
-                file_info = QFileInfo(file)
-                file_name = file_info.fileName()
-                new_item = helpers.MySpectrumItem(file_name, file)
+    # @pyqtSlot()
+    # def load_latest_file(self):
+    #     if hasattr(self, "dir_name"):
+    #         file_names = [
+    #             f
+    #             for f in os.listdir(self.dir_name)
+    #             if os.path.isfile(os.path.join(self.dir_name, f)) and ".asc" in f
+    #         ]
+    #         if file_names:
+    #             file_names.sort(
+    #                 key=lambda f: os.path.getmtime(os.path.join(self.dir_name, f))
+    #             )
+    #             latest_file_name = file_names[-1]
+    #             file = os.path.join(self.dir_name, latest_file_name)
+    #             file_info = QFileInfo(file)
+    #             file_name = file_info.fileName()
+    #             new_item = helpers.MySpectrumItem(file_name, file)
 
-                new_item.data = helpers.customparse_file2data(file)
-                new_item.normalize_data()
-                new_item.current_smoothing = 1
+    #             new_item.data = helpers.customparse_file2data(file)
+    #             new_item.normalize_data()
+    #             new_item.current_smoothing = 1
 
-                self.file_list_model.addItem(new_item)
-            else:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setText("No files in selected directory.")
-                msg.setWindowTitle("Error")
-                msg.exec_()
-        else:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("No directory selected.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
+    #             self.file_list_model.addItem(new_item)
+    #         else:
+    #             msg = QMessageBox()
+    #             msg.setIcon(QMessageBox.Critical)
+    #             msg.setText("No files in selected directory.")
+    #             msg.setWindowTitle("Error")
+    #             msg.exec_()
+    #     else:
+    #         msg = QMessageBox()
+    #         msg.setIcon(QMessageBox.Critical)
+    #         msg.setText("No directory selected.")
+    #         msg.setWindowTitle("Error")
+    #         msg.exec_()
 
     @pyqtSlot(QModelIndex)
     def item_clicked(self, index):
@@ -804,18 +836,7 @@ class MainWindow(QMainWindow):
 
 
     def update_fit_model(self):
-        col1 = (
-            self.fit_model_combo.model()
-            .item(self.fit_model_combo.currentIndex())
-            .background()
-            .color()
-            .getRgb()
-        )
-        self.fit_model_combo.setStyleSheet(
-            "background-color: rgba{};    selection-background-color: k;".format(col1)
-        )
-
-        self.fit_mode = self.models[self.fit_model_combo.currentText()]
+        self.fit_mode = self.fit_models[self.fit_model_combo.currentText()]
 
     def toggle_click_fit(self):
         self.click_fit_enabled = not self.click_fit_enabled
@@ -876,7 +897,7 @@ class MainWindow(QMainWindow):
 
             x_click, y_click = click_point.x(), click_point.y()
 
-            self.fit_mode = self.models[self.fit_model_combo.currentText()]
+            self.fit_mode = self.fit_models[self.fit_model_combo.currentText()]
 
             if self.current_selected_file_index is not None:
                 current_spectrum = self.file_list_model.data(
@@ -937,6 +958,13 @@ class MainWindow(QMainWindow):
                                 
         else:
                 print("Plot fit not implemented")
+
+    def fit_error_popup_window(self):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setText("Attempted fit couldn't converge.")
+        msg.setWindowTitle("Fit error")
+        msg.exec_()
 
     def toggle_PvPm(self):
         if self.DataTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
@@ -1021,6 +1049,20 @@ class MainWindow(QMainWindow):
         current_spectrum.corrected_data = np.column_stack((x, corrected))
         self.plot_data()
 
+
+
+
+class MyHSeparator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.HLine)
+        self.setFrameShadow(QFrame.Sunken)
+
+class MyVSeparator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.VLine)
+        self.setFrameShadow(QFrame.Sunken)
 
 # class CustomFileListModel(QAbstractListModel):
 #     itemAdded = pyqtSignal()  # Signal emitted when an item is added
