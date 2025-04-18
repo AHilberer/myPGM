@@ -172,6 +172,7 @@ class PressureGaugeDataObject:
         
         try:
             self.fit_result = self.fit_procedure(self.fit_model, x, y)
+            
             if self.fit_model.type == "peak":
                 fitted = [self.fit_model.func(wvl, *self.fit_result["opti"]) for wvl in x]
                 self.fitted_data = np.column_stack((x, fitted))
@@ -187,6 +188,7 @@ class PressureGaugeDataObject:
                 
             elif self.fit_model.type == "edge":
                 self.fitted_data = self.fit_result["opti"]
+                best_x = self.fitted_data
             else:
                 raise ValueError("Fit type not implemented")
             

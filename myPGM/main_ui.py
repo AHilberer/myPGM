@@ -50,6 +50,13 @@ from FileListViewerWidget import FileListViewerWidget
 demo_mode = True
 
 class MainWindow(QMainWindow):
+
+    #####################################################################################
+        # ? Signals setup
+    theme_switched = pyqtSignal()
+    calib_change_signal = pyqtSignal(object)
+
+
     def __init__(self, model):
         super().__init__()
         self.model = model
@@ -79,9 +86,6 @@ class MainWindow(QMainWindow):
         pg.setConfigOption('leftButtonPan', False)
 
 
-        #####################################################################################
-        # ? Signals setup
-        theme_switched = pyqtSignal()
 
         #####################################################################################
         # ? Calibrations setup
@@ -375,12 +379,12 @@ class MainWindow(QMainWindow):
         FitButtonsBox = QVBoxLayout()
 
         self.fit_button = QPushButton("Fit", self)
-        #self.fit_button.clicked.connect(self.fit)
+        
         FitButtonsBox.addWidget(self.fit_button)
 
         self.click_fit_button = QPushButton("Click-to-fit", self)
         self.click_fit_button.setCheckable(True)
-        #self.click_fit_button.clicked.connect(self.toggle_click_fit)
+        self.click_fit_button.clicked.connect(self.toggle_click_fit)
         self.click_fit_enabled = False
         FitButtonsBox.addWidget(self.click_fit_button)
 
@@ -394,7 +398,7 @@ class MainWindow(QMainWindow):
             ind = self.fit_model_combo.findText(k)
             self.fit_model_combo.model().item(ind).setBackground(QColor(v.color))
 
-        #self.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
+        self.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
         self.update_fit_model()
         FitOptionBox.addWidget(self.fit_model_combo)
 
@@ -424,7 +428,7 @@ class MainWindow(QMainWindow):
         self.data_edge_marker = pg.InfiniteLine(pos=None, angle=90, pen=self.data_fit_pen, movable=False)
         
         self.data_widget.setMenuEnabled(False)
-        #self.data_scatter.scene().sigMouseClicked.connect(self.data_plot_click)
+        self.data_scatter.scene().sigMouseClicked.connect(self.data_plot_click)
 
         #####################################################################################
         # #? Setup derivative plotting section
@@ -595,6 +599,7 @@ class MainWindow(QMainWindow):
         self.x0_spinbox.setValue(self.buffer.calib.x0default)
 
         # self.plot_data() # a priori no need to call plot_data here
+        #self.calib_change_signal.emit(self.buffer.calib)
 
     def add_current_fit(self):
         if self.current_selected_file_index is not None:
@@ -706,14 +711,6 @@ class MainWindow(QMainWindow):
             self.data_widget.setTitle('Not fitted', color=self.plot_label_color, size="16pt")
         
 
-    @pyqtSlot()
-    def selection_changed(self):
-        # Update the current_selected_index when the selection changes
-        selected_index = self.list_widget.currentIndex()
-        if selected_index.isValid():
-            self.current_selected_file_index = selected_index
-        else:
-            self.current_selected_file_index = None
 
     def move_up(self):
         selected_index = self.list_widget.currentIndex()
@@ -818,9 +815,7 @@ class MainWindow(QMainWindow):
             "background-color: rgba{};    selection-background-color: k;".format(col1)
         )
 
-        fit_mode = self.fit_model_combo.currentText()
-
-
+        self.fit_mode = self.models[self.fit_model_combo.currentText()]
 
     def toggle_click_fit(self):
         self.click_fit_enabled = not self.click_fit_enabled
@@ -881,13 +876,13 @@ class MainWindow(QMainWindow):
 
             x_click, y_click = click_point.x(), click_point.y()
 
-            fit_mode = self.models[self.fit_model_combo.currentText()]
+            self.fit_mode = self.models[self.fit_model_combo.currentText()]
 
             if self.current_selected_file_index is not None:
                 current_spectrum = self.file_list_model.data(
                     self.current_selected_file_index, role=Qt.UserRole
                 )
-                current_spectrum.fit_model = fit_mode
+                current_spectrum.fit_model = self.fit_mode
 
             if current_spectrum.corrected_data is None:
                 x = current_spectrum.data[:, 0]
@@ -896,7 +891,7 @@ class MainWindow(QMainWindow):
                 x = current_spectrum.corrected_data[:, 0]
                 y = current_spectrum.corrected_data[:, 1]
 
-            if fit_mode.type == "edge":
+            if self.fit_mode.type == "edge":
                 best_x = x_click
                 self.x_spinbox.setValue(best_x)
                 res = {"opti": best_x, "cov": None}
@@ -904,8 +899,8 @@ class MainWindow(QMainWindow):
                 current_spectrum.fit_result = res
                 self.plot_fit(current_spectrum)
 
-            elif fit_mode.type == "peak":
-                res = self.do_fit(fit_mode, x, y, guess_peak=x_click)
+            elif self.fit_mode.type == "peak":
+                res = self.do_fit(self.fit_mode, x, y, guess_peak=x_click)
                 # print('done fit')
                 current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
                 current_spectrum.fit_result = res

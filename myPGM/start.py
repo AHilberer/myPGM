@@ -21,7 +21,7 @@ if __name__ == "__main__":
     view = MainWindow(model)
     presenter = Presenter(model, view)
     presenter.view.show()
-    presenter.initialize_example()
+    #presenter.initialize_example()
 
     sys.exit(app.exec_())
 

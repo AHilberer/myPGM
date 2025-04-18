@@ -15,15 +15,21 @@ class Presenter:
         self.view = view
         self.current_selected_file = None
         self.example_files = [
-                #"Example_diam_Raman.asc",
+                "Example_diam_Raman.asc",
                 "Example_Ruby_1.asc",
                 "Example_Ruby_2.asc",
                 "Example_Ruby_3.asc",
-                #"Example_H2.txt",
+                "Example_H2.txt",
             ]
+
+        #? Setup Signal-Slot interactions
+
         self.view.file_list_widget.object_selected.connect(self.file_selected_from_file_list)
 
         self.view.smoothing_factor.valueChanged.connect(self.smoothen)
+        self.view.fit_button.clicked.connect(self.fit_current_file)
+
+        #? Methods 
 
     def initialize_example(self):
         for i, current_file in enumerate(self.example_files):
@@ -34,8 +40,8 @@ class Presenter:
             a.set_calibration(calibrations.Ruby2020)
             a.set_fit_model(fit_models.DoubleVoigt)
         
-        for a in list(self.model.values())[:-1]:
-            a.fit_data()
+        #for a in list(self.model.values())[:-1]:
+        #    a.fit_data()
         print([k for k in self.model.values()])
         self.populate_file_list()
 
@@ -71,6 +77,25 @@ class Presenter:
                 item = QListWidgetItem(text)
                 item.setData(Qt.UserRole, obj.id)  # Store only object ID 
                 self.view.file_list_widget.list_widget.addItem(item)
+
+    def fit_current_file(self):
+        if self.current_selected_file is not None:
+            obj = self.model.get(self.current_selected_file, None)
+            obj.set_calibration(self.view.buffer.calib)
+            obj.set_fit_model(self.view.fit_mode)
+            obj.fit_data()
+            self.update_data_plots(self.current_selected_file)
+
+
+    # def update_calibration(self, new_calib):
+    #     if self.current_selected_file is not None:
+    #         obj = self.model.get(self.current_selected_file, None)
+    #         obj.set_calibration(new_calib)
+
+    # def update_fit_model(self, new_calib):
+    #     if self.current_selected_file is not None:
+    #         obj = self.model.get(self.current_selected_file, None)
+    #         obj.set_calibration(new_calib)
 
 if __name__ == '__main__':
     os.chdir(os.path.abspath(__file__).replace(os.path.basename(__file__), ""))
