@@ -62,6 +62,12 @@ class MainWindow(QMainWindow):
         self.model = model
         # Setup Main window parameters
         self.setWindowTitle("myPGM - PressureGaugeMonitor")
+
+        # self.icon_path = os.path.join(os.path.dirname(
+        #                         os.path.abspath(__file__)),
+        #                  'resources/myPGM_logo.png')
+        # self.setWindowIcon(QIcon(self.icon_path))
+        
         x = 100
         y = 100
         width = 800
