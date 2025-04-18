@@ -36,6 +36,10 @@ class Presenter:
         self.view.smoothing_factor.valueChanged.connect(self.smoothen)
         self.view.fit_button.clicked.connect(self.fit_current_file)
 
+        self.view.CHullBg_button.clicked.connect(self.subtract_auto_bg)
+        self.view.ResetBg_button.clicked.connect(self.reset_bg)
+
+
         if self.test_mode:
             self.initialize_example()
 
@@ -76,6 +80,21 @@ class Presenter:
         else:
             return
     
+    def subtract_auto_bg(self):
+        if self.current_selected_file is not None:
+            obj = self.model.get(self.current_selected_file, None)
+            obj.convexhull_bg()
+            self.update_data_plots(self.current_selected_file)
+        else:
+            return
+
+    def reset_bg(self):
+        if self.current_selected_file is not None:
+            obj = self.model.get(self.current_selected_file, None)
+            obj.reset_bg()
+            self.update_data_plots(self.current_selected_file)
+        else:
+            return
 
     def populate_file_list(self):
         self.view.file_list_widget.list_widget.clear()

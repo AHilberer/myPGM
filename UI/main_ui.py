@@ -67,7 +67,7 @@ class MainWindow(QMainWindow):
         #                         os.path.abspath(__file__)),
         #                  'resources/myPGM_logo.png')
         # self.setWindowIcon(QIcon(self.icon_path))
-        
+
         x = 100
         y = 100
         width = 800
@@ -304,7 +304,6 @@ class MainWindow(QMainWindow):
         BgBox = QHBoxLayout()
 
         self.CHullBg_button = QPushButton("Auto Bg", self)
-        #self.CHullBg_button.clicked.connect(self.CHull_Bg)
         # self.CHullBg_button.setStyleSheet("background-color : white")
         # self.CHullBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/auto_bg.png'))
         # self.CHullBg_button.setIconSize(QSize(45,45))
@@ -322,7 +321,6 @@ class MainWindow(QMainWindow):
         BgBox.addWidget(self.ManualBg_button, stretch=3)
 
         self.ResetBg_button = QPushButton("Reset Bg", self)
-        #self.ResetBg_button.clicked.connect(self.Reset_Bg)
         BgBox.addWidget(self.ResetBg_button, stretch=3)
 
         SmoothBox = QHBoxLayout()
