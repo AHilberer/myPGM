@@ -49,6 +49,8 @@ class Presenter:
     def initialize_calibrations_menu(self):
         self.view.load_calibrations({a.name: a for a in myPGM.calibrations.calib_list})
         self.view.populate_calib_combo()
+        self.view.x0_spinbox.setValue(myPGM.calibrations.calib_list[0].x0default)
+
 
     def initialize_fit_models_menu(self):
         self.view.load_fit_models({a.name: a for a in myPGM.fit_models.model_list})
@@ -113,6 +115,7 @@ class Presenter:
             obj.set_fit_model(self.view.fit_mode)
             try:
                 obj.fit_data()
+                self.view.x_spinbox.setValue(obj.x)
                 self.update_data_plots(self.current_selected_file)
             except RuntimeError:
                 self.fit_error_popup()

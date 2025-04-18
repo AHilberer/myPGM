@@ -584,32 +584,36 @@ class MainWindow(QMainWindow):
 
         # update is called two time, not very good but working
 
-    def update_toolbox(self, s):
+    def update_toolbox(self):
+        # if P is modified, change the value of x
         if self.P_spinbox.hasFocus():
             self.buffer.P = self.P_spinbox.value()
 
             try:
+                print(self.buffer.calib.invfunc)
                 self.buffer.invcalcP()
                 self.x_spinbox.setValue(self.buffer.x)
 
                 self.x_spinbox.setStyleSheet("background: #4a8542;")  # green
             except:
                 self.x_spinbox.setStyleSheet("background: #ff7575;")  # red
-        else:  # anything else than P has been manually changed:
+
+        else:  # anything else than P has been manually changed, update the buffer
             # read everything stupidly
-            self.buffer.Pm = self.Pm_spinbox.value()
-            self.buffer.x = self.x_spinbox.value()
-            self.buffer.T = self.T_spinbox.value()
-            self.buffer.x0 = self.x0_spinbox.value()
-            self.buffer.T0 = self.T0_spinbox.value()
+            if self.buffer is not None:
+                self.buffer.Pm = self.Pm_spinbox.value()
+                self.buffer.x = self.x_spinbox.value()
+                self.buffer.T = self.T_spinbox.value()
+                self.buffer.x0 = self.x0_spinbox.value()
+                self.buffer.T0 = self.T0_spinbox.value()
 
-            try:
-                self.buffer.calcP()
-                self.P_spinbox.setValue(self.buffer.P)
+                try:
+                    self.buffer.calcP()
+                    self.P_spinbox.setValue(self.buffer.P)
 
-                self.P_spinbox.setStyleSheet("background: #4a8542;")  # green
-            except:
-                self.P_spinbox.setStyleSheet("background: #ff7575;")  # red
+                    self.P_spinbox.setStyleSheet("background: #4a8542;")  # green
+                except:
+                    self.P_spinbox.setStyleSheet("background: #ff7575;")  # red
 
     def update_calib(self, newind):
         self.buffer.calib = self.calibrations[self.calibration_combo.currentText()]
