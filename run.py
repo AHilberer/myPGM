@@ -12,7 +12,7 @@ if __name__ == "__main__":
     app.setStyle("Fusion")
 
     try:
-        with open("light-mode.qss", "r") as file:
+        with open("myPGM/light-mode.qss", "r") as file:
             qss = file.read()
             app.setStyleSheet(qss)
     except:

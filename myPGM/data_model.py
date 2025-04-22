@@ -163,7 +163,7 @@ class PressureGaugeDataObject:
             self.corrected_data = np.column_stack((x, corrected))
         #self.plot_data()
 
-    def fit_data(self):
+    def fit_data(self, guess_peak=None):
         """
         Fit the spectrum using the selected model, and update the pressure estimate.
         :param fit_model: GaugeFitModel
@@ -172,7 +172,7 @@ class PressureGaugeDataObject:
         
         try:
             
-            self.fit_result = self.fit_procedure(self.fit_model, x, y)
+            self.fit_result = self.fit_procedure(self.fit_model, x, y, guess_peak=guess_peak)
             if self.fit_model.type == "peak":
                 fitted = [self.fit_model.func(wvl, *self.fit_result["opti"]) for wvl in x]
                 self.fitted_data = np.column_stack((x, fitted))
@@ -212,8 +212,11 @@ class PressureGaugeDataObject:
                  raise RuntimeError("Fit failed to converge.")
 
         elif model.type == "edge":
-            grad = np.gradient(y)
-            best_x = x[np.argmin(grad)]
+            if guess_peak is not None:
+                best_x = guess_peak
+            else:
+                grad = np.gradient(y)
+                best_x = x[np.argmin(grad)]
             # self.x_spinbox.setValue(best_x)
             return {"opti": best_x, "cov": None}
 

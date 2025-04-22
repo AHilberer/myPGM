@@ -55,7 +55,7 @@ class MainWindow(QMainWindow):
     theme_switched = pyqtSignal()
     import_calib_signal = pyqtSignal(object)
     import_fit_models_signal = pyqtSignal(object)
-
+    fit_from_click = pyqtSignal(object)
 
     def __init__(self, model):
         super().__init__()
@@ -450,7 +450,7 @@ class MainWindow(QMainWindow):
 
     def switch_to_dark(self):
         try:
-            with open("dark-mode.qss", "r") as file:
+            with open("myPGM/dark-mode.qss", "r") as file:
                 qss = file.read()
                 self.setStyleSheet(qss)
                 self.DataTableWindow.setStyleSheet(qss)
@@ -478,7 +478,7 @@ class MainWindow(QMainWindow):
 
     def switch_to_light(self):
         try:
-            with open("light-mode.qss", "r") as file:
+            with open("myPGM/light-mode.qss", "r") as file:
                 qss = file.read()
                 self.setStyleSheet(qss)
                 self.DataTableWindow.setStyleSheet(qss)
@@ -904,42 +904,11 @@ class MainWindow(QMainWindow):
                     click_point = vb.mapSceneToView(scene_coords)
 
             x_click, y_click = click_point.x(), click_point.y()
-
-            self.fit_mode = self.fit_models[self.fit_model_combo.currentText()]
-
-            if self.current_selected_file_index is not None:
-                current_spectrum = self.file_list_model.data(
-                    self.current_selected_file_index, role=Qt.UserRole
-                )
-                current_spectrum.fit_model = self.fit_mode
-
-            if current_spectrum.corrected_data is None:
-                x = current_spectrum.data[:, 0]
-                y = current_spectrum.data[:, 1]
-            else:
-                x = current_spectrum.corrected_data[:, 0]
-                y = current_spectrum.corrected_data[:, 1]
-
-            if self.fit_mode.type == "edge":
-                best_x = x_click
-                self.x_spinbox.setValue(best_x)
-                res = {"opti": best_x, "cov": None}
-                current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
-                current_spectrum.fit_result = res
-                self.plot_fit(current_spectrum)
-
-            elif self.fit_mode.type == "peak":
-                res = self.do_fit(self.fit_mode, x, y, guess_peak=x_click)
-                # print('done fit')
-                current_spectrum.fit_toolbox_config = deepcopy(self.buffer)
-                current_spectrum.fit_result = res
-                self.plot_fit(current_spectrum)
-
-            else:
-                print("Click to fit not implemented")
+            self.fit_from_click.emit(x_click)
 
             self.toggle_click_fit()
             self.click_fit_button.setChecked(False)
+
 
     def plot_fit(self, P, fit_model, fit_result, x, y):
         self.data_widget.removeItem(self.data_edge_marker)
