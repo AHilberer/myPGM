@@ -57,7 +57,8 @@ class MainWindow(QMainWindow):
     import_fit_models_signal = pyqtSignal(object)
     fit_from_click_signal = pyqtSignal(object)
     start_auto_fit_signal = pyqtSignal(object)
-    
+    subtract_ManualBg_signal = pyqtSignal(object)
+
     def __init__(self, model):
         super().__init__()
         self.model = model
@@ -317,8 +318,7 @@ class MainWindow(QMainWindow):
         self.ManualBg_button.clicked.connect(self.toggle_ManualBg)
         self.click_ManualBg_enabled = False
         self.ManualBg_points = []
-        self.plotted_Bg_points = None
-        self.current_spline = None
+        self.temp_bg = None
         BgBox.addWidget(self.ManualBg_button, stretch=3)
 
         self.ResetBg_button = QPushButton("Reset Bg", self)
@@ -947,12 +947,14 @@ class MainWindow(QMainWindow):
         else:
                 print("Plot fit not implemented")
 
+
     def fit_error_popup_window(self):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Critical)
         msg.setText("Attempted fit couldn't converge.")
         msg.setWindowTitle("Fit error")
         msg.exec_()
+
 
     def toggle_PvPm(self):
         if self.DataTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
@@ -966,9 +968,10 @@ class MainWindow(QMainWindow):
 
     def toggle_ManualBg(self):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:
-            self.subtract_ManualBg()
+            self.subtract_ManualBg_signal.emit(self.temp_bg)
             self.ManualBg_points = []
             self.data_bg_line.setData([],[])
+            self.data_bg_scatter.setData([],[])
             self.ManualBg_button.setText("Manual Bg")
             self.data_widget.removeItem(self.data_bg_line)
             self.data_widget.removeItem(self.data_bg_scatter)
@@ -981,9 +984,6 @@ class MainWindow(QMainWindow):
         #    self.ManualBg_button.setText('test')
 
     def set_ManualBg(self, mouseClickEvent):
-        current_spectrum = self.file_list_model.data(
-            self.current_selected_file_index, role=Qt.UserRole
-        )
         if self.click_ManualBg_enabled:
             scene_coords = mouseClickEvent.scenePos()
             vb = self.data_widget.plotItem.vb
@@ -991,19 +991,14 @@ class MainWindow(QMainWindow):
                 click_point = vb.mapSceneToView(scene_coords)
                 x_click, y_click = click_point.x(), click_point.y()
             self.ManualBg_points.append([x_click, y_click])
-            current_spectrum.bg = self.plot_ManualBg()
+            #current_spectrum.bg = self.plot_ManualBg()
+            self.plot_ManualBg()
+
 
     def plot_ManualBg(self):
         interp = None
-        current_spectrum = self.file_list_model.data(
-            self.current_selected_file_index, role=Qt.UserRole
-        )
-        if current_spectrum.corrected_data is None:
-            x = current_spectrum.data[:, 0]
-            y = current_spectrum.data[:, 1]
-        else:
-            x = current_spectrum.corrected_data[:, 0]
-            y = current_spectrum.corrected_data[:, 1]
+
+        curve_data_x = self.data_scatter.getData()[0]
 
         temp = np.array(self.ManualBg_points)
         x_bg = temp[:, 0]
@@ -1019,23 +1014,9 @@ class MainWindow(QMainWindow):
         if len(x_bg) >= 2:
             spl_order = len(x_bg) - 1 if len(x_bg) - 1 <= 5 else 5
             spl = InterpolatedUnivariateSpline(x_bg, y_bg, k=spl_order)
-            interp = spl(x)
-            self.data_bg_line.setData(x,interp)
-        return interp
-
-    def subtract_ManualBg(self):
-        current_spectrum = self.file_list_model.data(
-            self.current_selected_file_index, role=Qt.UserRole
-        )
-        if current_spectrum.corrected_data is None:
-            x = current_spectrum.data[:, 0]
-            y = current_spectrum.data[:, 1]
-        else:
-            x = current_spectrum.corrected_data[:, 0]
-            y = current_spectrum.corrected_data[:, 1]
-        corrected = y - current_spectrum.bg
-        current_spectrum.corrected_data = np.column_stack((x, corrected))
-        self.plot_data()
+            self.temp_bg = spl(curve_data_x)
+            self.data_bg_line.setData(curve_data_x,self.temp_bg)
+        return self.temp_bg
 
 
 
