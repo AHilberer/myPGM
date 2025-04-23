@@ -121,11 +121,12 @@ class PressureGaugeDataObject:
         :param smooth_window: int, size of the smoothing window
         """
         if self.original_data is not None:
+            if self.bg is not None:
+                filtered = uniform_filter1d(self.normalized_data[:, 1], size=smooth_window)-self.bg
+            else:
+                filtered = uniform_filter1d(self.normalized_data[:, 1], size=smooth_window)
             self.corrected_data = np.column_stack(
-                (
-                    self.normalized_data[:, 0],
-                    uniform_filter1d(self.normalized_data[:, 1], size=smooth_window),
-                )
+                (self.normalized_data[:, 0], filtered)
             )
             #self.plot_data()
         else:
@@ -161,6 +162,7 @@ class PressureGaugeDataObject:
         else:
             corrected = y - bg
             self.corrected_data = np.column_stack((x, corrected))
+            self.bg = bg
         #self.plot_data()
 
     def fit_data(self, guess_peak=None):
