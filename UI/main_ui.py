@@ -107,6 +107,16 @@ class MainWindow(QMainWindow):
 
         #####################################################################################
         # #? Setup Theme switch menu
+        files_menu = menubar.addMenu("Files")
+
+        open_session_action = QAction("Open session", self)
+        save_session_action = QAction("Save session", self)
+        open_session_action.triggered.connect(self.switch_to_dark)
+        save_session_action.triggered.connect(self.switch_to_light)
+        files_menu.addAction(open_session_action)
+        files_menu.addAction(save_session_action)
+        #####################################################################################
+        # #? Setup Theme switch menu
         theme_menu = menubar.addMenu("Theme")
 
         dark_action = QAction("Dark mode", self)
