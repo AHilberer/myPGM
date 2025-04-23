@@ -55,8 +55,9 @@ class MainWindow(QMainWindow):
     theme_switched = pyqtSignal()
     import_calib_signal = pyqtSignal(object)
     import_fit_models_signal = pyqtSignal(object)
-    fit_from_click = pyqtSignal(object)
-
+    fit_from_click_signal = pyqtSignal(object)
+    start_auto_fit_signal = pyqtSignal(object)
+    
     def __init__(self, model):
         super().__init__()
         self.model = model
@@ -350,7 +351,8 @@ class MainWindow(QMainWindow):
         FitButtonsBox = QVBoxLayout()
 
         self.fit_button = QPushButton("Fit", self)
-        
+        self.fit_button.clicked.connect(self.auto_fit)
+
         FitButtonsBox.addWidget(self.fit_button)
 
         self.click_fit_button = QPushButton("Click-to-fit", self)
@@ -366,7 +368,6 @@ class MainWindow(QMainWindow):
         self.fit_model_combo.setMinimumWidth(100)
         
 
-        self.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
 
         FitOptionBox.addWidget(self.fit_model_combo)
 
@@ -571,8 +572,9 @@ class MainWindow(QMainWindow):
             self.fit_model_combo.setStyleSheet(
                 "background-color: rgba{};    selection-background-color: k;".format(col1)
             )
+            self.fit_mode = self.fit_models[self.fit_model_combo.currentText()]
         else:
-            raise ImportError('Erro loading fit models.')
+            raise ImportError('Error loading fit models.')
 
     def add_to_table(self):
         self.buffer.file = "No"
@@ -843,8 +845,14 @@ class MainWindow(QMainWindow):
         self.deriv_widget.autoRange()
 
 
-    def update_fit_model(self):
+    def update_fit_model(self, newind):
         self.fit_mode = self.fit_models[self.fit_model_combo.currentText()]
+
+        col1 = self.fit_model_combo.model().item(newind).background().color().getRgb()
+        self.fit_model_combo.setStyleSheet(
+            "background-color: rgba{};\
+                    selection-background-color: k;".format(col1)
+        )
 
     def toggle_click_fit(self):
         self.click_fit_enabled = not self.click_fit_enabled
@@ -891,6 +899,9 @@ class MainWindow(QMainWindow):
             if self.click_fit_enabled:
                 self.click_to_fit(event, 'deriv')
 
+    def auto_fit(self):
+        self.start_auto_fit_signal.emit(None)
+
     def click_to_fit(self, mouseClickEvent, window):
         if self.click_fit_enabled:
             scene_coords = mouseClickEvent.scenePos()
@@ -904,7 +915,7 @@ class MainWindow(QMainWindow):
                     click_point = vb.mapSceneToView(scene_coords)
 
             x_click, y_click = click_point.x(), click_point.y()
-            self.fit_from_click.emit(x_click)
+            self.fit_from_click_signal.emit(x_click)
 
             self.toggle_click_fit()
             self.click_fit_button.setChecked(False)

@@ -260,7 +260,8 @@ class PressureGaugeDataManager(MutableMapping):
             raise TypeError("Only instances of PressureGaugeDataObject can be added.")
 
 if __name__ == '__main__': #! to be verified
-
+    import calibrations
+    import fit_models
     data_manager = PressureGaugeDataManager()
     a = PressureGaugeDataObject()
     data_manager.add_instance(a)

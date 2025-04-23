@@ -24,19 +24,20 @@ class Presenter:
         self.initialize_fit_models_menu()
 
         self.view.startup_buffer()
-        self.view.update_fit_model()
+        #self.view.update_fit_model()
 
 
 
         #? Setup Signal-Slot interactions
         self.view.calibration_combo.currentIndexChanged.connect(self.view.update_calib)
+        self.view.fit_model_combo.currentIndexChanged.connect(self.view.update_fit_model)
 
         self.view.file_list_widget.object_selected.connect(self.file_selected_from_file_list)
 
         self.view.smoothing_factor.valueChanged.connect(self.smoothen)
 
-        self.view.fit_button.clicked.connect(self.fit_current_file)
-        self.view.fit_from_click.connect(self.fit_current_file)
+        self.view.start_auto_fit_signal.connect(self.fit_current_file)
+        self.view.fit_from_click_signal.connect(self.fit_current_file)
 
         self.view.CHullBg_button.clicked.connect(self.subtract_auto_bg)
         self.view.ResetBg_button.clicked.connect(self.reset_bg)
@@ -110,13 +111,12 @@ class Presenter:
                 self.view.file_list_widget.list_widget.addItem(item)
 
 
-    def fit_current_file(self, guess=None): #? Problem: during normal fit, guess passed in False
+    def fit_current_file(self, guess=None): 
         if self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
             obj.set_calibration(self.view.buffer.calib)
             obj.set_fit_model(self.view.fit_mode)
             try:
-                print(guess)
                 obj.fit_data(guess)
                 self.view.x_spinbox.setValue(obj.x)
                 self.update_data_plots(self.current_selected_file)
