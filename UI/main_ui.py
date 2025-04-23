@@ -602,7 +602,6 @@ class MainWindow(QMainWindow):
             self.buffer.P = self.P_spinbox.value()
 
             try:
-                print(self.buffer.calib.invfunc)
                 self.buffer.invcalcP()
                 self.x_spinbox.setValue(self.buffer.x)
 
