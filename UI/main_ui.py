@@ -544,10 +544,10 @@ class MainWindow(QMainWindow):
             self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
             self.calibration_combo.setCurrentText(self.buffer.calib.name)
             newind = self.calibration_combo.currentIndex()
-            col1 = self.calibration_combo.model().item(newind).background().color().getRgb()
+            tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
             self.calibration_combo.setStyleSheet(
                 "background-color: rgba{};\
-                        selection-background-color: k;".format(col1)
+                        selection-background-color: k;".format(tmp_color)
             )
         else:
             raise ImportError('Error loading calibrations.')
@@ -571,7 +571,7 @@ class MainWindow(QMainWindow):
                 ind = self.fit_model_combo.findText(k)
                 self.fit_model_combo.model().item(ind).setBackground(QColor(v.color))
             
-            col1 = (
+            tmp_color = (
             self.fit_model_combo.model()
             .item(self.fit_model_combo.currentIndex())
             .background()
@@ -579,7 +579,7 @@ class MainWindow(QMainWindow):
             .getRgb()
             )
             self.fit_model_combo.setStyleSheet(
-                "background-color: rgba{};    selection-background-color: k;".format(col1)
+                "background-color: rgba{};    selection-background-color: k;".format(tmp_color)
             )
             self.fit_mode = self.fit_models[self.fit_model_combo.currentText()]
         else:
@@ -630,10 +630,10 @@ class MainWindow(QMainWindow):
 
         self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
 
-        col1 = self.calibration_combo.model().item(newind).background().color().getRgb()
+        tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
         self.calibration_combo.setStyleSheet(
             "background-color: rgba{};\
-                    selection-background-color: k;".format(col1)
+                    selection-background-color: k;".format(tmp_color)
         )
 
         self.x_label.setText(
@@ -713,7 +713,7 @@ class MainWindow(QMainWindow):
         
 
 
-    def move_up(self):
+    def move_up(self): #! broken
         selected_index = self.list_widget.currentIndex()
         # print(selected_index.row())
         # Check if there's a valid selection and if the selected index is not the first item
@@ -746,7 +746,7 @@ class MainWindow(QMainWindow):
                 new_index, QItemSelectionModel.Select
             )
 
-    def move_down(self):
+    def move_down(self): #! broken
         selected_index = self.list_widget.currentIndex()
 
         # Check if there's a valid selection and if the selected index is not the first item
@@ -807,10 +807,10 @@ class MainWindow(QMainWindow):
     def update_fit_model(self, newind):
         self.fit_mode = self.fit_models[self.fit_model_combo.currentText()]
 
-        col1 = self.fit_model_combo.model().item(newind).background().color().getRgb()
+        tmp_color = self.fit_model_combo.model().item(newind).background().color().getRgb()
         self.fit_model_combo.setStyleSheet(
             "background-color: rgba{};\
-                    selection-background-color: k;".format(col1)
+                    selection-background-color: k;".format(tmp_color)
         )
 
     def toggle_click_fit(self):
