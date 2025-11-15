@@ -38,8 +38,10 @@ from PyQt5.QtGui import QColor, QIcon
 from scipy.ndimage import uniform_filter1d, gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
 
+from myPGM.data_model import PressureGaugeDataObject
+
 from UI.PvPm_plot_window import PmPPlotWindow
-from UI.PvPm_table_window import HPTableWidget, HPTableWindow, HPDataTable, HPData
+from UI.PvPm_table_window import HPTableWidget, HPTableWindow, HPDataTable
 
 from UI.FileListViewerWidget import FileListViewerWidget
 
@@ -525,16 +527,15 @@ class MainWindow(QMainWindow):
 
     def startup_buffer(self):
         if self.calibrations is not None:
-            self.buffer = HPData(
-                Pm=0,
-                P=0,
-                x=694.28,
-                T=298,
-                x0=694.28,
-                T0=298,
-                calib=self.calibrations["Ruby2020"],
-                file="No",
-            )
+            self.buffer = PressureGaugeDataObject()
+            self.buffer.Pm = 0
+            self.buffer.P = 0
+            self.buffer.x = 694.28
+            self.buffer.T = 298
+            self.buffer.x0 = 694.28
+            self.buffer.T0 = 298
+            self.buffer.calib = self.calibrations["Ruby2020"]
+            
             self.Pm_spinbox.setValue(self.buffer.Pm)
             self.P_spinbox.setValue(self.buffer.P)
             self.x_spinbox.setValue(self.buffer.x)
@@ -607,6 +608,7 @@ class MainWindow(QMainWindow):
                 self.x_spinbox.setStyleSheet("background: #4a8542;")  # green
             except:
                 self.x_spinbox.setStyleSheet("background: #ff7575;")  # red
+                print("Error computing x from P")
 
         else:  # anything else than P has been manually changed, update the buffer
             # read everything stupidly
@@ -618,12 +620,13 @@ class MainWindow(QMainWindow):
                 self.buffer.T0 = self.T0_spinbox.value()
 
                 try:
-                    self.buffer.calcP()
+                    self.buffer.compute_P_from_x()
                     self.P_spinbox.setValue(self.buffer.P)
 
                     self.P_spinbox.setStyleSheet("background: #4a8542;")  # green
                 except:
                     self.P_spinbox.setStyleSheet("background: #ff7575;")  # red
+                    print("Error computing P from x")
 
     def update_calib(self, newind):
         self.buffer.calib = self.calibrations[self.calibration_combo.currentText()]
