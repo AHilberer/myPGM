@@ -29,7 +29,7 @@ class PressureGaugeDataObject:
 
         # Attributes related to spectral measurement data
         self.filename = None
-        self.path = None
+        self.full_path = None
         self.original_data = None
         self.normalized_data = None
         self.corrected_data = None
@@ -69,8 +69,8 @@ class PressureGaugeDataObject:
 
     def load_spectral_data_file(self, file_name, file_path):
         self.filename = file_name
-        self.path = file_path
-        self.original_data = myPGM.helpers.customparse_file2data(self.path)
+        self.full_path = file_path
+        self.original_data = myPGM.helpers.customparse_file2data(self.full_path)
         self.normalize_data()
         self.current_smoothing = 1
         self.include_in_filelist = True
@@ -260,7 +260,19 @@ class PressureGaugeDataManager(MutableMapping):
             self.__dict__[instance.id] = instance
         else:
             raise TypeError("Only instances of PressureGaugeDataObject can be added.")
+        
+    def delete_instance(self, instance_id):
+        """
+        Delete a PressureGaugeDataObject instance from the manager by its ID.
 
+        :param instance_id: int
+        """
+        if instance_id in self.__dict__:
+            del self.__dict__[instance_id]
+        else:
+            raise KeyError(f"No instance with ID {instance_id} found.")
+        
+        
 if __name__ == '__main__': #! to be verified
     import calibrations
     import fit_models

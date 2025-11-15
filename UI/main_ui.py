@@ -25,7 +25,6 @@ from PyQt5.QtWidgets import (
     
 )
 from PyQt5.QtCore import (
-    QFileInfo,
     Qt,
     QModelIndex,
     QItemSelectionModel,
@@ -669,75 +668,26 @@ class MainWindow(QMainWindow):
             self.splitter.widget(1).show()
         self.Derivative_enabled = not self.Derivative_enabled
 
-    # @pyqtSlot()
-    # def add_file(self):
-    #     file_dialog = QFileDialog()
-    #     file_dialog.setFileMode(QFileDialog.ExistingFiles)
-    #     file_dialog.setNameFilter("Text and ASC files (*.txt *.asc);;All Files (*)")
+    def get_file_via_dialog(self):
+        file_dialog = QFileDialog()
+        file_dialog.setFileMode(QFileDialog.ExistingFiles)
+        file_dialog.setNameFilter("Text and ASC files (*.txt *.asc);;All Files (*)")
 
-    #     if file_dialog.exec_():
-    #         selected_files = file_dialog.selectedFiles()
-    #         for file in selected_files:
-    #             file_info = QFileInfo(file)
-    #             file_name = file_info.fileName()
-    #             new_item = helpers.MySpectrumItem(file_name, file)
+        if file_dialog.exec_():
+            selected_files = file_dialog.selectedFiles()
+            return selected_files
+        else:
+            return None
 
-    #             new_item.data = helpers.customparse_file2data(file)
-    #             new_item.normalize_data()
-    #             new_item.current_smoothing = 1
-    #             self.file_list_model.addItem(new_item)
 
-    @pyqtSlot()
-    def delete_file(self):
-        selected_index = self.list_widget.currentIndex()
-        if selected_index.isValid():
-            self.file_list_model.deleteItem(selected_index.row())
-
-    def select_directory(self):
+    def select_directory_from_dialog(self):
         options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
         dir_name = QFileDialog.getExistingDirectory(
             self, "Select Directory", options=options
         )
         if dir_name:
-            self.dir_name = dir_name
             self.dir_label.setText(f"Selected directory: {dir_name}")
-
-    # @pyqtSlot()
-    # def load_latest_file(self):
-    #     if hasattr(self, "dir_name"):
-    #         file_names = [
-    #             f
-    #             for f in os.listdir(self.dir_name)
-    #             if os.path.isfile(os.path.join(self.dir_name, f)) and ".asc" in f
-    #         ]
-    #         if file_names:
-    #             file_names.sort(
-    #                 key=lambda f: os.path.getmtime(os.path.join(self.dir_name, f))
-    #             )
-    #             latest_file_name = file_names[-1]
-    #             file = os.path.join(self.dir_name, latest_file_name)
-    #             file_info = QFileInfo(file)
-    #             file_name = file_info.fileName()
-    #             new_item = helpers.MySpectrumItem(file_name, file)
-
-    #             new_item.data = helpers.customparse_file2data(file)
-    #             new_item.normalize_data()
-    #             new_item.current_smoothing = 1
-
-    #             self.file_list_model.addItem(new_item)
-    #         else:
-    #             msg = QMessageBox()
-    #             msg.setIcon(QMessageBox.Critical)
-    #             msg.setText("No files in selected directory.")
-    #             msg.setWindowTitle("Error")
-    #             msg.exec_()
-    #     else:
-    #         msg = QMessageBox()
-    #         msg.setIcon(QMessageBox.Critical)
-    #         msg.setText("No directory selected.")
-    #         msg.setWindowTitle("Error")
-    #         msg.exec_()
+        return dir_name
 
     @pyqtSlot(QModelIndex)
     def item_clicked(self, index):

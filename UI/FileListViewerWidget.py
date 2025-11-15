@@ -1,12 +1,9 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication,
     QWidget,
     QVBoxLayout,
     QListWidget,
-    QLabel,
     QPushButton,
-    QListWidgetItem,
     QGridLayout,
     QStyle,
     QHBoxLayout
@@ -19,7 +16,7 @@ from PyQt5.QtCore import (
 class FileListViewerWidget(QWidget):
 
     object_selected = pyqtSignal(object)
-    
+
     def __init__(self):
         super().__init__()
         self.files = {}
@@ -44,28 +41,24 @@ class FileListViewerWidget(QWidget):
         pixmapi = getattr(QStyle, "SP_FileIcon")
         icon = self.style().standardIcon(pixmapi)
         self.add_button.setIcon(icon)
-        #self.add_button.clicked.connect(self.add_file)
         FileLoadLayout.addWidget(self.add_button, 0, 0)
 
         self.delete_button = QPushButton("Delete file ", self)
         pixmapi = getattr(QStyle, "SP_DialogDiscardButton")
         icon = self.style().standardIcon(pixmapi)
         self.delete_button.setIcon(icon)
-        #self.delete_button.clicked.connect(self.delete_file)
         FileLoadLayout.addWidget(self.delete_button, 0, 1)
 
         self.selectdir_button = QPushButton("Select directory", self)
         pixmapi = getattr(QStyle, "SP_DirIcon")
         icon = self.style().standardIcon(pixmapi)
         self.selectdir_button.setIcon(icon)
-        #self.selectdir_button.clicked.connect(self.select_directory)
         FileLoadLayout.addWidget(self.selectdir_button, 1, 0)
 
         self.loadlatest_button = QPushButton("Load latest", self)
         pixmapi = getattr(QStyle, "SP_BrowserReload")
         icon = self.style().standardIcon(pixmapi)
         self.loadlatest_button.setIcon(icon)
-        #self.loadlatest_button.clicked.connect(self.load_latest_file)
         FileLoadLayout.addWidget(self.loadlatest_button, 1, 1)
 
 
@@ -109,24 +102,7 @@ class FileListViewerWidget(QWidget):
             except:
                 print("Could not retrieve object data.")
 
+
+
 if __name__ == '__main__': #! To be verified
-    from PyQt5.QtWidgets import QApplication
-
-    # Simulated setup for testing
-    from data_model import PressureGaugeDataObject, PressureGaugeDataManager  # Replace with your actual import
-
-    app = QApplication(sys.argv)
-
-    # Example data setup
-    manager = PressureGaugeDataManager()
-    for i in range(5):
-        obj = PressureGaugeDataObject()
-        obj.filename = f"test_file_{i}.asc"
-        obj.P = i * 2.1  # dummy pressure
-        obj.include_in_filelist = (i % 2 == 0)  # include every other object
-        manager.add_instance(obj)
-
-    viewer = FileListViewerWidget(manager)
-    viewer.show()
-
-    sys.exit(app.exec_())
+    pass
