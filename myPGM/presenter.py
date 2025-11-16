@@ -20,6 +20,8 @@ class Presenter:
                 "Example_Ruby_3.asc",
                 "Example_H2.txt",
             ]
+        self.ordered_files_to_display = []
+
         self.initialize_calibrations_menu()
         self.initialize_fit_models_menu()
 
@@ -37,6 +39,11 @@ class Presenter:
         self.view.file_list_widget.delete_button.clicked.connect(self.delete_current_file)
         self.view.file_list_widget.selectdir_button.clicked.connect(self.set_current_directory)
         self.view.file_list_widget.loadlatest_button.clicked.connect(self.add_latest_file)
+
+        self.view.file_list_widget.moveup_button.clicked.connect(self.move_up)
+        self.view.file_list_widget.movedown_button.clicked.connect(self.move_down)
+
+
 
         self.view.smoothing_factor.valueChanged.connect(self.smoothen)
 
@@ -173,7 +180,6 @@ class Presenter:
         else:
             return
     
-
     def reset_bg(self):
         if self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
@@ -187,19 +193,19 @@ class Presenter:
 
         self.view.file_list_widget.list_widget.clear()
 
-        for obj_id in self.view.ordered_files_to_display:
+        for obj_id in self.ordered_files_to_display:
             try:
                 obj = self.model.get(obj_id)
                 if not getattr(obj, "include_in_filelist"):
-                    self.view.ordered_files_to_display.remove(obj_id)
+                    self.ordered_files_to_display.remove(obj_id)
             except:
-                self.view.ordered_files_to_display.remove(obj_id)
+                self.ordered_files_to_display.remove(obj_id)
 
         for obj in self.model.values():
-            if getattr(obj, "include_in_filelist") and (obj.id not in self.view.ordered_files_to_display):
-                self.view.ordered_files_to_display.append(obj.id)
+            if getattr(obj, "include_in_filelist") and (obj.id not in self.ordered_files_to_display):
+                self.ordered_files_to_display.append(obj.id)
 
-        for obj_id in self.view.ordered_files_to_display:
+        for obj_id in self.ordered_files_to_display:
             obj = self.model.get(obj_id)
             text = f"{obj.filename}"
             item = QListWidgetItem(text)
@@ -207,8 +213,29 @@ class Presenter:
             self.view.file_list_widget.list_widget.addItem(item)
 
         # print('actual files', [obj.id for obj in self.model.values()])
-        # print('files to display', self.view.ordered_files_to_display)
-        
+        # print('files to display', self.ordered_files_to_display)
+
+    def move_up(self): #! to be completed
+        if self.current_selected_file is not None:
+            index = self.ordered_files_to_display.index(self.current_selected_file)
+            if index > 0:
+                # Swap with the previous item
+                self.ordered_files_to_display[index], self.ordered_files_to_display[index - 1] = (
+                    self.ordered_files_to_display[index - 1],
+                    self.ordered_files_to_display[index],
+                )
+                self.populate_file_list()
+
+    def move_down(self): #! to be completed
+        if self.current_selected_file is not None:
+            index = self.ordered_files_to_display.index(self.current_selected_file)
+            if index < len(self.ordered_files_to_display) - 1:
+                # Swap with the next item
+                self.ordered_files_to_display[index], self.ordered_files_to_display[index + 1] = (
+                    self.ordered_files_to_display[index + 1],
+                    self.ordered_files_to_display[index],
+                )
+                self.populate_file_list()
 
     def fit_current_file(self, guess=None): 
         if self.current_selected_file is not None:

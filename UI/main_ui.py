@@ -286,7 +286,6 @@ class MainWindow(QMainWindow):
 
         bottom_panel_layout.addWidget(FileManagementBox, stretch=1)
 
-        self.ordered_files_to_display = []
 
         #####################################################################################
         # #? Setup right part of bottom panel
@@ -693,97 +692,28 @@ class MainWindow(QMainWindow):
             self.dir_label.setText(f"Selected directory: {dir_name}")
         return dir_name
 
-    @pyqtSlot(QModelIndex)
-    def item_clicked(self, index):
-        selected_item = self.file_list_model.data(index, role=Qt.UserRole)
-        self.current_file_path = selected_item.path
-        self.current_file_label.setText(f"{self.current_file_path}")
-        self.smoothing_factor.setValue(selected_item.current_smoothing)
-        if selected_item.fit_toolbox_config is not None:
-            self.buffer = deepcopy(selected_item.fit_toolbox_config)
-            self.Pm_spinbox.setValue(self.buffer.Pm)
-            self.P_spinbox.setValue(self.buffer.P)
-            self.x_spinbox.setValue(self.buffer.x)
-            self.T_spinbox.setValue(self.buffer.T)
-            self.x0_spinbox.setValue(self.buffer.x0)
-            self.T0_spinbox.setValue(self.buffer.T0)
-            self.calibration_combo.setCurrentText(self.buffer.calib.name)
-        #self.plot_data()
-        if selected_item.fit_result is not None:
-            self.plot_fit(selected_item)
-        else:
-            self.data_fit_line.setData([],[])
-            self.data_widget.setTitle('Not fitted', color=self.plot_label_color, size="16pt")
-        
-
-
-    def move_up(self): #! broken
-        selected_index = self.list_widget.currentIndex()
-        # print(selected_index.row())
-        # Check if there's a valid selection and if the selected index is not the first item
-        if selected_index.isValid() and selected_index.row() > 0:
-            # Get the row number of the selected item
-            current_row = selected_index.row()
-
-            # Get the item data of the selected item
-            item = self.file_list_model.data(selected_index, role=Qt.UserRole)
-
-            # Remove the item from the current position
-            self.file_list_model.beginRemoveRows(QModelIndex(), current_row, current_row)
-            del self.file_list_model.items[current_row]
-            self.file_list_model.endRemoveRows()
-
-            # Calculate the new row number after moving up
-            new_row = current_row - 1
-
-            # Insert the item at the new position
-            self.file_list_model.beginInsertRows(QModelIndex(), new_row, new_row)
-            self.file_list_model.items.insert(new_row, item)
-            self.file_list_model.endInsertRows()
-
-            # Select the item at the new position
-            new_index = self.file_list_model.index(new_row, 0)
-            self.list_widget.selectionModel().clearSelection()
-            # self.list_widget.selectionModel().setCurrentIndex(selected_index, QItemSelectionModel.Deselect)
-
-            self.list_widget.selectionModel().setCurrentIndex(
-                new_index, QItemSelectionModel.Select
-            )
-
-    def move_down(self): #! broken
-        selected_index = self.list_widget.currentIndex()
-
-        # Check if there's a valid selection and if the selected index is not the first item
-        if (
-            selected_index.isValid()
-            and selected_index.row() < self.file_list_model.rowCount()
-        ):
-            self.list_widget.selectionModel().clearSelection()
-            # Get the row number of the selected item
-            current_row = selected_index.row()
-
-            # Get the item data of the selected item
-            item = self.file_list_model.data(selected_index, role=Qt.UserRole)
-
-            # Remove the item from the current position
-            self.file_list_model.beginRemoveRows(QModelIndex(), current_row, current_row)
-            del self.file_list_model.items[current_row]
-            self.file_list_model.endRemoveRows()
-
-            # Calculate the new row number after moving up
-            new_row = current_row + 1
-
-            # Insert the item at the new position
-            self.file_list_model.beginInsertRows(QModelIndex(), new_row, new_row)
-            self.file_list_model.items.insert(new_row, item)
-            self.file_list_model.endInsertRows()
-
-            # Select the item at the new position
-            new_index = self.file_list_model.index(new_row, 0)
-            self.list_widget.selectionModel().clearSelection()
-            self.list_widget.selectionModel().setCurrentIndex(
-                new_index, QItemSelectionModel.Select
-            )
+    # @pyqtSlot(QModelIndex)
+    # def item_clicked(self, index):
+    #     selected_item = self.file_list_model.data(index, role=Qt.UserRole)
+    #     self.current_file_path = selected_item.path
+    #     self.current_file_label.setText(f"{self.current_file_path}")
+    #     self.smoothing_factor.setValue(selected_item.current_smoothing)
+    #     if selected_item.fit_toolbox_config is not None:
+    #         self.buffer = deepcopy(selected_item.fit_toolbox_config)
+    #         self.Pm_spinbox.setValue(self.buffer.Pm)
+    #         self.P_spinbox.setValue(self.buffer.P)
+    #         self.x_spinbox.setValue(self.buffer.x)
+    #         self.T_spinbox.setValue(self.buffer.T)
+    #         self.x0_spinbox.setValue(self.buffer.x0)
+    #         self.T0_spinbox.setValue(self.buffer.T0)
+    #         self.calibration_combo.setCurrentText(self.buffer.calib.name)
+    #     #self.plot_data()
+    #     if selected_item.fit_result is not None:
+    #         self.plot_fit(selected_item)
+    #     else:
+    #         self.data_fit_line.setData([],[])
+    #         self.data_widget.setTitle('Not fitted', color=self.plot_label_color, size="16pt")
+    
 
 
     def plot_data(self, x, y):

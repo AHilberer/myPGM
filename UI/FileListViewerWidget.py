@@ -66,19 +66,17 @@ class FileListViewerWidget(QWidget):
 
         MoveLayout = QHBoxLayout()
 
-        self.up_button = QPushButton("Move up", self)
+        self.moveup_button = QPushButton("Move up", self)
         pixmapi = getattr(QStyle, "SP_ArrowUp")
         icon = self.style().standardIcon(pixmapi)
-        self.up_button.setIcon(icon)
-        #self.up_button.clicked.connect(self.move_up)
-        MoveLayout.addWidget(self.up_button)
+        self.moveup_button.setIcon(icon)
+        MoveLayout.addWidget(self.moveup_button)
 
-        self.down_button = QPushButton("Move down", self)
+        self.movedown_button = QPushButton("Move down", self)
         pixmapi = getattr(QStyle, "SP_ArrowDown")
         icon = self.style().standardIcon(pixmapi)
-        self.down_button.setIcon(icon)
-        #self.down_button.clicked.connect(self.move_down)
-        MoveLayout.addWidget(self.down_button)
+        self.movedown_button.setIcon(icon)
+        MoveLayout.addWidget(self.movedown_button)
 
 
         # Actual FileList_widget
