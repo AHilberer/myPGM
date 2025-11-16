@@ -20,7 +20,7 @@ class Presenter:
                 "Example_Ruby_3.asc",
                 "Example_H2.txt",
             ]
-
+        self.ordered_files_to_display = []
         self.initialize_calibrations_menu()
         self.initialize_fit_models_menu()
 
@@ -182,14 +182,33 @@ class Presenter:
         else:
             return
 
-    def populate_file_list(self):
+    def populate_file_list(self): 
+
         self.view.file_list_widget.list_widget.clear()
+
+        for obj_id in self.ordered_files_to_display:
+            try:
+                obj = self.model.get(obj_id)
+                if not getattr(obj, "include_in_filelist"):
+                    self.ordered_files_to_display.remove(obj_id)
+            except:
+                self.ordered_files_to_display.remove(obj_id)
+
         for obj in self.model.values():
-            if getattr(obj, "include_in_filelist", False):
-                text = f"{obj.filename}"
-                item = QListWidgetItem(text)
-                item.setData(Qt.UserRole, obj.id)  # Store only object ID 
-                self.view.file_list_widget.list_widget.addItem(item)
+            if getattr(obj, "include_in_filelist") and (obj.id not in self.ordered_files_to_display):
+                self.ordered_files_to_display.append(obj.id)
+
+        for obj_id in self.ordered_files_to_display:
+            obj = self.model.get(obj_id)
+            text = f"{obj.filename}"
+            item = QListWidgetItem(text)
+            item.setData(Qt.UserRole, obj.id)  # Store only object ID 
+            self.view.file_list_widget.list_widget.addItem(item)
+
+        print('actual files', [obj.id for obj in self.model.values()])
+        print('files to display', self.ordered_files_to_display)
+
+
 
 
     def fit_current_file(self, guess=None): 

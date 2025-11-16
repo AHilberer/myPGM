@@ -51,7 +51,6 @@ class PressureGaugeDataObject:
 
         # Attributes related to visualization
         self.include_in_filelist = False
-        self.filelist_id = None
         self.include_in_table = False
         self.table_id = None
         
@@ -103,7 +102,7 @@ class PressureGaugeDataObject:
     def compute_P_from_x(self):
         self.P = self.calib.func(self.x, self.T, self.x0, self.T0)
 
-    def invcalcP(self):
+    def compute_x_from_P(self):
         self.x = self.calib.invfunc(self.P, self.T, self.x0, self.T0)
 
     def get_data_to_process(self):
@@ -272,7 +271,7 @@ class PressureGaugeDataManager(MutableMapping):
         else:
             raise KeyError(f"No instance with ID {instance_id} found.")
         
-        
+
 if __name__ == '__main__': #! to be verified
     import calibrations
     import fit_models

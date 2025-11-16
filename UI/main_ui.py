@@ -602,7 +602,7 @@ class MainWindow(QMainWindow):
             self.buffer.P = self.P_spinbox.value()
 
             try:
-                self.buffer.invcalcP()
+                self.buffer.compute_x_from_P()
                 self.x_spinbox.setValue(self.buffer.x)
 
                 self.x_spinbox.setStyleSheet("background: #4a8542;")  # green
@@ -958,7 +958,6 @@ class MainWindow(QMainWindow):
 
 
     def plot_ManualBg(self):
-        interp = None
 
         curve_data_x = self.data_scatter.getData()[0]
 

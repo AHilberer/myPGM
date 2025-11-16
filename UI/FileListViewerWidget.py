@@ -30,8 +30,8 @@ class FileListViewerWidget(QWidget):
 
 
         # Optional refresh button
-        refresh_button = QPushButton("Refresh List")
-        #refresh_button.clicked.connect(self.populate_list)
+        # refresh_button = QPushButton("Refresh List")
+        # refresh_button.clicked.connect(self.populate_list)
         
 
         # File loading options
@@ -89,7 +89,7 @@ class FileListViewerWidget(QWidget):
         layout.addLayout(FileLoadLayout)
         layout.addWidget(self.list_widget)
         layout.addLayout(MoveLayout)
-        layout.addWidget(refresh_button)
+        # layout.addWidget(refresh_button)
 
         self.setLayout(layout)
 
