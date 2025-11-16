@@ -286,6 +286,7 @@ class MainWindow(QMainWindow):
 
         bottom_panel_layout.addWidget(FileManagementBox, stretch=1)
 
+        self.ordered_files_to_display = []
 
         #####################################################################################
         # #? Setup right part of bottom panel
