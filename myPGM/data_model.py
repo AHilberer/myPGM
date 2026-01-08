@@ -39,6 +39,7 @@ class PressureGaugeDataObject:
         self.fit_result = None
         self.fitted_data = None
         self.fit_toolbox_config = None
+        self.fitting_range = None
 
         # Attributes related to pressure determination from a calibration
         self.calib = None

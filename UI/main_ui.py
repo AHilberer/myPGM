@@ -312,6 +312,50 @@ class MainWindow(QMainWindow):
         # ? Data correction + fit section
         InteractionBox = QHBoxLayout()
 
+        FitOptionBox = QVBoxLayout()
+
+        FitButtonsBox = QGridLayout()
+
+        self.fit_button = QPushButton("Fit", self)
+        self.fit_button.clicked.connect(self.auto_fit)
+
+        FitButtonsBox.addWidget(self.fit_button, 0, 0)
+
+        self.click_fit_button = QPushButton("Click-to-fit", self)
+        self.click_fit_button.setCheckable(True)
+        self.click_fit_button.clicked.connect(self.toggle_click_fit)
+        self.click_fit_enabled = False
+
+        FitButtonsBox.addWidget(self.click_fit_button, 0, 1)
+
+        self.fit_range_enable_button = QPushButton("Fit range", self)
+        self.fit_range_enable_button.setCheckable(True)
+        self.fit_range_enable_button.clicked.connect(self.toggle_fit_range)
+        self.fit_range_enabled = False
+
+        FitButtonsBox.addWidget(self.fit_range_enable_button, 1, 0)
+        
+        self.fit_range_edit_button = QPushButton("Edit", self)
+        self.fit_range_edit_button.setCheckable(True)
+        self.fit_range_edit_button.clicked.connect(self.toggle_fit_range_edit)
+        self.fit_range_edit_enabled = False
+
+        FitButtonsBox.addWidget(self.fit_range_edit_button, 1, 1)
+
+        FitOptionBox.addLayout(FitButtonsBox)
+
+        self.fit_model_combo = QComboBox()
+        self.fit_model_combo.setObjectName("fit_model_combo")
+        self.fit_model_combo.setMinimumWidth(100)
+        
+
+
+        FitOptionBox.addWidget(self.fit_model_combo)
+
+        InteractionBox.addLayout(FitOptionBox)
+
+        InteractionBox.addWidget(MyVSeparator())
+        
         CorrectionBox = QVBoxLayout()
 
         BgBox = QHBoxLayout()
@@ -346,7 +390,7 @@ class MainWindow(QMainWindow):
         SmoothBox.addWidget(self.smoothing_factor, stretch=1)
 
         self.Derivative_button = QPushButton("Toggle derivative", self)
-        self.Derivative_button.clicked.connect(self.Toggle_derivative)
+        self.Derivative_button.clicked.connect(self.toggle_derivative)
         self.Derivative_enabled = False
         SmoothBox.addWidget(self.Derivative_button, stretch=2)
 
@@ -354,35 +398,6 @@ class MainWindow(QMainWindow):
         CorrectionBox.addLayout(SmoothBox)
 
         InteractionBox.addLayout(CorrectionBox)
-
-        InteractionBox.addWidget(MyVSeparator())
-
-        FitOptionBox = QVBoxLayout()
-
-        FitButtonsBox = QVBoxLayout()
-
-        self.fit_button = QPushButton("Fit", self)
-        self.fit_button.clicked.connect(self.auto_fit)
-
-        FitButtonsBox.addWidget(self.fit_button)
-
-        self.click_fit_button = QPushButton("Click-to-fit", self)
-        self.click_fit_button.setCheckable(True)
-        self.click_fit_button.clicked.connect(self.toggle_click_fit)
-        self.click_fit_enabled = False
-        FitButtonsBox.addWidget(self.click_fit_button)
-
-        FitOptionBox.addLayout(FitButtonsBox)
-
-        self.fit_model_combo = QComboBox()
-        self.fit_model_combo.setObjectName("fit_model_combo")
-        self.fit_model_combo.setMinimumWidth(100)
-        
-
-
-        FitOptionBox.addWidget(self.fit_model_combo)
-
-        InteractionBox.addLayout(FitOptionBox)
 
         FitBoxLayout.addLayout(InteractionBox)
 
@@ -409,6 +424,10 @@ class MainWindow(QMainWindow):
         
         self.data_widget.setMenuEnabled(False)
         self.data_scatter.scene().sigMouseClicked.connect(self.data_plot_click)
+
+        self.fit_range_selector = pg.LinearRegionItem(movable=False)
+        self.fit_range_selector_edited = False
+        self.fit_range_selector.sigRegionChanged.connect(self.fit_range_changed)
 
         #####################################################################################
         # #? Setup derivative plotting section
@@ -664,12 +683,45 @@ class MainWindow(QMainWindow):
                 current_spectrum.fit_toolbox_config.Pm = self.buffer.Pm
                 self.data.add(current_spectrum.fit_toolbox_config)
 
-    def Toggle_derivative(self, checked):
+    def toggle_derivative(self, checked):
         if self.Derivative_enabled:
             self.splitter.widget(1).hide()
         else:
             self.splitter.widget(1).show()
         self.Derivative_enabled = not self.Derivative_enabled
+
+    def toggle_fit_range(self):
+        if self.fit_range_enabled:
+            self.data_widget.removeItem(self.fit_range_selector)
+            self.fit_range_edit_button.setChecked(False)
+            self.turn_off_fit_range_edit()
+            self.fit_range_edit_enabled = False
+        else:
+            self.data_widget.addItem(self.fit_range_selector)
+        self.fit_range_enabled = not self.fit_range_enabled
+
+    def toggle_fit_range_edit(self):
+        if self.fit_range_enabled:
+            if self.fit_range_edit_enabled:
+                self.turn_off_fit_range_edit()
+            else:
+                self.turn_on_fit_range_edit()
+        else:
+            self.fit_range_edit_button.setChecked(False)
+            self.turn_off_fit_range_edit()
+    
+    def turn_on_fit_range_edit(self):
+        if self.fit_range_enabled:
+            self.fit_range_selector.setMovable(True)
+            self.fit_range_edit_enabled = True
+    
+    def turn_off_fit_range_edit(self):
+        if self.fit_range_enabled:
+            self.fit_range_selector.setMovable(False)
+            self.fit_range_edit_enabled = False
+
+    def fit_range_changed(self):
+        self.fit_range_selector_edited = True
 
     def get_file_via_dialog(self):
         file_dialog = QFileDialog()

@@ -1,5 +1,6 @@
 import sys
 import os
+import numpy as np
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
 from PyQt5.QtCore import Qt, QFileInfo
 from myPGM.data_model import PressureGaugeDataObject
@@ -151,6 +152,18 @@ class Presenter:
             self.view.plot_data(x,y)
             if obj.fit_result is not None:
                 self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y)
+
+            if obj.fitting_range is not None:
+                self.view.fit_range_selector.setRegion(obj.fitting_range)
+            else:
+                if not self.view.fit_range_selector_edited:
+                    x_range = x[-1]-x[0]
+                    x_mean = (x[0]+x[-1])/2
+                    self.view.fit_range_selector.setRegion((x_mean - x_range*0.15, x_mean + x_range*0.15))
+            
+
+            self.view.fit_range_selector.setBounds((x[0], x[-1]))
+            
         else:
             print('No data to be plotted.')
 
