@@ -55,6 +55,8 @@ class Presenter:
         self.view.ResetBg_button.clicked.connect(self.reset_bg)
         self.view.subtract_ManualBg_signal.connect(self.subtract_manual_bg)
 
+        #self.view.modified_fit_range_signal.connect(self.update_fit_range)
+
         if self.test_mode:
             self.initialize_example()
 
@@ -201,7 +203,14 @@ class Presenter:
         else:
             return
 
-
+    # def update_fit_range(self, fit_range):
+    #     if self.current_selected_file is not None:
+    #         obj = self.model.get(self.current_selected_file, None)
+    #         obj.fitting_range = fit_range
+    #         #print('updating fit range', fit_range)
+    #     else:
+    #         return
+    
     def populate_file_list(self): 
 
         self.view.file_list_widget.list_widget.clear()
@@ -228,7 +237,7 @@ class Presenter:
         # print('actual files', [obj.id for obj in self.model.values()])
         # print('files to display', self.ordered_files_to_display)
 
-    def move_up(self): #! to be completed
+    def move_up(self):
         if self.current_selected_file is not None:
             index = self.ordered_files_to_display.index(self.current_selected_file)
             if index > 0:
@@ -239,7 +248,7 @@ class Presenter:
                 )
                 self.populate_file_list()
 
-    def move_down(self): #! to be completed
+    def move_down(self):
         if self.current_selected_file is not None:
             index = self.ordered_files_to_display.index(self.current_selected_file)
             if index < len(self.ordered_files_to_display) - 1:
@@ -256,6 +265,8 @@ class Presenter:
             obj.set_calibration(self.view.buffer.calib)
             obj.set_fit_model(self.view.fit_mode)
             try:
+                if self.view.fit_range_enabled:
+                    obj.fitting_range = self.view.fit_range_selector.getRegion()
                 obj.fit_data(guess)
                 self.view.x_spinbox.setValue(obj.x)
                 self.update_data_plots(self.current_selected_file)

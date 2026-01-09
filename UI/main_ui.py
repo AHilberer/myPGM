@@ -59,6 +59,7 @@ class MainWindow(QMainWindow):
     fit_from_click_signal = pyqtSignal(object)
     start_auto_fit_signal = pyqtSignal(object)
     subtract_ManualBg_signal = pyqtSignal(object)
+    modified_fit_range_signal = pyqtSignal(object)
 
     def __init__(self, model):
         super().__init__()
@@ -427,7 +428,7 @@ class MainWindow(QMainWindow):
 
         self.fit_range_selector = pg.LinearRegionItem(movable=False)
         self.fit_range_selector_edited = False
-        self.fit_range_selector.sigRegionChanged.connect(self.fit_range_changed)
+        self.fit_range_selector.sigRegionChangeFinished.connect(self.fit_range_changed)
 
         #####################################################################################
         # #? Setup derivative plotting section
@@ -722,6 +723,8 @@ class MainWindow(QMainWindow):
 
     def fit_range_changed(self):
         self.fit_range_selector_edited = True
+        if self.fit_range_enabled:
+            self.modified_fit_range_signal.emit(self.fit_range_selector.getRegion())
 
     def get_file_via_dialog(self):
         file_dialog = QFileDialog()

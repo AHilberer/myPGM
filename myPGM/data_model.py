@@ -171,6 +171,10 @@ class PressureGaugeDataObject:
         :param fit_model: GaugeFitModel
         """
         x,y = self.get_data_to_process()
+        if self.fitting_range is not None:
+            mask = (x >= self.fitting_range[0]) & (x <= self.fitting_range[1])
+            x = x[mask]
+            y = y[mask]
         
         try:
             
