@@ -426,7 +426,7 @@ class MainWindow(QMainWindow):
         self.data_widget.setMenuEnabled(False)
         self.data_scatter.scene().sigMouseClicked.connect(self.data_plot_click)
 
-        self.fit_range_selector = pg.LinearRegionItem(movable=False)
+        self.fit_range_selector = ResizeOnlyLinearRegion(movable=False)
         self.fit_range_selector_edited = False
         self.fit_range_selector.sigRegionChangeFinished.connect(self.fit_range_changed)
 
@@ -968,6 +968,28 @@ class MainWindow(QMainWindow):
 
 
 
+class ResizeOnlyLinearRegion(pg.LinearRegionItem):
+    def __init__(self, *args, **kwargs):
+        # Grab movable if passed
+        movable = kwargs.pop("movable", True)
+        super().__init__(*args, **kwargs)
+
+        self.setMovable(movable)  # set whole-region movability
+        self.updateEdgeCursors()
+
+    def setMovable(self, movable):
+        super().setMovable(movable)
+        self.updateEdgeCursors()
+
+    def updateEdgeCursors(self):
+        """Set resize cursor on edges only if the region is movable"""
+        for line in self.lines:
+            if self.movable:   # check the whole region movability
+                line.setCursor(Qt.SizeHorCursor)
+            else:
+                line.unsetCursor()
+
+            
 class MyHSeparator(QFrame):
     def __init__(self):
         super().__init__()

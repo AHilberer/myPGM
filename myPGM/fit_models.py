@@ -38,8 +38,8 @@ class GaugeFitModel():
                     pinit.append( x[pk[i]]  )                   # position
                     pinit.append( prop['widths'][i] * xbin/2 ) # sigma
                     pinit.append( prop['widths'][i] * xbin/2 ) # gamma
-        else:
-            pinit.append( y[0] )
+        else: 
+            pinit.append( y[0] ) 
             params = getfullargspec(self.func).args[1:]
             if (len(params)-1)%3 == 0:
                 param_per_peak = 3
