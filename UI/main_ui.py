@@ -47,8 +47,6 @@ from UI.FileListViewerWidget import FileListViewerWidget
 
 import pyqtgraph as pg
 
-demo_mode = True
-
 class MainWindow(QMainWindow):
 
     #####################################################################################
@@ -261,13 +259,7 @@ class MainWindow(QMainWindow):
         self.table_button.clicked.connect(self.toggle_PvPm)
 
 
-        self.Pm_spinbox.valueChanged.connect(self.update_toolbox)
-        self.P_spinbox.valueChanged.connect(self.update_toolbox)
 
-        self.x_spinbox.valueChanged.connect(self.update_toolbox)
-        self.x0_spinbox.valueChanged.connect(self.update_toolbox)
-        self.T_spinbox.valueChanged.connect(self.update_toolbox)
-        self.T0_spinbox.valueChanged.connect(self.update_toolbox)
 
         self.add_button.clicked.connect(self.add_to_table)
         self.removelast_button.clicked.connect(self.removelast)
@@ -547,6 +539,7 @@ class MainWindow(QMainWindow):
 
     def startup_buffer(self):
         if self.calibrations is not None:
+            
             self.buffer = PressureGaugeDataObject()
             self.buffer.Pm = 0
             self.buffer.P = 0
@@ -555,13 +548,21 @@ class MainWindow(QMainWindow):
             self.buffer.x0 = 694.28
             self.buffer.T0 = 298
             self.buffer.calib = self.calibrations["Ruby2020"]
-            
+
             self.Pm_spinbox.setValue(self.buffer.Pm)
             self.P_spinbox.setValue(self.buffer.P)
             self.x_spinbox.setValue(self.buffer.x)
             self.T_spinbox.setValue(self.buffer.T)
             self.x0_spinbox.setValue(self.buffer.x0)
             self.T0_spinbox.setValue(self.buffer.T0)
+
+            self.Pm_spinbox.valueChanged.connect(self.update_toolbox)
+            self.P_spinbox.valueChanged.connect(self.update_toolbox)
+            self.x_spinbox.valueChanged.connect(self.update_toolbox)
+            self.x0_spinbox.valueChanged.connect(self.update_toolbox)
+            self.T_spinbox.valueChanged.connect(self.update_toolbox)
+            self.T0_spinbox.valueChanged.connect(self.update_toolbox)
+
             self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
             self.calibration_combo.setCurrentText(self.buffer.calib.name)
             newind = self.calibration_combo.currentIndex()
