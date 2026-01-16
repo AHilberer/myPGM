@@ -68,7 +68,6 @@ class Presenter:
         self.view.populate_calib_combo()
         self.view.x0_spinbox.setValue(myPGM.calibrations.calib_list[0].x0default)
 
-
     def initialize_fit_models_menu(self):
         self.view.load_fit_models({a.name: a for a in myPGM.fit_models.model_list})
         self.view.populate_fit_models_combo()

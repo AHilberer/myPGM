@@ -38,9 +38,9 @@ def Pruby2020(l, T, l0, T0):
 #  F. Datchi, High Pressure Research, 27:4, 447-463, DOI: 10.1080/08957950701659593 
 def PsamDatchi1997(l, T, l0, T0):
     dT = T - T0
-    dlcorr = -8.7e-5 * dT + 4.62e-6 * dT**2 -2.38e-9 * dT**3    # problem here !? (Datchi HPR 2007)
+    #dlcorr = -8.7e-5 * dT + 4.62e-6 * dT**2 -2.38e-9 * dT**3    # Datchi HPR 2007 : error here.
     if T >= 500:
-        dlcorr = 1.06e-4 * (T-500) + 1.5e-7 * (T-500)**2    # these Queyroux p. 68
+        dlcorr = 1.06e-4 * (T-500) + 1.5e-7 * (T-500)**2    #   J. Appl. Phys. 81, 3333 (1997); doi: 10.1063/1.365025 
     else:
         dlcorr = 0
     #dlcorr=0
@@ -77,7 +77,7 @@ def PEremets2023(nu, T, nu0, T0):
     return p 
 
 
-def PHilberer2025(nu, T, nu0, T0):
+def PHilberer2026(nu, T, nu0, T0):
     K0  = 576.521119539528 # GPa
     K0p = 3.2571168198326683
     dnu = nu - nu0 
@@ -107,15 +107,15 @@ Ruby2020 = HPCalibration(name = 'Ruby2020',
         
 SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        func = PsamDatchi1997,
-                                       Tcor_name='Datchi 2007 (?)',
+                                       Tcor_name='Datchi J. Appl. Phys. 1997',
                                        xname = 'lambda',
                                        xunit = 'nm',
                                        x0default = 685.41,
                                        xstep = .01,
                                        color = 'mediumseagreen')
 
-Hilberer2025 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2025',
-                                    func = PHilberer2025,
+Hilberer2026 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2026',
+                                    func = PHilberer2026,
                                     Tcor_name='NA',
                                     xname = 'nu',
                                     xunit = 'cm-1',
@@ -161,12 +161,12 @@ H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
 
 
 calib_list = [Ruby2020, 
-                      SamariumDatchi,
-                      Hilberer2025,
-                      Akahama2006,
-                      Eremets2023,
-                      H2Vibron,
-                      cBNDatchi,
+              SamariumDatchi,
+              Hilberer2026,
+              Akahama2006,
+              Eremets2023,
+              H2Vibron,
+              cBNDatchi,
                       ]
 
 

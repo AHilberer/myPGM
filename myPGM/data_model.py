@@ -83,8 +83,8 @@ class PressureGaugeDataObject:
         """
         self.calib = calib
         self.x0 = self.calib.x0default
-        self.T0 = 0
-        self.T = 0
+        self.T0 = 298
+        self.T = 298
 
     def set_fit_model(self, fit_model):
         """
