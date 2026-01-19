@@ -251,6 +251,19 @@ class MainWindow(QMainWindow):
         Toolboxlayout.addLayout(actions_form, stretch=1)
 
         ToolboxGroup.setLayout(Toolboxlayout)
+
+
+
+
+        # Ptoolbox end HERE !! 
+
+
+
+
+
+
+
+
         top_panel_layout.addWidget(ToolboxGroup)
 
 
@@ -537,6 +550,9 @@ class MainWindow(QMainWindow):
         self.fit_models = models_dict
         #{a.name: a for a in model_list}
 
+
+
+    # WILL BE REMOVED
     def startup_buffer(self):
         if self.calibrations is not None:
             

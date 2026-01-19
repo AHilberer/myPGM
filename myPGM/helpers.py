@@ -46,40 +46,6 @@ def customparse_file2data(f):
 
 
 
-class CustomFileListModel(QAbstractListModel):
-    itemAdded = pyqtSignal()  # Signal emitted when an item is added
-    itemDeleted = pyqtSignal()  # Signal emitted when an item is deleted
-
-    def __init__(self, items=None, parent=None):
-        super().__init__(parent)
-        self.items = items or []
-
-    def rowCount(self, parent=QModelIndex()):
-        return len(self.items)
-
-    def data(self, index, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole:
-            return self.items[index.row()].name
-        elif role == Qt.UserRole:
-            return self.items[index.row()]
-
-    def addItem(self, item):
-        self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
-        self.items.append(item)
-        self.endInsertRows()
-        self.itemAdded.emit()  # Emit signal to notify the view
-
-    def deleteItem(self, index):
-        self.beginRemoveRows(QModelIndex(), index, index)
-        del self.items[index]
-        self.endRemoveRows()
-        self.itemDeleted.emit()  # Emit signal to notify the view
-
-
-
-
-
-
 if __name__ == '__main__':
     import os
     f1 = os.path.dirname(__file__)+'/resources/various_file_formats/'+'Example_Ruby_3_tab_very_long_header.asc'
