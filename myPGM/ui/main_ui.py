@@ -40,10 +40,12 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 
 from myPGM.data_model import PressureGaugeDataObject
 
-from UI.PvPm_plot_window import PmPPlotWindow
-from UI.PvPm_table_window import HPTableWidget, HPTableWindow, HPDataTable
+from myPGM.ui.PvPm_plot_window import PmPPlotWindow
+from myPGM.ui.PvPm_table_window import HPTableWidget, HPTableWindow, HPDataTable
 
-from UI.FileListViewerWidget import FileListViewerWidget
+from myPGM.ui.FileListViewerWidget import FileListViewerWidget
+
+from myPGM.helpers import load_style
 
 import pyqtgraph as pg
 
@@ -487,11 +489,10 @@ class MainWindow(QMainWindow):
 
     def switch_to_dark(self):
         try:
-            with open("myPGM/dark-mode.qss", "r") as file:
-                qss = file.read()
-                self.setStyleSheet(qss)
-                self.DataTableWindow.setStyleSheet(qss)
-                #self.PvPmPlotWindow.setStyleSheet(qss)
+            style = load_style('dark-mode.qss')
+            self.setStyleSheet(style)
+            self.DataTableWindow.setStyleSheet(style)
+            #self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
         self.plot_label_color = "white"
@@ -515,11 +516,10 @@ class MainWindow(QMainWindow):
 
     def switch_to_light(self):
         try:
-            with open("myPGM/light-mode.qss", "r") as file:
-                qss = file.read()
-                self.setStyleSheet(qss)
-                self.DataTableWindow.setStyleSheet(qss)
-                #self.PvPmPlotWindow.setStyleSheet(qss)
+            style = load_style('light-mode.qss')
+            self.setStyleSheet(style)
+            self.DataTableWindow.setStyleSheet(style)
+            #self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
         self.plot_label_color = "black"

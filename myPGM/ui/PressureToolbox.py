@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import (QApplication,
                              QSpinBox,
                              QDoubleSpinBox,)
 from PyQt5.QtGui import QColor
-from UI.main_ui import MyHSeparator, MyVSeparator
+from myPGM.ui.main_ui import MyHSeparator, MyVSeparator
 
 
 class PressureToolbox(QWidget):

@@ -1,29 +1,19 @@
 import sys
 import os
 from PyQt5.QtWidgets import QApplication
-from UI.main_ui import MainWindow
 from myPGM.data_model import (PressureGaugeDataObject,
                                 PressureGaugeDataManager)
 from myPGM.presenter import Presenter
-import sys
 import myPGM.calibrations
 
+from myPGM.ui.PressureToolbox import PressureToolbox 
 
-from UI.PressureToolbox import PressureToolbox 
+
 # Run the application
 if __name__ == "__main__":
-    os.chdir(os.path.abspath(__file__).replace(os.path.basename(__file__), ""))
     
-
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    try:
-        with open("myPGM/light-mode.qss", "r") as file:
-            qss = file.read()
-            app.setStyleSheet(qss)
-    except:
-        pass   
-
 
     #~~~~this is how it will be done in main_ui.py~~~~ 
 

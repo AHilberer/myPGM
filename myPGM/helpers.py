@@ -1,9 +1,13 @@
 import numpy as np
 import pandas as pd
 from copy import deepcopy
+from importlib import resources
 from scipy.optimize import minimize
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, QAbstractListModel, QModelIndex
 import csv
+
+def load_style(qssfile):
+    return resources.files("myPGM.ui").joinpath(qssfile).read_text()
 
 def customparse_file2data(f):
     with open(f, 'r') as file:
