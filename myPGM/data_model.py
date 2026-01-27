@@ -19,12 +19,10 @@ class PressureGaugeDataObject:
     """
     This classes represents a pressure gauge spectrum, with all its associated properties.
     """
-
     def __init__(self):
         """
         Initialize the PressureGaugeDataObject with an ID.
         """
-
         self.id = int(time.time() * 1000)
 
         # Attributes related to spectral measurement data
@@ -74,18 +72,7 @@ class PressureGaugeDataObject:
         self.normalize_data()
         self.current_smoothing = 1
         self.include_in_filelist = True
-
-
-    def set_calibration(self, calib):
-        """
-        Set the calibration for the pressure gauge data object.
-        :param calib: HPCalibration
-        """
-        self.calib = calib
-        self.x0 = self.calib.x0default
-        self.T0 = 298
-        self.T = 298
-
+        
     def set_fit_model(self, fit_model):
         """
         Set the fit model for the pressure gauge data object.
@@ -93,17 +80,72 @@ class PressureGaugeDataObject:
         """
         self.fit_model = fit_model
 
-
     def normalize_data(self):
         self.normalized_data = np.zeros(self.original_data.shape)
         self.normalized_data[:,0] = self.original_data[:,0]
         self.normalized_data[:,1] = self.original_data[:,1]-np.min(self.original_data[:,1])
         self.normalized_data[:,1]=self.original_data[:,1]/max(self.original_data[:,1])
 
-    def compute_P_from_x(self):
+
+#    We may choose to use such read-only properties to avoid problems:
+#    @property
+#    def P(self):
+#        return self._P
+
+#   or even, extreme but very safe : 
+#   @property
+#   def P(self):
+#       return self._P
+#  
+#   @P.setter
+#   def P(self, value):
+#       self._P = value
+#       self.compute_x_from_P()
+
+    def set_calibration(self, calib):
+        """
+        Set the calibration for the pressure gauge data object.
+        :param calib: HPCalibration
+        """
+        self.calib = calib
+        self.set_x0(self.calib.x0default)
+
+        # crappy fix  /!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\
+        # crappy fix  /!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\
+        # crappy fix  /!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\
+        
+        self.T = 298
+        self.T0 = 298
+
+    def set_P(self, P):
+        self.P = P
+        self._compute_x_from_P()
+        return self.x
+
+    def set_x(self, x):
+        self.x = x
+        self._compute_P_from_x()
+        return self.P
+
+    def set_x0(self, x0):
+        self.x0 = x0
+        self._compute_P_from_x()
+        return self.P
+
+    def set_T(self, T):
+        self.T = T
+        self._compute_P_from_x()
+        return self.P
+
+    def set_T0(self, T0):
+        self.T0 = T0
+        self._compute_P_from_x()
+        return self.P
+
+    def _compute_P_from_x(self):
         self.P = self.calib.func(self.x, self.T, self.x0, self.T0)
 
-    def compute_x_from_P(self):
+    def _compute_x_from_P(self):
         self.x = self.calib.invfunc(self.P, self.T, self.x0, self.T0)
 
     def get_data_to_process(self):
@@ -183,8 +225,9 @@ class PressureGaugeDataObject:
                 fitted = [self.fit_model.func(wvl, *self.fit_result["opti"]) for wvl in x]
                 self.fitted_data = np.column_stack((x, fitted))
                 popt = self.fit_result["opti"]
-                # for now we use the number of args..
-                if len(popt) < 7:  # Samarium
+
+                # for now we use the number of args.... (crappy)
+                if len(popt) < 7:  # Samarium / Hydrogen (?)
                     best_x = popt[2]
                 elif len(popt) < 8:  # Ruby Gaussian
                     best_x = np.max([popt[2], popt[5]])
@@ -198,8 +241,7 @@ class PressureGaugeDataObject:
             else:
                 raise ValueError("Fit type not implemented")
             
-            self.x = best_x
-            self.compute_P_from_x()
+            self.set_x(best_x)
         except:
             raise RuntimeError("Fit failed to converge.")
             
@@ -277,12 +319,15 @@ class PressureGaugeDataManager(MutableMapping):
             raise KeyError(f"No instance with ID {instance_id} found.")
         
 
-if __name__ == '__main__': #! to be verified
+if __name__ == '__main__':
+
     import calibrations
     import fit_models
+    
     data_manager = PressureGaugeDataManager()
     a = PressureGaugeDataObject()
     data_manager.add_instance(a)
+    
     test_file = 'Example_Ruby_3.asc'
     test_path = os.path.dirname(__file__) + "/resources/" + test_file
     
@@ -299,4 +344,8 @@ if __name__ == '__main__': #! to be verified
     print('##################################################################')
     print([k for k in data_manager.values()])
 
- 
+    print('##################################################################')
+    # test reverse
+    a.set_P(6)
+    print(f' pressure: {a.P} GPa')
+    print(f' ruby wavelength: {a.x} nm')

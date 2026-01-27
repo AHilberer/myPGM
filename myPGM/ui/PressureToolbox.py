@@ -15,10 +15,21 @@ from PyQt5.QtWidgets import (QApplication,
                              QSpinBox,
                              QDoubleSpinBox,)
 from PyQt5.QtGui import QColor
+from PyQt5.QtCore import pyqtSignal
+
+from myPGM.calibrations import HPCalibration
 from myPGM.ui.main_ui import MyHSeparator, MyVSeparator
 
 
 class PressureToolbox(QWidget):
+
+    calibChanged = pyqtSignal(HPCalibration)
+    PChanged = pyqtSignal(float)
+    xChanged = pyqtSignal(float)
+    TChanged = pyqtSignal(float)
+    x0Changed = pyqtSignal(float)
+    T0Changed = pyqtSignal(float)
+
     def __init__(self, calib_dict):
         super().__init__()
 
@@ -108,36 +119,24 @@ class PressureToolbox(QWidget):
 
         Toolboxlayout.addLayout(pressure_form, stretch=2)
 
-
         self.setLayout(Toolboxlayout)
 
-        self.populate_calib_combo()
+        self.init_calib_combo()
+        self.init_connects()
 
-        self.create_connects()
 
-    def create_connects(self):
+    def init_connects(self):
+        self.calibration_combo.currentTextChanged.connect(self.update_calib)
+        
+        self.P_spinbox.valueChanged.connect(self.PChanged.emit)
 
-        self.Pm_spinbox.valueChanged.connect(self.update)
-        self.P_spinbox.valueChanged.connect(self.update)
-        self.x_spinbox.valueChanged.connect(self.update)
-        self.x0_spinbox.valueChanged.connect(self.update)
-        self.T_spinbox.valueChanged.connect(self.update)
-        self.T0_spinbox.valueChanged.connect(self.update)
+        self.x_spinbox.valueChanged.connect(self.xChanged.emit)
+        self.T_spinbox.valueChanged.connect(self.TChanged.emit)
+        self.x0_spinbox.valueChanged.connect(self.x0Changed.emit)
+        self.T0_spinbox.valueChanged.connect(self.T0Changed.emit)
 
-        self.calibration_combo.currentIndexChanged.connect(self.update_calib)
 
-    def disconnect(self):
-
-        self.Pm_spinbox.valueChanged.disconnect()
-        self.P_spinbox.valueChanged.disconnect()
-        self.x_spinbox.valueChanged.disconnect()
-        self.x0_spinbox.valueChanged.disconnect()
-        self.T_spinbox.valueChanged.disconnect()
-        self.T0_spinbox.valueChanged.disconnect()
-
-        self.calibration_combo.currentIndexChanged.disconnect()
-
-    def populate_calib_combo(self):
+    def init_calib_combo(self):
         if self.calibrations is not None:
             self.calibration_combo.addItems(self.calibrations.keys())
 
@@ -147,89 +146,88 @@ class PressureToolbox(QWidget):
         else:
             raise ImportError('Error loading calibrations.')
 
+
+    # def update(self):
+    #     # if P is modified, change the value of x
+    #     if self.P_spinbox.hasFocus():
+    #         self.buffer.P = self.P_spinbox.value()
+
+    #         try:
+    #             self.buffer.compute_x_from_P()
+    #             self.x_spinbox.setValue(self.buffer.x)
+
+    #             self.x_spinbox.setStyleSheet("background: #ccffcc;")  # green
+    #         except:
+    #             self.x_spinbox.setStyleSheet("background: #ec5353;")  # red
+    #             print("Error computing x from P")
+
+    #     else:  # anything else than P has been manually changed, update the buffer
+    #         # read everything stupidly
+    #         if self.buffer is not None:
+    #             self.buffer.Pm = self.Pm_spinbox.value()
+    #             self.buffer.x = self.x_spinbox.value()
+    #             self.buffer.T = self.T_spinbox.value()
+    #             self.buffer.x0 = self.x0_spinbox.value()
+    #             self.buffer.T0 = self.T0_spinbox.value()
+
+    #             try:
+    #                 self.buffer.compute_P_from_x()
+    #                 self.P_spinbox.setValue(self.buffer.P)
+
+    #                 self.P_spinbox.setStyleSheet("background: #ccffcc;")  # green
+    #             except:
+    #                 self.P_spinbox.setStyleSheet("background: #ec5353;")  # red
+    #                 print("Error computing P from x")
+
+
     def set_state(self, buffer):
         # buffer is a PressureGaugeDataObject
         
-        # self.buffer  always reflect the current state
-        self.buffer = buffer
+        self.P_spinbox.blockSignals(True)
+        self.x_spinbox.blockSignals(True)
+        self.T_spinbox.blockSignals(True)
+        self.x0_spinbox.blockSignals(True)
+        self.T0_spinbox.blockSignals(True)
 
-        self.disconnect()
-        self.Pm_spinbox.setValue(self.buffer.Pm)
-        self.P_spinbox.setValue(self.buffer.P)
-        self.x_spinbox.setValue(self.buffer.x)
-        self.T_spinbox.setValue(self.buffer.T)
-        self.x0_spinbox.setValue(self.buffer.x0)
-        self.T0_spinbox.setValue(self.buffer.T0)
-        self.create_connects()
+        self.Pm_spinbox.setValue(buffer.Pm)
+        self.P_spinbox.setValue(buffer.P)
+        self.x_spinbox.setValue(buffer.x)
+        self.T_spinbox.setValue(buffer.T)
+        self.x0_spinbox.setValue(buffer.x0)
+        self.T0_spinbox.setValue(buffer.T0)
 
-        self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
-        self.calibration_combo.setCurrentText(self.buffer.calib.name)
-        
-        newind = self.calibration_combo.currentIndex()
-        tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
+        self.P_spinbox.blockSignals(False)
+        self.x_spinbox.blockSignals(False)
+        self.T_spinbox.blockSignals(False)
+        self.x0_spinbox.blockSignals(False)
+        self.T0_spinbox.blockSignals(False)
+
+        # do I need this ? 
+        self.update_calib(buffer.calib.name)
+
+
+    def update_calib(self, new_text_key):
+
+        newcalib = self.calibrations[new_text_key]
+
+        self.Tcor_Label.setText(newcalib.Tcor_name)
+
         self.calibration_combo.setStyleSheet(
-                "background-color: rgba{};\
-                        selection-background-color: k;".format(tmp_color))
-
-        self.update_calib(newind)
-        self.update()
-
-
-    def update(self):
-        # if P is modified, change the value of x
-        if self.P_spinbox.hasFocus():
-            self.buffer.P = self.P_spinbox.value()
-
-            try:
-                self.buffer.compute_x_from_P()
-                self.x_spinbox.setValue(self.buffer.x)
-
-                self.x_spinbox.setStyleSheet("background: #ccffcc;")  # green
-            except:
-                self.x_spinbox.setStyleSheet("background: #ec5353;")  # red
-                print("Error computing x from P")
-
-        else:  # anything else than P has been manually changed, update the buffer
-            # read everything stupidly
-            if self.buffer is not None:
-                self.buffer.Pm = self.Pm_spinbox.value()
-                self.buffer.x = self.x_spinbox.value()
-                self.buffer.T = self.T_spinbox.value()
-                self.buffer.x0 = self.x0_spinbox.value()
-                self.buffer.T0 = self.T0_spinbox.value()
-
-                try:
-                    self.buffer.compute_P_from_x()
-                    self.P_spinbox.setValue(self.buffer.P)
-
-                    self.P_spinbox.setStyleSheet("background: #ccffcc;")  # green
-                except:
-                    self.P_spinbox.setStyleSheet("background: #ec5353;")  # red
-                    print("Error computing P from x")
-
-    def update_calib(self, newind):
-        self.buffer.calib = self.calibrations[self.calibration_combo.currentText()]
-
-        self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
-
-        tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
-        self.calibration_combo.setStyleSheet(
-            "background-color: rgba{};\
-                    selection-background-color: k;".format(tmp_color)
-        )
+            "background-color: {};\
+             selection-background-color: k;".format(newcalib.color))
 
         self.x_label.setText(
-            "{} ({})".format(self.buffer.calib.xname, self.buffer.calib.xunit)
+            "{} ({})".format(newcalib.xname, newcalib.xunit)
         )
         self.x0_label.setText(
-            "{}0 ({})".format(self.buffer.calib.xname, self.buffer.calib.xunit)
+            "{}0 ({})".format(newcalib.xname, newcalib.xunit)
         )
 
-        self.x_spinbox.setSingleStep(self.buffer.calib.xstep)
-        self.x0_spinbox.setSingleStep(self.buffer.calib.xstep)
-        # note that this should call update() but it does not at __init__ !!
-        self.x0_spinbox.setValue(self.buffer.calib.x0default)
+        self.x_spinbox.setSingleStep(newcalib.xstep)
+        self.x0_spinbox.setSingleStep(newcalib.xstep)
 
-        # self.plot_data() # a priori no need to call plot_data here
-        #self.calib_change_signal.emit(self.buffer.calib)
-
+#        # note that this should call update() but it does not at __init__ !!
+#       /!\ /!\
+        self.x0_spinbox.setValue(newcalib.x0default)    # /!\
+        
+        self.calibChanged.emit(newcalib)

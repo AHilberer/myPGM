@@ -23,16 +23,10 @@ class Presenter:
             ]
         self.ordered_files_to_display = []
 
-        self.initialize_calibrations_menu()
         self.initialize_fit_models_menu()
-
-        self.view.startup_buffer()
-        #self.view.update_fit_model()
-
 
 
         #? Setup Signal-Slot interactions
-        self.view.calibration_combo.currentIndexChanged.connect(self.view.update_calib)
         self.view.fit_model_combo.currentIndexChanged.connect(self.view.update_fit_model)
 
         self.view.file_list_widget.object_selected.connect(self.file_selected_from_file_list)

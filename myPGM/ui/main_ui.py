@@ -54,8 +54,6 @@ class MainWindow(QMainWindow):
     #####################################################################################
         # ? Signals setup
     theme_switched = pyqtSignal()
-    import_calib_signal = pyqtSignal(object)
-    import_fit_models_signal = pyqtSignal(object)
     fit_from_click_signal = pyqtSignal(object)
     start_auto_fit_signal = pyqtSignal(object)
     subtract_ManualBg_signal = pyqtSignal(object)
@@ -140,144 +138,10 @@ class MainWindow(QMainWindow):
         self.buffer = None
         self.calibrations = None
         self.fit_models = None
-        
-        ##################################### Main Top Panel ###################################################################################
-        # #? PRL style toolbox
-        ToolboxGroup = QGroupBox("Pressure toolbox")
-        Toolboxlayout = QHBoxLayout()
-        self.Pm_spinbox = QDoubleSpinBox()
-        self.Pm_spinbox.setObjectName("Pm_spinbox")
-        self.Pm_spinbox.setDecimals(2)
-        self.Pm_spinbox.setRange(-np.inf, np.inf)
-        self.Pm_spinbox.setSingleStep(0.1)
-        self.Pm_spinbox.setStyleSheet("background: #0066CC;")
-        self.Pm_spinbox.setMinimumWidth(80)
 
-        self.P_spinbox = QDoubleSpinBox()
-        self.P_spinbox.setObjectName("P_spinbox")
-        self.P_spinbox.setDecimals(3)
-        self.P_spinbox.setRange(-np.inf, np.inf)
-        self.P_spinbox.setSingleStep(0.1)
-        self.P_spinbox.setStyleSheet("background: #4a8542;")
-        self.P_spinbox.setMinimumWidth(80)
+        # P toolbox will be back here !        
+        top_panel_layout.addWidget(QGroupBox("Dummy"))
 
-        self.x_spinbox = QDoubleSpinBox()
-        self.x_spinbox.setObjectName("x_spinbox")
-        self.x_spinbox.setDecimals(2)
-        self.x_spinbox.setRange(-np.inf, +np.inf)
-        self.x_spinbox.setMinimumWidth(80)
-
-        self.T_spinbox = QDoubleSpinBox()
-        self.T_spinbox.setObjectName("T_spinbox")
-        self.T_spinbox.setDecimals(0)
-        self.T_spinbox.setRange(-np.inf, +np.inf)
-        self.T_spinbox.setSingleStep(1)
-
-        self.x0_spinbox = QDoubleSpinBox()
-        self.x0_spinbox.setObjectName("x0_spinbox")
-        self.x0_spinbox.setDecimals(2)
-        self.x0_spinbox.setRange(-np.inf, +np.inf)
-
-        self.T0_spinbox = QDoubleSpinBox()
-        self.T0_spinbox.setObjectName("T0_spinbox")
-        self.T0_spinbox.setDecimals(0)
-        self.T0_spinbox.setRange(-np.inf, +np.inf)
-        self.T0_spinbox.setSingleStep(1)
-
-        self.calibration_combo = QComboBox()
-        self.calibration_combo.setObjectName("calibration_combo")
-        self.calibration_combo.setMinimumWidth(150)
-
-
-        self.x_label = QLabel("lambda (nm)")
-        self.x0_label = QLabel("lambda0 (nm)")
-
-        # pressure form
-        pressure_form = QFormLayout()
-        pressure_form.addRow(QLabel("Pm (bar)"), self.Pm_spinbox)
-        pressure_form.addRow(QLabel("P (GPa)"), self.P_spinbox)
-
-        # Calib params form
-        param_form = QHBoxLayout()
-        form_x = QFormLayout()
-        form_x.addRow(self.x_label, self.x_spinbox)
-        form_x.addRow(self.x0_label, self.x0_spinbox)
-        form_T = QFormLayout()
-        form_T.addRow(QLabel("T (K)"), self.T_spinbox)
-        form_T.addRow(QLabel("T0 (K)"), self.T0_spinbox)
-        param_form.addLayout(form_x)
-        param_form.addLayout(form_T)
-
-        calibration_form = QFormLayout()
-        calibration_form.addRow(QLabel("Calibration: "), self.calibration_combo)
-
-        self.Tcor_Label = QLabel("NA")
-        calibration_form.addRow(QLabel("T correction: "), self.Tcor_Label)
-
-        self.add_button = QPushButton("+")
-        self.add_button.setMinimumWidth(25)
-
-        self.removelast_button = QPushButton("-")
-        self.removelast_button.setMinimumWidth(25)
-
-        self.table_button = QPushButton("P vs Pm")
-        self.table_button.setMinimumWidth(70)
-        self.table_button.setMinimumHeight(60)
-
-        mini_actions_form = QVBoxLayout()
-        actions_form = QHBoxLayout()
-
-        mini_actions_form.addWidget(self.add_button)
-        mini_actions_form.addWidget(self.removelast_button)
-        actions_form.addLayout(mini_actions_form)
-        actions_form.addWidget(self.table_button)
-
-        Toolboxlayout.addLayout(calibration_form, stretch=1)
-
-        # Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyVSeparator())
-        # Toolboxlayout.addStretch()
-
-        Toolboxlayout.addLayout(param_form, stretch=5)
-
-        # Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyVSeparator())
-        # Toolboxlayout.addStretch()
-
-        Toolboxlayout.addLayout(pressure_form, stretch=2)
-
-        # Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyVSeparator())
-        # Toolboxlayout.addStretch()
-
-        Toolboxlayout.addLayout(actions_form, stretch=1)
-
-        ToolboxGroup.setLayout(Toolboxlayout)
-
-
-
-
-        # Ptoolbox end HERE !! 
-
-
-
-
-
-
-
-
-        top_panel_layout.addWidget(ToolboxGroup)
-
-
-
-        # ? Toolbox connections
-        self.table_button.clicked.connect(self.toggle_PvPm)
-
-
-
-
-        self.add_button.clicked.connect(self.add_to_table)
-        self.removelast_button.clicked.connect(self.removelast)
 
         #################################################################################### Main Bottom Panel ###################################################################################""
 
@@ -469,14 +333,19 @@ class MainWindow(QMainWindow):
         #####################################################################################
         # #? Setup PvPm table and plotwindow
 
-        self.data = HPDataTable()
 
-        self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
 
-        self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
 
-        self.data.changed.connect(self.DataTableWindow.table_widget.updatetable)
-        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
+
+#        self.data = HPDataTable()
+#
+#        self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
+#
+#        self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
+#
+#        self.data.changed.connect(self.DataTableWindow.table_widget.updatetable)
+#        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
+
 
 
     #####################################################################################
@@ -552,54 +421,54 @@ class MainWindow(QMainWindow):
 
 
 
-    # WILL BE REMOVED
-    def startup_buffer(self):
-        if self.calibrations is not None:
-            
-            self.buffer = PressureGaugeDataObject()
-            self.buffer.Pm = 0
-            self.buffer.P = 0
-            self.buffer.x = 694.28
-            self.buffer.T = 298
-            self.buffer.x0 = 694.28
-            self.buffer.T0 = 298
-            self.buffer.calib = self.calibrations["Ruby2020"]
+#    # WILL BE REMOVED
+#    def startup_buffer(self):
+#        if self.calibrations is not None:
+#            
+#            self.buffer = PressureGaugeDataObject()
+#            self.buffer.Pm = 0
+#            self.buffer.P = 0
+#            self.buffer.x = 694.28
+#            self.buffer.T = 298
+#            self.buffer.x0 = 694.28
+#            self.buffer.T0 = 298
+#            self.buffer.calib = self.calibrations["Ruby2020"]
+#
+#            self.Pm_spinbox.setValue(self.buffer.Pm)
+#            self.P_spinbox.setValue(self.buffer.P)
+#            self.x_spinbox.setValue(self.buffer.x)
+#            self.T_spinbox.setValue(self.buffer.T)
+#            self.x0_spinbox.setValue(self.buffer.x0)
+#            self.T0_spinbox.setValue(self.buffer.T0)
+#
+#            self.Pm_spinbox.valueChanged.connect(self.update_toolbox)
+#            self.P_spinbox.valueChanged.connect(self.update_toolbox)
+#            self.x_spinbox.valueChanged.connect(self.update_toolbox)
+#            self.x0_spinbox.valueChanged.connect(self.update_toolbox)
+#            self.T_spinbox.valueChanged.connect(self.update_toolbox)
+#            self.T0_spinbox.valueChanged.connect(self.update_toolbox)
+#
+#            self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
+#            self.calibration_combo.setCurrentText(self.buffer.calib.name)
+#            newind = self.calibration_combo.currentIndex()
+#            tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
+#            self.calibration_combo.setStyleSheet(
+#                "background-color: rgba{};\
+#                        selection-background-color: k;".format(tmp_color)
+#            )
+#        else:
+#            raise ImportError('Error loading calibrations.')
 
-            self.Pm_spinbox.setValue(self.buffer.Pm)
-            self.P_spinbox.setValue(self.buffer.P)
-            self.x_spinbox.setValue(self.buffer.x)
-            self.T_spinbox.setValue(self.buffer.T)
-            self.x0_spinbox.setValue(self.buffer.x0)
-            self.T0_spinbox.setValue(self.buffer.T0)
 
-            self.Pm_spinbox.valueChanged.connect(self.update_toolbox)
-            self.P_spinbox.valueChanged.connect(self.update_toolbox)
-            self.x_spinbox.valueChanged.connect(self.update_toolbox)
-            self.x0_spinbox.valueChanged.connect(self.update_toolbox)
-            self.T_spinbox.valueChanged.connect(self.update_toolbox)
-            self.T0_spinbox.valueChanged.connect(self.update_toolbox)
-
-            self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
-            self.calibration_combo.setCurrentText(self.buffer.calib.name)
-            newind = self.calibration_combo.currentIndex()
-            tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
-            self.calibration_combo.setStyleSheet(
-                "background-color: rgba{};\
-                        selection-background-color: k;".format(tmp_color)
-            )
-        else:
-            raise ImportError('Error loading calibrations.')
-
-
-    def populate_calib_combo(self):
-        if self.calibrations is not None:
-            self.calibration_combo.addItems(self.calibrations.keys())
-
-            for k, v in self.calibrations.items():
-                ind = self.calibration_combo.findText(k)
-                self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
-        else:
-            raise ImportError('Error loading calibrations.')
+#    def populate_calib_combo(self):
+#        if self.calibrations is not None:
+#            self.calibration_combo.addItems(self.calibrations.keys())
+#
+#            for k, v in self.calibrations.items():
+#                ind = self.calibration_combo.findText(k)
+#                self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
+#        else:
+#            raise ImportError('Error loading calibrations.')
 
     def populate_fit_models_combo(self):
         if self.fit_models is not None:
@@ -623,73 +492,73 @@ class MainWindow(QMainWindow):
         else:
             raise ImportError('Error loading fit models.')
 
-    def add_to_table(self):
-        self.buffer.file = "No"
-        self.data.add(self.buffer)
+#    def add_to_table(self):
+#        self.buffer.file = "No"
+#        self.data.add(self.buffer)
+#
+#    def removelast(self):
+#        if len(self.data) > 0:
+#            self.data.removelast()
+#
+#        # update is called two time, not very good but working
 
-    def removelast(self):
-        if len(self.data) > 0:
-            self.data.removelast()
-
-        # update is called two time, not very good but working
-
-    def update_toolbox(self):
-        # if P is modified, change the value of x
-        if self.P_spinbox.hasFocus():
-            self.buffer.P = self.P_spinbox.value()
-
-            try:
-                self.buffer.compute_x_from_P()
-                self.x_spinbox.setValue(self.buffer.x)
-
-                self.x_spinbox.setStyleSheet("background: #4a8542;")  # green
-            except:
-                self.x_spinbox.setStyleSheet("background: #ff7575;")  # red
-                print("Error computing x from P")
-
-        else:  # anything else than P has been manually changed, update the buffer
-            # read everything stupidly
-            if self.buffer is not None:
-                self.buffer.Pm = self.Pm_spinbox.value()
-                self.buffer.x = self.x_spinbox.value()
-                self.buffer.T = self.T_spinbox.value()
-                self.buffer.x0 = self.x0_spinbox.value()
-                self.buffer.T0 = self.T0_spinbox.value()
-
-                try:
-                    self.buffer.compute_P_from_x()
-                    self.P_spinbox.setValue(self.buffer.P)
-
-                    self.P_spinbox.setStyleSheet("background: #4a8542;")  # green
-                except:
-                    self.P_spinbox.setStyleSheet("background: #ff7575;")  # red
-                    print("Error computing P from x")
-
-    def update_calib(self, newind):
-        self.buffer.calib = self.calibrations[self.calibration_combo.currentText()]
-
-        self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
-
-        tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
-        self.calibration_combo.setStyleSheet(
-            "background-color: rgba{};\
-                    selection-background-color: k;".format(tmp_color)
-        )
-
-        self.x_label.setText(
-            "{} ({})".format(self.buffer.calib.xname, self.buffer.calib.xunit)
-        )
-        self.x0_label.setText(
-            "{}0 ({})".format(self.buffer.calib.xname, self.buffer.calib.xunit)
-        )
-
-        self.x_spinbox.setSingleStep(self.buffer.calib.xstep)
-        self.x0_spinbox.setSingleStep(self.buffer.calib.xstep)
-        # note that this should call update() but it does not at __init__ !!
-        self.x0_spinbox.setValue(self.buffer.calib.x0default)
-
-        # self.plot_data() # a priori no need to call plot_data here
-        #self.calib_change_signal.emit(self.buffer.calib)
+#    def update_toolbox(self):
+#        # if P is modified, change the value of x
+#        if self.P_spinbox.hasFocus():
+#            self.buffer.P = self.P_spinbox.value()
+#
+#            try:
+#                self.buffer.compute_x_from_P()
+#                self.x_spinbox.setValue(self.buffer.x)
+#
+#                self.x_spinbox.setStyleSheet("background: #4a8542;")  # green
+#            except:
+#                self.x_spinbox.setStyleSheet("background: #ff7575;")  # red
+#                print("Error computing x from P")
+#
+#        else:  # anything else than P has been manually changed, update the buffer
+#            # read everything stupidly
+#            if self.buffer is not None:
+#                self.buffer.Pm = self.Pm_spinbox.value()
+#                self.buffer.x = self.x_spinbox.value()
+#                self.buffer.T = self.T_spinbox.value()
+#                self.buffer.x0 = self.x0_spinbox.value()
+#                self.buffer.T0 = self.T0_spinbox.value()
+#
+#                try:
+#                    self.buffer.compute_P_from_x()
+#                    self.P_spinbox.setValue(self.buffer.P)
+#
+#                    self.P_spinbox.setStyleSheet("background: #4a8542;")  # green
+#                except:
+#                    self.P_spinbox.setStyleSheet("background: #ff7575;")  # red
+#                    print("Error computing P from x")
+#
+#    def update_calib(self, newind):
+#        self.buffer.calib = self.calibrations[self.calibration_combo.currentText()]
+#
+#        self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
+#
+#        tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
+#        self.calibration_combo.setStyleSheet(
+#            "background-color: rgba{};\
+#                    selection-background-color: k;".format(tmp_color)
+#        )
+#
+#        self.x_label.setText(
+#            "{} ({})".format(self.buffer.calib.xname, self.buffer.calib.xunit)
+#        )
+#        self.x0_label.setText(
+#            "{}0 ({})".format(self.buffer.calib.xname, self.buffer.calib.xunit)
+#        )
+#
+#        self.x_spinbox.setSingleStep(self.buffer.calib.xstep)
+#        self.x0_spinbox.setSingleStep(self.buffer.calib.xstep)
+#        # note that this should call update() but it does not at __init__ !!
+#        self.x0_spinbox.setValue(self.buffer.calib.x0default)
+#
+#        # self.plot_data() # a priori no need to call plot_data here
+#        #self.calib_change_signal.emit(self.buffer.calib)
 
     def add_current_fit(self):
         if self.current_selected_file_index is not None:
