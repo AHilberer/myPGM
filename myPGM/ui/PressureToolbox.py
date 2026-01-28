@@ -111,7 +111,7 @@ class PressureToolbox(QWidget):
         calibration_form.addRow(QLabel("T correction: "), self.Tcor_Label)
 
 
-        Toolboxlayout.addLayout(calibration_form, stretch=2)
+        Toolboxlayout.addLayout(calibration_form, stretch=4)
         Toolboxlayout.addWidget(MyVSeparator())
 
         Toolboxlayout.addLayout(param_form, stretch=2)
@@ -126,15 +126,12 @@ class PressureToolbox(QWidget):
 
 
     def init_connects(self):
-        self.calibration_combo.currentTextChanged.connect(self.update_calib)
-        
+        self.calibration_combo.currentTextChanged.connect(self.calib_changed)
         self.P_spinbox.valueChanged.connect(self.PChanged.emit)
-
         self.x_spinbox.valueChanged.connect(self.xChanged.emit)
         self.T_spinbox.valueChanged.connect(self.TChanged.emit)
         self.x0_spinbox.valueChanged.connect(self.x0Changed.emit)
         self.T0_spinbox.valueChanged.connect(self.T0Changed.emit)
-
 
     def init_calib_combo(self):
         if self.calibrations is not None:
@@ -145,7 +142,6 @@ class PressureToolbox(QWidget):
                 self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
         else:
             raise ImportError('Error loading calibrations.')
-
 
     # def update(self):
     #     # if P is modified, change the value of x
@@ -179,36 +175,32 @@ class PressureToolbox(QWidget):
     #                 self.P_spinbox.setStyleSheet("background: #ec5353;")  # red
     #                 print("Error computing P from x")
 
-
-    def set_state(self, buffer):
-        # buffer is a PressureGaugeDataObject
-        
+    def set_Pval(self, P):
         self.P_spinbox.blockSignals(True)
-        self.x_spinbox.blockSignals(True)
-        self.T_spinbox.blockSignals(True)
-        self.x0_spinbox.blockSignals(True)
-        self.T0_spinbox.blockSignals(True)
-
-        self.Pm_spinbox.setValue(buffer.Pm)
-        self.P_spinbox.setValue(buffer.P)
-        self.x_spinbox.setValue(buffer.x)
-        self.T_spinbox.setValue(buffer.T)
-        self.x0_spinbox.setValue(buffer.x0)
-        self.T0_spinbox.setValue(buffer.T0)
-
+        self.P_spinbox.setValue(P)
         self.P_spinbox.blockSignals(False)
+
+    def set_xval(self, x):
+        self.x_spinbox.blockSignals(True)
+        self.x_spinbox.setValue(x)
         self.x_spinbox.blockSignals(False)
+
+    def set_Tval(self, T):
+        self.T_spinbox.blockSignals(True)
+        self.T_spinbox.setValue(T)
         self.T_spinbox.blockSignals(False)
+
+    def set_x0val(self, x0):
+        self.x0_spinbox.blockSignals(True)
+        self.x0_spinbox.setValue(x0)
         self.x0_spinbox.blockSignals(False)
+
+    def set_T0val(self, T0):
+        self.T0_spinbox.blockSignals(True)
+        self.T0_spinbox.setValue(T0)
         self.T0_spinbox.blockSignals(False)
 
-        # do I need this ? 
-        self.update_calib(buffer.calib.name)
-
-
-    def update_calib(self, new_text_key):
-
-        newcalib = self.calibrations[new_text_key]
+    def set_calib(self, newcalib):
 
         self.Tcor_Label.setText(newcalib.Tcor_name)
 
@@ -228,6 +220,22 @@ class PressureToolbox(QWidget):
 
 #        # note that this should call update() but it does not at __init__ !!
 #       /!\ /!\
-        self.x0_spinbox.setValue(newcalib.x0default)    # /!\
+#        self.x0_spinbox.setValue(newcalib.x0default)    # /!\
+    
+    def set_state_from_buffer(self, buffer):
+        # buffer is a PressureGaugeDataObject
+        self.set_Pval(buffer.P)
         
+        self.set_xval(buffer.x)
+        self.set_x0val(buffer.x0)
+        self.set_Tval(buffer.T)
+        self.set_T0val(buffer.T0)
+
+        # no signal here:
+        self.set_calib(buffer.calib)
+
+    def calib_changed(self, newcalib_name):
+        newcalib = self.calibrations[newcalib_name]
+
+        self.set_calib(newcalib)
         self.calibChanged.emit(newcalib)

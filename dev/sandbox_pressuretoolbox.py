@@ -19,7 +19,6 @@ if __name__ == "__main__":
     #~~~~ this is how it will be done in main_ui.py ~~~~
     # 
 
-
     calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
     toolbox = PressureToolbox(calib_dict)
 
@@ -36,41 +35,52 @@ if __name__ == "__main__":
     buffer.T0 = 298
     buffer.set_x(694.28)
  
-    toolbox.set_state(buffer)
+    toolbox.set_state_from_buffer(buffer)
     
 
     def on_P_edited(p):
         buffer.set_P(p)
-        toolbox.set_state(buffer)
+        toolbox.set_state_from_buffer(buffer)
 
     def on_x_edited(x):
         buffer.set_x(x)        
-        toolbox.set_state(buffer)
+        toolbox.set_state_from_buffer(buffer)
 
     def on_T_edited(T):
         buffer.set_T(T)        
-        toolbox.set_state(buffer)
+        toolbox.set_state_from_buffer(buffer)
 
     def on_x0_edited(x0):
         buffer.set_x0(x0)
 
-        print(id(buffer.calib))
-        print(id(toolbox.calibrations[buffer.calib.name]))
-        print(id(calib_dict[buffer.calib.name]))
-        
-        toolbox.set_state(buffer)
+        #print(buffer.calib is toolbox.calibrations[buffer.calib.name])
+        #print(buffer.calib is calib_dict[buffer.calib.name])
+
+        # THE NEW x0 [for this gauge] is now x0 :
+        buffer.calib.x0default = x0
+
+        toolbox.set_state_from_buffer(buffer)
 
     def on_T0_edited(T0):
-        buffer.set_T0(T0)        
-        toolbox.set_state(buffer)
+        buffer.set_T0(T0)  
+
+        # THE NEW T0 [for this gauge] is now T0 ?
+        # but this does not exist (yet)?    
+        
+        toolbox.set_state_from_buffer(buffer)
+
+    def on_calib_changed(newcalib):
+        buffer.set_calibration(newcalib)
+        toolbox.set_state_from_buffer(buffer)
 
     # Connects
-    toolbox.calibChanged.connect(buffer.set_calibration)
+    toolbox.calibChanged.connect(on_calib_changed)
     toolbox.PChanged.connect(on_P_edited)
     toolbox.xChanged.connect(on_x_edited)
     toolbox.TChanged.connect(on_T_edited)
     toolbox.x0Changed.connect(on_x0_edited)
     toolbox.T0Changed.connect(on_T0_edited)
+
      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 
     toolbox.show()
