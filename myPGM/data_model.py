@@ -108,14 +108,10 @@ class PressureGaugeDataObject:
         :param calib: HPCalibration
         """
         self.calib = calib
-        self.set_x0(self.calib.x0default)
 
-        # crappy fix  /!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\
-        # crappy fix  /!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\
-        # crappy fix  /!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\
-        
-        self.T = 298
-        self.T0 = 298
+        self.set_x0(self.calib.x0default)
+        self.set_T0(self.calib.T0default)
+
 
     def set_P(self, P):
         self.P = P
@@ -321,8 +317,7 @@ class PressureGaugeDataManager(MutableMapping):
 
 if __name__ == '__main__':
 
-    import calibrations
-    import fit_models
+    from myPGM import calibrations, fit_models
     
     data_manager = PressureGaugeDataManager()
     a = PressureGaugeDataObject()

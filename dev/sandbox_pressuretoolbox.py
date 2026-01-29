@@ -56,7 +56,7 @@ if __name__ == "__main__":
         #print(buffer.calib is toolbox.calibrations[buffer.calib.name])
         #print(buffer.calib is calib_dict[buffer.calib.name])
 
-        # THE NEW x0 [for this gauge] is now x0 :
+        # THE NEW x0 for this gauge is now x0 :
         buffer.calib.x0default = x0
 
         toolbox.set_state_from_buffer(buffer)
@@ -64,13 +64,15 @@ if __name__ == "__main__":
     def on_T0_edited(T0):
         buffer.set_T0(T0)  
 
-        # THE NEW T0 [for this gauge] is now T0 ?
-        # but this does not exist (yet)?    
+        # THE NEW T0 for this gauge is now T0
+        buffer.calib.T0default = T0
         
         toolbox.set_state_from_buffer(buffer)
 
     def on_calib_changed(newcalib):
+        # data model method!
         buffer.set_calibration(newcalib)
+        # view method
         toolbox.set_state_from_buffer(buffer)
 
     # Connects

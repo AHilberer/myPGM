@@ -5,13 +5,14 @@ from scipy.optimize import minimize
 class HPCalibration():
     ''' A general HP calibration object '''
     def __init__(self, name, func, Tcor_name, 
-                    xname, xunit, x0default, xstep, color):
+                    xname, xunit, x0default, T0default, xstep, color):
         self.name = name
         self.func = func
         self.Tcor_name = Tcor_name
         self.xname = xname
         self.xunit = xunit
         self.x0default = x0default
+        self.T0default = T0default
         self.xstep = xstep  # x step in spinboxes using mousewheel
         self.color = color  # color printed in calibration combobox
 
@@ -85,7 +86,7 @@ def PHilberer2026(nu, T, nu0, T0):
     return p
 
 # Homemade:
-def H2_Vibron(nu, T=0, nu0=0, T0=0):
+def H2_Vibron(nu, T, nu0, T0):
     f = np.polynomial.polynomial.Polynomial(
         (-14536565712.17933,
          +17309734.53397923,
@@ -102,6 +103,7 @@ Ruby2020 = HPCalibration(name = 'Ruby2020',
                                  xname = 'lambda',
                                  xunit = 'nm',
                                  x0default = 694.28,
+                                 T0default = 298,
                                  xstep = .01,
                                  color = 'firebrick')
         
@@ -111,6 +113,7 @@ SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        xname = 'lambda',
                                        xunit = 'nm',
                                        x0default = 685.41,
+                                       T0default = 298,
                                        xstep = .01,
                                        color = 'mediumseagreen')
 
@@ -120,6 +123,7 @@ Hilberer2026 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2026',
                                     xname = 'nu',
                                     xunit = 'cm-1',
                                     x0default = 1334,
+                                    T0default = 298,
                                     xstep = .1,
                                     color = 'orangered')
 
@@ -129,6 +133,7 @@ Akahama2006 = HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
                                     xname = 'nu',
                                     xunit = 'cm-1',
                                     x0default = 1334,
+                                    T0default = 298,
                                     xstep = .1,
                                     color = 'darkgrey')
 
@@ -138,6 +143,7 @@ Eremets2023 = HPCalibration(name = 'Diamond Raman Edge Eremets 2023',
                                     xname = 'nu',
                                     xunit = 'cm-1',
                                     x0default = 1332.5,
+                                    T0default = 298,
                                     xstep = .1,
                                     color = 'steelblue')
         
@@ -147,6 +153,7 @@ cBNDatchi = HPCalibration(name = 'cBN Raman Datchi 2007',
                                   xname = 'nu',
                                   xunit = 'cm-1',
                                   x0default = 1054,
+                                  T0default = 298,
                                   xstep = .1,
                                   color = 'lightblue')
 
@@ -156,6 +163,7 @@ H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
                                   xname = 'nu',
                                   xunit = 'cm-1',
                                   x0default = 4200,
+                                  T0default = 298,
                                   xstep = .1,
                                   color = 'plum')
 
@@ -178,7 +186,7 @@ if __name__ == '__main__':
     x = np.linspace(4000, 4260, 100)
     y = H2_Vibron(x, 0, 4150, 0)
 
-    print( H2Vibron.invfunc(10) )
+    print( H2Vibron.invfunc(10, 0, 4150, 0) )
 
     plt.plot(y,x)
     plt.show()
