@@ -44,9 +44,9 @@ class PressureGaugeDataObject:
         self.Pm = None
         self.P = None
         self.x = None
-        self.T = None
-        self.x0 = None
-        self.T0 = None
+        self.T = 298      # default T and T0 are 298 at __init__ for script use 
+        self.x0 = None    # in GUI T, T0 are  set at 298 independantly..
+        self.T0 = 298     # x0, T0 are set in set_calibration
 
         # Attributes related to visualization
         self.include_in_filelist = False
@@ -87,7 +87,7 @@ class PressureGaugeDataObject:
         self.normalized_data[:,1]=self.original_data[:,1]/max(self.original_data[:,1])
 
 
-#    We may choose to use such read-only properties to avoid problems:
+#    We may choose to use such read-only properties to avoid problems?
 #    @property
 #    def P(self):
 #        return self._P
@@ -139,10 +139,26 @@ class PressureGaugeDataObject:
         return self.P
 
     def _compute_P_from_x(self):
-        self.P = self.calib.func(self.x, self.T, self.x0, self.T0)
+        try:
+            if self.x is not None:
+                self.P = self.calib.func(self.x, self.T, self.x0, self.T0)
+                myPGM.helpers.validate_scalar(self.P, 'Pressure')
+            else:
+                self.P = None
+        except Exception as e:
+            raise myPGM.helpers.PressureCalculationFailed(
+                f'Pressure Calculation Failed: {e}') from e
 
     def _compute_x_from_P(self):
-        self.x = self.calib.invfunc(self.P, self.T, self.x0, self.T0)
+        try:
+            if self.P is not None:
+                self.x = self.calib.invfunc(self.P, self.T, self.x0, self.T0)
+                myPGM.helpers.validate_scalar(self.x, 'x')
+            else:
+                self.x = None
+        except Exception as e:
+            raise myPGM.helpers.PressureCalculationFailed(
+                f'Pressure Calculation Failed: {e}') from e
 
     def get_data_to_process(self):
         """
@@ -344,3 +360,15 @@ if __name__ == '__main__':
     a.set_P(6)
     print(f' pressure: {a.P} GPa')
     print(f' ruby wavelength: {a.x} nm')
+
+    print('##################################################################')
+    a.set_calibration(calibrations.cBNDatchi)
+    
+    # force error
+    a.set_x(1045)
+    a.set_x0(0)
+    a.set_T0(0)
+    #a.set_P(0)
+
+    print(a.P)
+    print(a.x, a.x0, a.T, a.T0)

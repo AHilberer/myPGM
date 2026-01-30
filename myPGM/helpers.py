@@ -6,6 +6,16 @@ from scipy.optimize import minimize
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, QAbstractListModel, QModelIndex
 import csv
 
+class PressureCalculationFailed(Exception):
+    pass
+
+def validate_scalar(value, name="Value"):
+    if np.iscomplex(value):
+        raise PressureCalculationFailed(f"{name} is complex")
+    if np.isnan(value) or np.isinf(value):
+        raise PressureCalculationFailed(f"{name} is NaN or infinite")
+    return True
+
 def load_style(qssfile):
     return resources.files("myPGM.ui").joinpath(qssfile).read_text()
 
