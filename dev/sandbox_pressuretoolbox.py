@@ -5,8 +5,22 @@ from myPGM.data_model import (PressureGaugeDataObject,
                                 PressureGaugeDataManager)
 from myPGM.presenter import Presenter
 import myPGM.calibrations
-
+from myPGM.helpers import PressureCalculationFailed
 from myPGM.ui.PressureToolbox import PressureToolbox 
+
+from functools import wraps
+
+def pressure_valid(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            res = func(*args, **kwargs)
+            toolbox.set_valid_colors(True)
+            return res
+        except PressureCalculationFailed as err:
+            toolbox.set_valid_colors(False)
+            return None
+    return wrapper
 
 
 # Run the application
@@ -37,19 +51,22 @@ if __name__ == "__main__":
  
     toolbox.set_state_from_buffer(buffer)
     
-
+    @pressure_valid
     def on_P_edited(p):
         buffer.set_P(p)
         toolbox.set_state_from_buffer(buffer)
-
+    
+    @pressure_valid
     def on_x_edited(x):
         buffer.set_x(x)        
         toolbox.set_state_from_buffer(buffer)
 
+    @pressure_valid
     def on_T_edited(T):
         buffer.set_T(T)        
         toolbox.set_state_from_buffer(buffer)
 
+    @pressure_valid
     def on_x0_edited(x0):
         buffer.set_x0(x0)
 
@@ -61,6 +78,7 @@ if __name__ == "__main__":
 
         toolbox.set_state_from_buffer(buffer)
 
+    @pressure_valid
     def on_T0_edited(T0):
         buffer.set_T0(T0)  
 
@@ -69,6 +87,7 @@ if __name__ == "__main__":
         
         toolbox.set_state_from_buffer(buffer)
 
+    @pressure_valid
     def on_calib_changed(newcalib):
         # data model method!
         buffer.set_calibration(newcalib)

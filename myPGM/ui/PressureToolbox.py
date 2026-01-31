@@ -51,7 +51,7 @@ class PressureToolbox(QWidget):
         self.P_spinbox.setDecimals(3)
         self.P_spinbox.setRange(-np.inf, np.inf)
         self.P_spinbox.setSingleStep(0.1)
-        self.P_spinbox.setStyleSheet("background: #ccffcc;")
+#        self.P_spinbox.setStyleSheet("background: #ccffcc;")
         self.P_spinbox.setMinimumWidth(80)
 
         self.x_spinbox = QDoubleSpinBox()
@@ -239,3 +239,13 @@ class PressureToolbox(QWidget):
 
         self.set_calib(newcalib)
         self.calibChanged.emit(newcalib)
+
+    def set_valid_colors(self, valid):
+        if valid:
+            # green
+            self.P_spinbox.setStyleSheet("background: #ccffcc;")
+            self.x_spinbox.setStyleSheet("background: #ccffcc;")
+        else:
+            # red
+            self.P_spinbox.setStyleSheet("background: #ee6b6e;")
+            self.x_spinbox.setStyleSheet("background: #ee6b6e;")
