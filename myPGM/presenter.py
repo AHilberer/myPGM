@@ -212,7 +212,8 @@ class Presenter:
         obj = self.model.get(obj_id, None)
         if obj.original_data is not None:
             x, y = obj.get_data_to_process()
-            self.view.plot_data(x,y)
+
+            self.view.plot_data(x, y, self.buffer)
             if obj.fit_result is not None:
                 self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y)
 
@@ -322,18 +323,30 @@ class Presenter:
 
     def fit_current_file(self, guess=None): 
         if self.current_selected_file is not None:
+
             obj = self.model.get(self.current_selected_file, None)
-            obj.set_calibration(self.view.buffer.calib)
+            # Copy parameters from buffer : 
+            obj.set_Pm(self.buffer.Pm)
+            obj.set_T(self.buffer.T)
+            obj.set_x0(self.buffer.x0)
+            obj.set_T0(self.buffer.T0)
+
+            obj.set_calibration(self.buffer.calib)
+
             obj.set_fit_model(self.view.fit_mode)
+
             try:
                 if self.view.fit_range_enabled:
                     obj.fitting_range = self.view.fit_range_selector.getRegion()
                 obj.fit_data(guess)
-                self.view.x_spinbox.setValue(obj.x)
+
+                self.buffer = obj # On récupère obj dans buffer après fit
+                # set ptoolbox state:
+                self.view.ptoolbox.set_state_from_buffer(self.buffer)
                 self.update_data_plots(self.current_selected_file)
+
             except RuntimeError:
                 self.fit_error_popup()
-
 
     def fit_error_popup(self):
         self.view.fit_error_popup_window()

@@ -150,7 +150,7 @@ class PressureToolbox(QWidget):
         self.set_calib(newcalib)
         self.calibChanged.emit(newcalib)
 
-    def set_Pm(self, Pm):
+    def set_Pmval(self, Pm):
         self.Pm_spinbox.blockSignals(True)
         self.Pm_spinbox.setValue(Pm)
         self.Pm_spinbox.blockSignals(False)
@@ -208,8 +208,7 @@ class PressureToolbox(QWidget):
         # buffer is a PressureGaugeDataObject
 
         # no signal here!
-
-        self.set_Pm(buffer.Pm)
+        self.set_Pmval(buffer.Pm)
         self.set_Pval(buffer.P)        
         self.set_xval(buffer.x)
         self.set_x0val(buffer.x0)

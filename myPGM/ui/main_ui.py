@@ -131,7 +131,7 @@ class MainWindow(QMainWindow):
 
         #####################################################################################
         # this will be our initial state
-        self.buffer = None
+#        self.buffer = None
 #        self.calibrations = None
         self.fit_models = None
 
@@ -372,17 +372,17 @@ class MainWindow(QMainWindow):
         # some parameters seem to be unaffected by the style import ...
         # thus we use the following fix
 
-        self.PvPmPlotWindow.plot_graph.setBackground("#202020")
+#        self.PvPmPlotWindow.plot_graph.setBackground("#202020")
         styles = {"color": self.plot_label_color, "font-size": "16px"}
-        self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
-        self.PvPmPlotWindow.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+#        self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
+#        self.PvPmPlotWindow.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
         self.data_widget.setBackground("#202020")
         self.data_widget.setLabel("left", **styles)
         self.data_widget.setLabel("bottom", **styles)
         self.deriv_widget.setBackground("#202020")
         self.deriv_widget.setLabel("left", **styles)
         self.deriv_widget.setLabel("bottom", **styles)
-        self.PvPmPlotWindow.updateplot()
+#        self.PvPmPlotWindow.updateplot()
 
         #self.theme_switched.emit() #need to replot data ?
 
@@ -390,7 +390,7 @@ class MainWindow(QMainWindow):
         try:
             style = load_style('light-mode.qss')
             self.setStyleSheet(style)
-            self.DataTableWindow.setStyleSheet(style)
+            #self.DataTableWindow.setStyleSheet(style)
             #self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
@@ -413,57 +413,6 @@ class MainWindow(QMainWindow):
         self.PvPmPlotWindow.updateplot()
 
         #self.theme_switched.emit() #need to replot data ?
-
-
-#    # WILL BE REMOVED
-#    def startup_buffer(self):
-#        if self.calibrations is not None:
-#            
-#            self.buffer = PressureGaugeDataObject()
-#            self.buffer.Pm = 0
-#            self.buffer.P = 0
-#            self.buffer.x = 694.28
-#            self.buffer.T = 298
-#            self.buffer.x0 = 694.28
-#            self.buffer.T0 = 298
-#            self.buffer.calib = self.calibrations["Ruby2020"]
-#
-#            self.Pm_spinbox.setValue(self.buffer.Pm)
-#            self.P_spinbox.setValue(self.buffer.P)
-#            self.x_spinbox.setValue(self.buffer.x)
-#            self.T_spinbox.setValue(self.buffer.T)
-#            self.x0_spinbox.setValue(self.buffer.x0)
-#            self.T0_spinbox.setValue(self.buffer.T0)
-#
-#            self.Pm_spinbox.valueChanged.connect(self.update_toolbox)
-#            self.P_spinbox.valueChanged.connect(self.update_toolbox)
-#            self.x_spinbox.valueChanged.connect(self.update_toolbox)
-#            self.x0_spinbox.valueChanged.connect(self.update_toolbox)
-#            self.T_spinbox.valueChanged.connect(self.update_toolbox)
-#            self.T0_spinbox.valueChanged.connect(self.update_toolbox)
-#
-#            self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
-#            self.calibration_combo.setCurrentText(self.buffer.calib.name)
-#            newind = self.calibration_combo.currentIndex()
-#            tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
-#            self.calibration_combo.setStyleSheet(
-#                "background-color: rgba{};\
-#                        selection-background-color: k;".format(tmp_color)
-#            )
-#        else:
-#            raise ImportError('Error loading calibrations.')
-
-
-#    def populate_calib_combo(self):
-#        if self.calibrations is not None:
-#            self.calibration_combo.addItems(self.calibrations.keys())
-#
-#            for k, v in self.calibrations.items():
-#                ind = self.calibration_combo.findText(k)
-#                self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
-#        else:
-#            raise ImportError('Error loading calibrations.')
-
 
     def load_fit_models(self, models_dict):
         self.fit_models = models_dict
@@ -500,64 +449,6 @@ class MainWindow(QMainWindow):
 #            self.data.removelast()
 #
 #        # update is called two time, not very good but working
-
-#    def update_toolbox(self):
-#        # if P is modified, change the value of x
-#        if self.P_spinbox.hasFocus():
-#            self.buffer.P = self.P_spinbox.value()
-#
-#            try:
-#                self.buffer.compute_x_from_P()
-#                self.x_spinbox.setValue(self.buffer.x)
-#
-#                self.x_spinbox.setStyleSheet("background: #4a8542;")  # green
-#            except:
-#                self.x_spinbox.setStyleSheet("background: #ff7575;")  # red
-#                print("Error computing x from P")
-#
-#        else:  # anything else than P has been manually changed, update the buffer
-#            # read everything stupidly
-#            if self.buffer is not None:
-#                self.buffer.Pm = self.Pm_spinbox.value()
-#                self.buffer.x = self.x_spinbox.value()
-#                self.buffer.T = self.T_spinbox.value()
-#                self.buffer.x0 = self.x0_spinbox.value()
-#                self.buffer.T0 = self.T0_spinbox.value()
-#
-#                try:
-#                    self.buffer.compute_P_from_x()
-#                    self.P_spinbox.setValue(self.buffer.P)
-#
-#                    self.P_spinbox.setStyleSheet("background: #4a8542;")  # green
-#                except:
-#                    self.P_spinbox.setStyleSheet("background: #ff7575;")  # red
-#                    print("Error computing P from x")
-#
-#    def update_calib(self, newind):
-#        self.buffer.calib = self.calibrations[self.calibration_combo.currentText()]
-#
-#        self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
-#
-#        tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
-#        self.calibration_combo.setStyleSheet(
-#            "background-color: rgba{};\
-#                    selection-background-color: k;".format(tmp_color)
-#        )
-#
-#        self.x_label.setText(
-#            "{} ({})".format(self.buffer.calib.xname, self.buffer.calib.xunit)
-#        )
-#        self.x0_label.setText(
-#            "{}0 ({})".format(self.buffer.calib.xname, self.buffer.calib.xunit)
-#        )
-#
-#        self.x_spinbox.setSingleStep(self.buffer.calib.xstep)
-#        self.x0_spinbox.setSingleStep(self.buffer.calib.xstep)
-#        # note that this should call update() but it does not at __init__ !!
-#        self.x0_spinbox.setValue(self.buffer.calib.x0default)
-#
-#        # self.plot_data() # a priori no need to call plot_data here
-#        #self.calib_change_signal.emit(self.buffer.calib)
 
     def add_current_fit(self):
         if self.current_selected_file_index is not None:
@@ -656,21 +547,21 @@ class MainWindow(QMainWindow):
     
 
 
-    def plot_data(self, x, y):
+    def plot_data(self, x, y, buffer):
         self.data_widget.removeItem(self.data_edge_marker)
         self.deriv_widget.removeItem(self.deriv_edge_marker)
         self.data_widget.removeItem(self.data_fit_line)
         self.data_fit_line.setData([],[])
         self.data_widget.setTitle('Not fitted', color=self.plot_label_color, size="16pt")
 
-        self.data_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
+        self.data_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
         self.data_widget.setLabel("left", 'Intensity')
 
         self.data_scatter.setData(x, y)
         self.data_widget.autoRange()
 
     # derivative data
-        self.deriv_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
+        self.deriv_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
         self.deriv_widget.setLabel("left", 'Intensity')
 
         dI = gaussian_filter1d(y, mode="nearest", sigma=1, order=1)

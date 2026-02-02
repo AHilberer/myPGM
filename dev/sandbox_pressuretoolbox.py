@@ -5,11 +5,13 @@ from myPGM.data_model import (PressureGaugeDataObject,
                                 PressureGaugeDataManager)
 from myPGM.presenter import Presenter
 import myPGM.calibrations
-from myPGM.helpers import PressureCalculationFailed
+from myPGM.helpers import PressureCalculationFailed#, pressure_valid
 from myPGM.ui.PressureToolbox import PressureToolbox 
 
 from functools import wraps
 
+
+# this version is not for bounds methods
 def pressure_valid(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -22,21 +24,15 @@ def pressure_valid(func):
             return None
     return wrapper
 
-
 # Run the application
 if __name__ == "__main__":
     
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    #~~~~ this is how it will be done in main_ui.py ~~~~
-    # 
-
     calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
     toolbox = PressureToolbox()
-    toolbox.initialize(calib_dict) # !
-    #~~~~ this is how it will be done in presenter.py? ~~~~
-    # 
+    toolbox.initialize(calib_dict)
  
     # initial state
     buffer = PressureGaugeDataObject()
@@ -49,7 +45,12 @@ if __name__ == "__main__":
     buffer.set_x(694.28)
  
     toolbox.set_state_from_buffer(buffer)
-    
+
+    @pressure_valid
+    def on_Pm_edited(Pm):
+        buffer.set_Pm(Pm)
+        print(buffer.Pm)
+
     @pressure_valid
     def on_P_edited(p):
         buffer.set_P(p)
@@ -96,6 +97,7 @@ if __name__ == "__main__":
 
     # Connects
     toolbox.calibChanged.connect(on_calib_changed)
+    toolbox.PmChanged.connect(on_Pm_edited)    
     toolbox.PChanged.connect(on_P_edited)
     toolbox.xChanged.connect(on_x_edited)
     toolbox.TChanged.connect(on_T_edited)
