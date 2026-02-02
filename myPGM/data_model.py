@@ -112,6 +112,9 @@ class PressureGaugeDataObject:
         self.set_x0(self.calib.x0default)
         self.set_T0(self.calib.T0default)
 
+    def set_Pm(self, Pm):
+        self.Pm = Pm
+        return self.Pm
 
     def set_P(self, P):
         self.P = P

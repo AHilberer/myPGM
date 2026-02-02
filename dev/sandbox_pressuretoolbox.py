@@ -29,13 +29,12 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-
     #~~~~ this is how it will be done in main_ui.py ~~~~
     # 
 
     calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
-    toolbox = PressureToolbox(calib_dict)
-
+    toolbox = PressureToolbox()
+    toolbox.initialize(calib_dict) # !
     #~~~~ this is how it will be done in presenter.py? ~~~~
     # 
  
@@ -70,6 +69,7 @@ if __name__ == "__main__":
     def on_x0_edited(x0):
         buffer.set_x0(x0)
 
+        # All those are the same, unique instance:
         #print(buffer.calib is toolbox.calibrations[buffer.calib.name])
         #print(buffer.calib is calib_dict[buffer.calib.name])
 

@@ -18,22 +18,21 @@ from PyQt5.QtGui import QColor
 from PyQt5.QtCore import pyqtSignal
 
 from myPGM.calibrations import HPCalibration
-from myPGM.ui.main_ui import MyHSeparator, MyVSeparator
+from myPGM.helpers import MyHSeparator, MyVSeparator
 
 
 class PressureToolbox(QWidget):
 
     calibChanged = pyqtSignal(HPCalibration)
+    PmChanged = pyqtSignal(float)
     PChanged = pyqtSignal(float)
     xChanged = pyqtSignal(float)
     TChanged = pyqtSignal(float)
     x0Changed = pyqtSignal(float)
     T0Changed = pyqtSignal(float)
 
-    def __init__(self, calib_dict):
+    def __init__(self):
         super().__init__()
-
-        self.calibrations = calib_dict
 
         ToolboxGroup = QGroupBox("Pressure toolbox")
         Toolboxlayout = QHBoxLayout()
@@ -121,12 +120,14 @@ class PressureToolbox(QWidget):
 
         self.setLayout(Toolboxlayout)
 
+    def initialize(self, calib_dict):
+        self.calibrations = calib_dict
         self.init_calib_combo()
         self.init_connects()
 
-
     def init_connects(self):
         self.calibration_combo.currentTextChanged.connect(self.calib_changed)
+        self.Pm_spinbox.valueChanged.connect(self.PmChanged.emit)
         self.P_spinbox.valueChanged.connect(self.PChanged.emit)
         self.x_spinbox.valueChanged.connect(self.xChanged.emit)
         self.T_spinbox.valueChanged.connect(self.TChanged.emit)
@@ -143,37 +144,16 @@ class PressureToolbox(QWidget):
         else:
             raise ImportError('Error loading calibrations.')
 
-    # def update(self):
-    #     # if P is modified, change the value of x
-    #     if self.P_spinbox.hasFocus():
-    #         self.buffer.P = self.P_spinbox.value()
+    def calib_changed(self, newcalib_name):
+        newcalib = self.calibrations[newcalib_name]
 
-    #         try:
-    #             self.buffer.compute_x_from_P()
-    #             self.x_spinbox.setValue(self.buffer.x)
+        self.set_calib(newcalib)
+        self.calibChanged.emit(newcalib)
 
-    #             self.x_spinbox.setStyleSheet("background: #ccffcc;")  # green
-    #         except:
-    #             self.x_spinbox.setStyleSheet("background: #ec5353;")  # red
-    #             print("Error computing x from P")
-
-    #     else:  # anything else than P has been manually changed, update the buffer
-    #         # read everything stupidly
-    #         if self.buffer is not None:
-    #             self.buffer.Pm = self.Pm_spinbox.value()
-    #             self.buffer.x = self.x_spinbox.value()
-    #             self.buffer.T = self.T_spinbox.value()
-    #             self.buffer.x0 = self.x0_spinbox.value()
-    #             self.buffer.T0 = self.T0_spinbox.value()
-
-    #             try:
-    #                 self.buffer.compute_P_from_x()
-    #                 self.P_spinbox.setValue(self.buffer.P)
-
-    #                 self.P_spinbox.setStyleSheet("background: #ccffcc;")  # green
-    #             except:
-    #                 self.P_spinbox.setStyleSheet("background: #ec5353;")  # red
-    #                 print("Error computing P from x")
+    def set_Pm(self, Pm):
+        self.Pm_spinbox.blockSignals(True)
+        self.Pm_spinbox.setValue(Pm)
+        self.Pm_spinbox.blockSignals(False)
 
     def set_Pval(self, P):
         self.P_spinbox.blockSignals(True)
@@ -218,27 +198,24 @@ class PressureToolbox(QWidget):
         self.x_spinbox.setSingleStep(newcalib.xstep)
         self.x0_spinbox.setSingleStep(newcalib.xstep)
 
-#        # note that this should call update() but it does not at __init__ !!
-#       /!\ /!\
-#        self.x0_spinbox.setValue(newcalib.x0default)    # /!\
+#        Upon calib change by user :
+#        buffer.set_calibration(newcalib) is called from presenter
+#        toolbox.set_state_from_buffer(buffer) is called from presenter
+#        toolbox.set_calib is called from toolbox.set_state_buffer below
+#        hence x0 is set. 
     
     def set_state_from_buffer(self, buffer):
         # buffer is a PressureGaugeDataObject
-        self.set_Pval(buffer.P)
-        
+
+        # no signal here!
+
+        self.set_Pm(buffer.Pm)
+        self.set_Pval(buffer.P)        
         self.set_xval(buffer.x)
         self.set_x0val(buffer.x0)
         self.set_Tval(buffer.T)
         self.set_T0val(buffer.T0)
-
-        # no signal here:
         self.set_calib(buffer.calib)
-
-    def calib_changed(self, newcalib_name):
-        newcalib = self.calibrations[newcalib_name]
-
-        self.set_calib(newcalib)
-        self.calibChanged.emit(newcalib)
 
     def set_valid_colors(self, valid):
         if valid:

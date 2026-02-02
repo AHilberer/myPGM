@@ -3,11 +3,39 @@ import pandas as pd
 from copy import deepcopy
 from importlib import resources
 from scipy.optimize import minimize
+from PyQt5.QtWidgets import QFrame
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, QAbstractListModel, QModelIndex
 import csv
+from functools import wraps
+
+class MyHSeparator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.HLine)
+        self.setFrameShadow(QFrame.Sunken)
+
+class MyVSeparator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.VLine)
+        self.setFrameShadow(QFrame.Sunken)
+
 
 class PressureCalculationFailed(Exception):
     pass
+
+def pressure_valid(func):
+    @wraps(func)
+    # self refers to presenter 
+    def wrapper(self, *args, **kwargs):
+        try:
+            res = func(self, *args, **kwargs)
+            self.view.ptoolbox.set_valid_colors(True)
+            return res
+        except PressureCalculationFailed as err:
+            self.view.ptoolbox.set_valid_colors(False)
+            return None
+    return wrapper
 
 def validate_scalar(value, name="Value"):
     if np.iscomplex(value):

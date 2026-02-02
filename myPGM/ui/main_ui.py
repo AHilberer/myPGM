@@ -37,15 +37,15 @@ from PyQt5.QtGui import QColor, QIcon
 
 from scipy.ndimage import uniform_filter1d, gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
+from myPGM.helpers import load_style, MyHSeparator, MyVSeparator
 
 from myPGM.data_model import PressureGaugeDataObject
 
-from myPGM.ui.PvPm_plot_window import PmPPlotWindow
-from myPGM.ui.PvPm_table_window import HPTableWidget, HPTableWindow, HPDataTable
-
+#from myPGM.ui.PvPm_plot_window import PmPPlotWindow
+#from myPGM.ui.PvPm_table_window import HPTableWidget, HPTableWindow, HPDataTable
 from myPGM.ui.FileListViewerWidget import FileListViewerWidget
+from myPGM.ui.PressureToolbox import PressureToolbox
 
-from myPGM.helpers import load_style
 
 import pyqtgraph as pg
 
@@ -59,11 +59,10 @@ class MainWindow(QMainWindow):
     subtract_ManualBg_signal = pyqtSignal(object)
     modified_fit_range_signal = pyqtSignal(object)
 
-    def __init__(self, model):
+    def __init__(self):
         super().__init__()
-        self.model = model
         # Setup Main window parameters
-        self.setWindowTitle("myPGM - PressureGaugeMonitor")
+        self.setWindowTitle("myPGM - myPressureGaugeMonitor")
 
         # self.icon_path = os.path.join(os.path.dirname(
         #                         os.path.abspath(__file__)),
@@ -92,9 +91,6 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(bottom_panel_layout)
 
         pg.setConfigOption('leftButtonPan', False)
-
-
-
  
         #####################################################################################
         # #? Setup Parameters table window
@@ -136,12 +132,19 @@ class MainWindow(QMainWindow):
         #####################################################################################
         # this will be our initial state
         self.buffer = None
-        self.calibrations = None
+#        self.calibrations = None
         self.fit_models = None
 
-        # P toolbox will be back here !        
-        top_panel_layout.addWidget(QGroupBox("Dummy"))
+        # P toolbox will be back here !
+        PToolboxGroup = QGroupBox('Pressure toolbox')
+        PToolboxLayout = QHBoxLayout()
 
+        self.ptoolbox = PressureToolbox()
+        PToolboxLayout.addWidget(self.ptoolbox, stretch=1)
+
+        PToolboxGroup.setLayout(PToolboxLayout)
+        top_panel_layout.addWidget(PToolboxGroup)
+        
 
         #################################################################################### Main Bottom Panel ###################################################################################""
 
@@ -411,15 +414,6 @@ class MainWindow(QMainWindow):
 
         #self.theme_switched.emit() #need to replot data ?
 
-    def load_calibrations(self, calib_dict):
-        self.calibrations = calib_dict
-        #{a.name: a for a in calib_list}
-
-    def load_fit_models(self, models_dict):
-        self.fit_models = models_dict
-        #{a.name: a for a in model_list}
-
-
 
 #    # WILL BE REMOVED
 #    def startup_buffer(self):
@@ -469,6 +463,11 @@ class MainWindow(QMainWindow):
 #                self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
 #        else:
 #            raise ImportError('Error loading calibrations.')
+
+
+    def load_fit_models(self, models_dict):
+        self.fit_models = models_dict
+        #{a.name: a for a in model_list}
 
     def populate_fit_models_combo(self):
         if self.fit_models is not None:
@@ -874,19 +873,6 @@ class ResizeOnlyLinearRegion(pg.LinearRegionItem):
                 line.setCursor(Qt.SizeHorCursor)
             else:
                 line.unsetCursor()
-
-            
-class MyHSeparator(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setFrameShape(QFrame.HLine)
-        self.setFrameShadow(QFrame.Sunken)
-
-class MyVSeparator(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setFrameShape(QFrame.VLine)
-        self.setFrameShadow(QFrame.Sunken)
 
 # class CustomFileListModel(QAbstractListModel):
 #     itemAdded = pyqtSignal()  # Signal emitted when an item is added

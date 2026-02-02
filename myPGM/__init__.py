@@ -18,7 +18,7 @@ def main():
     except:
         pass
     model = PressureGaugeDataManager()
-    view = MainWindow(model)
+    view = MainWindow()
     presenter = Presenter(model, view, test_mode=True)
     presenter.view.show()
     #presenter.initialize_example()
