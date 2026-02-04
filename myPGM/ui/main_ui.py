@@ -37,13 +37,15 @@ from PyQt5.QtGui import QColor, QIcon
 
 from scipy.ndimage import uniform_filter1d, gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
+from myPGM.helpers import load_style, MyHSeparator, MyVSeparator
 
 from myPGM.data_model import PressureGaugeDataObject
 
-from UI.PvPm_plot_window import PmPPlotWindow
-from UI.PvPm_table_window import HPTableWidget, HPTableWindow, HPDataTable
+#from myPGM.ui.PvPm_plot_window import PmPPlotWindow
+#from myPGM.ui.PvPm_table_window import HPTableWidget, HPTableWindow, HPDataTable
+from myPGM.ui.FileListViewerWidget import FileListViewerWidget
+from myPGM.ui.PressureToolbox import PressureToolbox
 
-from UI.FileListViewerWidget import FileListViewerWidget
 
 import pyqtgraph as pg
 
@@ -52,18 +54,15 @@ class MainWindow(QMainWindow):
     #####################################################################################
         # ? Signals setup
     theme_switched = pyqtSignal()
-    import_calib_signal = pyqtSignal(object)
-    import_fit_models_signal = pyqtSignal(object)
     fit_from_click_signal = pyqtSignal(object)
     start_auto_fit_signal = pyqtSignal(object)
     subtract_ManualBg_signal = pyqtSignal(object)
     modified_fit_range_signal = pyqtSignal(object)
 
-    def __init__(self, model):
+    def __init__(self):
         super().__init__()
-        self.model = model
         # Setup Main window parameters
-        self.setWindowTitle("myPGM - PressureGaugeMonitor")
+        self.setWindowTitle("myPGM - myPressureGaugeMonitor")
 
         # self.icon_path = os.path.join(os.path.dirname(
         #                         os.path.abspath(__file__)),
@@ -92,9 +91,6 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(bottom_panel_layout)
 
         pg.setConfigOption('leftButtonPan', False)
-
-
-
  
         #####################################################################################
         # #? Setup Parameters table window
@@ -135,134 +131,20 @@ class MainWindow(QMainWindow):
 
         #####################################################################################
         # this will be our initial state
-        self.buffer = None
-        self.calibrations = None
+#        self.buffer = None
+#        self.calibrations = None
         self.fit_models = None
+
+        # P toolbox will be back here !
+        PToolboxGroup = QGroupBox('Pressure toolbox')
+        PToolboxLayout = QHBoxLayout()
+
+        self.ptoolbox = PressureToolbox()
+        PToolboxLayout.addWidget(self.ptoolbox, stretch=1)
+
+        PToolboxGroup.setLayout(PToolboxLayout)
+        top_panel_layout.addWidget(PToolboxGroup)
         
-        ##################################### Main Top Panel ###################################################################################
-        # #? PRL style toolbox
-        ToolboxGroup = QGroupBox("Pressure toolbox")
-        Toolboxlayout = QHBoxLayout()
-        self.Pm_spinbox = QDoubleSpinBox()
-        self.Pm_spinbox.setObjectName("Pm_spinbox")
-        self.Pm_spinbox.setDecimals(2)
-        self.Pm_spinbox.setRange(-np.inf, np.inf)
-        self.Pm_spinbox.setSingleStep(0.1)
-        self.Pm_spinbox.setStyleSheet("background: #0066CC;")
-        self.Pm_spinbox.setMinimumWidth(80)
-
-        self.P_spinbox = QDoubleSpinBox()
-        self.P_spinbox.setObjectName("P_spinbox")
-        self.P_spinbox.setDecimals(3)
-        self.P_spinbox.setRange(-np.inf, np.inf)
-        self.P_spinbox.setSingleStep(0.1)
-        self.P_spinbox.setStyleSheet("background: #4a8542;")
-        self.P_spinbox.setMinimumWidth(80)
-
-        self.x_spinbox = QDoubleSpinBox()
-        self.x_spinbox.setObjectName("x_spinbox")
-        self.x_spinbox.setDecimals(2)
-        self.x_spinbox.setRange(-np.inf, +np.inf)
-        self.x_spinbox.setMinimumWidth(80)
-
-        self.T_spinbox = QDoubleSpinBox()
-        self.T_spinbox.setObjectName("T_spinbox")
-        self.T_spinbox.setDecimals(0)
-        self.T_spinbox.setRange(-np.inf, +np.inf)
-        self.T_spinbox.setSingleStep(1)
-
-        self.x0_spinbox = QDoubleSpinBox()
-        self.x0_spinbox.setObjectName("x0_spinbox")
-        self.x0_spinbox.setDecimals(2)
-        self.x0_spinbox.setRange(-np.inf, +np.inf)
-
-        self.T0_spinbox = QDoubleSpinBox()
-        self.T0_spinbox.setObjectName("T0_spinbox")
-        self.T0_spinbox.setDecimals(0)
-        self.T0_spinbox.setRange(-np.inf, +np.inf)
-        self.T0_spinbox.setSingleStep(1)
-
-        self.calibration_combo = QComboBox()
-        self.calibration_combo.setObjectName("calibration_combo")
-        self.calibration_combo.setMinimumWidth(150)
-
-
-        self.x_label = QLabel("lambda (nm)")
-        self.x0_label = QLabel("lambda0 (nm)")
-
-        # pressure form
-        pressure_form = QFormLayout()
-        pressure_form.addRow(QLabel("Pm (bar)"), self.Pm_spinbox)
-        pressure_form.addRow(QLabel("P (GPa)"), self.P_spinbox)
-
-        # Calib params form
-        param_form = QHBoxLayout()
-        form_x = QFormLayout()
-        form_x.addRow(self.x_label, self.x_spinbox)
-        form_x.addRow(self.x0_label, self.x0_spinbox)
-        form_T = QFormLayout()
-        form_T.addRow(QLabel("T (K)"), self.T_spinbox)
-        form_T.addRow(QLabel("T0 (K)"), self.T0_spinbox)
-        param_form.addLayout(form_x)
-        param_form.addLayout(form_T)
-
-        calibration_form = QFormLayout()
-        calibration_form.addRow(QLabel("Calibration: "), self.calibration_combo)
-
-        self.Tcor_Label = QLabel("NA")
-        calibration_form.addRow(QLabel("T correction: "), self.Tcor_Label)
-
-        self.add_button = QPushButton("+")
-        self.add_button.setMinimumWidth(25)
-
-        self.removelast_button = QPushButton("-")
-        self.removelast_button.setMinimumWidth(25)
-
-        self.table_button = QPushButton("P vs Pm")
-        self.table_button.setMinimumWidth(70)
-        self.table_button.setMinimumHeight(60)
-
-        mini_actions_form = QVBoxLayout()
-        actions_form = QHBoxLayout()
-
-        mini_actions_form.addWidget(self.add_button)
-        mini_actions_form.addWidget(self.removelast_button)
-        actions_form.addLayout(mini_actions_form)
-        actions_form.addWidget(self.table_button)
-
-        Toolboxlayout.addLayout(calibration_form, stretch=1)
-
-        # Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyVSeparator())
-        # Toolboxlayout.addStretch()
-
-        Toolboxlayout.addLayout(param_form, stretch=5)
-
-        # Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyVSeparator())
-        # Toolboxlayout.addStretch()
-
-        Toolboxlayout.addLayout(pressure_form, stretch=2)
-
-        # Toolboxlayout.addStretch()
-        Toolboxlayout.addWidget(MyVSeparator())
-        # Toolboxlayout.addStretch()
-
-        Toolboxlayout.addLayout(actions_form, stretch=1)
-
-        ToolboxGroup.setLayout(Toolboxlayout)
-        top_panel_layout.addWidget(ToolboxGroup)
-
-
-
-        # ? Toolbox connections
-        self.table_button.clicked.connect(self.toggle_PvPm)
-
-
-
-
-        self.add_button.clicked.connect(self.add_to_table)
-        self.removelast_button.clicked.connect(self.removelast)
 
         #################################################################################### Main Bottom Panel ###################################################################################""
 
@@ -454,14 +336,19 @@ class MainWindow(QMainWindow):
         #####################################################################################
         # #? Setup PvPm table and plotwindow
 
-        self.data = HPDataTable()
 
-        self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
 
-        self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
 
-        self.data.changed.connect(self.DataTableWindow.table_widget.updatetable)
-        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
+
+#        self.data = HPDataTable()
+#
+#        self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
+#
+#        self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
+#
+#        self.data.changed.connect(self.DataTableWindow.table_widget.updatetable)
+#        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
+
 
 
     #####################################################################################
@@ -474,11 +361,10 @@ class MainWindow(QMainWindow):
 
     def switch_to_dark(self):
         try:
-            with open("myPGM/dark-mode.qss", "r") as file:
-                qss = file.read()
-                self.setStyleSheet(qss)
-                self.DataTableWindow.setStyleSheet(qss)
-                #self.PvPmPlotWindow.setStyleSheet(qss)
+            style = load_style('dark-mode.qss')
+            self.setStyleSheet(style)
+            self.DataTableWindow.setStyleSheet(style)
+            #self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
         self.plot_label_color = "white"
@@ -486,27 +372,26 @@ class MainWindow(QMainWindow):
         # some parameters seem to be unaffected by the style import ...
         # thus we use the following fix
 
-        self.PvPmPlotWindow.plot_graph.setBackground("#202020")
+#        self.PvPmPlotWindow.plot_graph.setBackground("#202020")
         styles = {"color": self.plot_label_color, "font-size": "16px"}
-        self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
-        self.PvPmPlotWindow.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+#        self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
+#        self.PvPmPlotWindow.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
         self.data_widget.setBackground("#202020")
         self.data_widget.setLabel("left", **styles)
         self.data_widget.setLabel("bottom", **styles)
         self.deriv_widget.setBackground("#202020")
         self.deriv_widget.setLabel("left", **styles)
         self.deriv_widget.setLabel("bottom", **styles)
-        self.PvPmPlotWindow.updateplot()
+#        self.PvPmPlotWindow.updateplot()
 
         #self.theme_switched.emit() #need to replot data ?
 
     def switch_to_light(self):
         try:
-            with open("myPGM/light-mode.qss", "r") as file:
-                qss = file.read()
-                self.setStyleSheet(qss)
-                self.DataTableWindow.setStyleSheet(qss)
-                #self.PvPmPlotWindow.setStyleSheet(qss)
+            style = load_style('light-mode.qss')
+            self.setStyleSheet(style)
+            #self.DataTableWindow.setStyleSheet(style)
+            #self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
         self.plot_label_color = "black"
@@ -529,61 +414,9 @@ class MainWindow(QMainWindow):
 
         #self.theme_switched.emit() #need to replot data ?
 
-    def load_calibrations(self, calib_dict):
-        self.calibrations = calib_dict
-        #{a.name: a for a in calib_list}
-
     def load_fit_models(self, models_dict):
         self.fit_models = models_dict
         #{a.name: a for a in model_list}
-
-    def startup_buffer(self):
-        if self.calibrations is not None:
-            
-            self.buffer = PressureGaugeDataObject()
-            self.buffer.Pm = 0
-            self.buffer.P = 0
-            self.buffer.x = 694.28
-            self.buffer.T = 298
-            self.buffer.x0 = 694.28
-            self.buffer.T0 = 298
-            self.buffer.calib = self.calibrations["Ruby2020"]
-
-            self.Pm_spinbox.setValue(self.buffer.Pm)
-            self.P_spinbox.setValue(self.buffer.P)
-            self.x_spinbox.setValue(self.buffer.x)
-            self.T_spinbox.setValue(self.buffer.T)
-            self.x0_spinbox.setValue(self.buffer.x0)
-            self.T0_spinbox.setValue(self.buffer.T0)
-
-            self.Pm_spinbox.valueChanged.connect(self.update_toolbox)
-            self.P_spinbox.valueChanged.connect(self.update_toolbox)
-            self.x_spinbox.valueChanged.connect(self.update_toolbox)
-            self.x0_spinbox.valueChanged.connect(self.update_toolbox)
-            self.T_spinbox.valueChanged.connect(self.update_toolbox)
-            self.T0_spinbox.valueChanged.connect(self.update_toolbox)
-
-            self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
-            self.calibration_combo.setCurrentText(self.buffer.calib.name)
-            newind = self.calibration_combo.currentIndex()
-            tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
-            self.calibration_combo.setStyleSheet(
-                "background-color: rgba{};\
-                        selection-background-color: k;".format(tmp_color)
-            )
-        else:
-            raise ImportError('Error loading calibrations.')
-
-
-    def populate_calib_combo(self):
-        if self.calibrations is not None:
-            self.calibration_combo.addItems(self.calibrations.keys())
-
-            for k, v in self.calibrations.items():
-                ind = self.calibration_combo.findText(k)
-                self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
-        else:
-            raise ImportError('Error loading calibrations.')
 
     def populate_fit_models_combo(self):
         if self.fit_models is not None:
@@ -607,73 +440,15 @@ class MainWindow(QMainWindow):
         else:
             raise ImportError('Error loading fit models.')
 
-    def add_to_table(self):
-        self.buffer.file = "No"
-        self.data.add(self.buffer)
-
-    def removelast(self):
-        if len(self.data) > 0:
-            self.data.removelast()
-
-        # update is called two time, not very good but working
-
-    def update_toolbox(self):
-        # if P is modified, change the value of x
-        if self.P_spinbox.hasFocus():
-            self.buffer.P = self.P_spinbox.value()
-
-            try:
-                self.buffer.compute_x_from_P()
-                self.x_spinbox.setValue(self.buffer.x)
-
-                self.x_spinbox.setStyleSheet("background: #4a8542;")  # green
-            except:
-                self.x_spinbox.setStyleSheet("background: #ff7575;")  # red
-                print("Error computing x from P")
-
-        else:  # anything else than P has been manually changed, update the buffer
-            # read everything stupidly
-            if self.buffer is not None:
-                self.buffer.Pm = self.Pm_spinbox.value()
-                self.buffer.x = self.x_spinbox.value()
-                self.buffer.T = self.T_spinbox.value()
-                self.buffer.x0 = self.x0_spinbox.value()
-                self.buffer.T0 = self.T0_spinbox.value()
-
-                try:
-                    self.buffer.compute_P_from_x()
-                    self.P_spinbox.setValue(self.buffer.P)
-
-                    self.P_spinbox.setStyleSheet("background: #4a8542;")  # green
-                except:
-                    self.P_spinbox.setStyleSheet("background: #ff7575;")  # red
-                    print("Error computing P from x")
-
-    def update_calib(self, newind):
-        self.buffer.calib = self.calibrations[self.calibration_combo.currentText()]
-
-        self.Tcor_Label.setText(self.buffer.calib.Tcor_name)
-
-        tmp_color = self.calibration_combo.model().item(newind).background().color().getRgb()
-        self.calibration_combo.setStyleSheet(
-            "background-color: rgba{};\
-                    selection-background-color: k;".format(tmp_color)
-        )
-
-        self.x_label.setText(
-            "{} ({})".format(self.buffer.calib.xname, self.buffer.calib.xunit)
-        )
-        self.x0_label.setText(
-            "{}0 ({})".format(self.buffer.calib.xname, self.buffer.calib.xunit)
-        )
-
-        self.x_spinbox.setSingleStep(self.buffer.calib.xstep)
-        self.x0_spinbox.setSingleStep(self.buffer.calib.xstep)
-        # note that this should call update() but it does not at __init__ !!
-        self.x0_spinbox.setValue(self.buffer.calib.x0default)
-
-        # self.plot_data() # a priori no need to call plot_data here
-        #self.calib_change_signal.emit(self.buffer.calib)
+#    def add_to_table(self):
+#        self.buffer.file = "No"
+#        self.data.add(self.buffer)
+#
+#    def removelast(self):
+#        if len(self.data) > 0:
+#            self.data.removelast()
+#
+#        # update is called two time, not very good but working
 
     def add_current_fit(self):
         if self.current_selected_file_index is not None:
@@ -772,21 +547,21 @@ class MainWindow(QMainWindow):
     
 
 
-    def plot_data(self, x, y):
+    def plot_data(self, x, y, buffer):
         self.data_widget.removeItem(self.data_edge_marker)
         self.deriv_widget.removeItem(self.deriv_edge_marker)
         self.data_widget.removeItem(self.data_fit_line)
         self.data_fit_line.setData([],[])
         self.data_widget.setTitle('Not fitted', color=self.plot_label_color, size="16pt")
 
-        self.data_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
+        self.data_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
         self.data_widget.setLabel("left", 'Intensity')
 
         self.data_scatter.setData(x, y)
         self.data_widget.autoRange()
 
     # derivative data
-        self.deriv_widget.setLabel("bottom", f"{self.buffer.calib.xname} ({self.buffer.calib.xunit})")
+        self.deriv_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
         self.deriv_widget.setLabel("left", 'Intensity')
 
         dI = gaussian_filter1d(y, mode="nearest", sigma=1, order=1)
@@ -989,19 +764,6 @@ class ResizeOnlyLinearRegion(pg.LinearRegionItem):
                 line.setCursor(Qt.SizeHorCursor)
             else:
                 line.unsetCursor()
-
-            
-class MyHSeparator(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setFrameShape(QFrame.HLine)
-        self.setFrameShadow(QFrame.Sunken)
-
-class MyVSeparator(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setFrameShape(QFrame.VLine)
-        self.setFrameShadow(QFrame.Sunken)
 
 # class CustomFileListModel(QAbstractListModel):
 #     itemAdded = pyqtSignal()  # Signal emitted when an item is added

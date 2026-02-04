@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt, QFileInfo
 from myPGM.data_model import PressureGaugeDataObject
 import myPGM.calibrations
 import myPGM.fit_models
+from myPGM.helpers import pressure_valid
 
 class Presenter:
     def __init__(self, model, view, test_mode=False):
@@ -22,17 +23,13 @@ class Presenter:
                 "Example_H2.txt",
             ]
         self.ordered_files_to_display = []
+        self.buffer = PressureGaugeDataObject()
 
         self.initialize_calibrations_menu()
         self.initialize_fit_models_menu()
-
-        self.view.startup_buffer()
-        #self.view.update_fit_model()
-
-
+        self.initialize_buffer()
 
         #? Setup Signal-Slot interactions
-        self.view.calibration_combo.currentIndexChanged.connect(self.view.update_calib)
         self.view.fit_model_combo.currentIndexChanged.connect(self.view.update_fit_model)
 
         self.view.file_list_widget.object_selected.connect(self.file_selected_from_file_list)
@@ -64,21 +61,87 @@ class Presenter:
         #? Methods 
 
     def initialize_calibrations_menu(self):
-        self.view.load_calibrations({a.name: a for a in myPGM.calibrations.calib_list})
-        self.view.populate_calib_combo()
-        self.view.x0_spinbox.setValue(myPGM.calibrations.calib_list[0].x0default)
+        calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
+        self.view.ptoolbox.initialize(calib_dict)
 
     def initialize_fit_models_menu(self):
-        self.view.load_fit_models({a.name: a for a in myPGM.fit_models.model_list})
+        model_dict = {a.name: a for a in myPGM.fit_models.model_list}
+        self.view.load_fit_models(model_dict)
         self.view.populate_fit_models_combo()
 
+    def initialize_buffer(self):
+        # Default at opening 
+        calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
+        self.buffer.calib = calib_dict["Ruby2020"]
+        self.buffer.Pm = 0
+        self.buffer.T = 298
+        self.buffer.x0 = 694.28
+        self.buffer.T0 = 298
+        self.buffer.set_x(694.28)
+ 
+        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+    
+        # Connects
+        self.view.ptoolbox.calibChanged.connect(self.on_calib_changed)
+        self.view.ptoolbox.PmChanged.connect(self.on_Pm_edited)
+        self.view.ptoolbox.PChanged.connect(self.on_P_edited)
+        self.view.ptoolbox.xChanged.connect(self.on_x_edited)
+        self.view.ptoolbox.TChanged.connect(self.on_T_edited)
+        self.view.ptoolbox.x0Changed.connect(self.on_x0_edited)
+        self.view.ptoolbox.T0Changed.connect(self.on_T0_edited)
 
+    @pressure_valid
+    def on_Pm_edited(self, Pm):
+        self.buffer.set_Pm(Pm)
+
+    @pressure_valid
+    def on_P_edited(self, p):
+        self.buffer.set_P(p)
+        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+    
+    @pressure_valid
+    def on_x_edited(self, x):
+        self.buffer.set_x(x)        
+        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+
+    @pressure_valid
+    def on_T_edited(self, T):
+        self.buffer.set_T(T)        
+        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+
+    @pressure_valid
+    def on_x0_edited(self, x0):
+        self.buffer.set_x0(x0)
+
+        # All those are the same, unique instance:
+        #print(buffer.calib is toolbox.calibrations[buffer.calib.name])
+        #print(buffer.calib is calib_dict[buffer.calib.name])
+
+        # THE NEW x0 for this gauge is now x0 :
+        self.buffer.calib.x0default = x0
+
+        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+
+    @pressure_valid
+    def on_T0_edited(self, T0):
+        self.buffer.set_T0(T0)  
+
+        # THE NEW T0 for this gauge is now T0 :
+        self.buffer.calib.T0default = T0
+        
+        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+
+    @pressure_valid
+    def on_calib_changed(self, newcalib):
+        # data model method!
+        self.buffer.set_calibration(newcalib)
+        # view method
+        self.view.ptoolbox.set_state_from_buffer(self.buffer)
 
     def file_selected_from_file_list(self, obj_id):
         self.current_selected_file = obj_id
         self.update_data_plots(obj_id)
 
-        
     def add_instance_from_path(self, file_path):
         file_info = QFileInfo(file_path)
         file_name = file_info.fileName()    
@@ -100,7 +163,6 @@ class Presenter:
 
     def set_current_directory(self):
         self.current_directory = self.view.select_directory_from_dialog()
-
 
     def add_latest_file(self):
         if self.current_directory is not None:
@@ -150,7 +212,8 @@ class Presenter:
         obj = self.model.get(obj_id, None)
         if obj.original_data is not None:
             x, y = obj.get_data_to_process()
-            self.view.plot_data(x,y)
+
+            self.view.plot_data(x, y, self.buffer)
             if obj.fit_result is not None:
                 self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y)
 
@@ -260,18 +323,30 @@ class Presenter:
 
     def fit_current_file(self, guess=None): 
         if self.current_selected_file is not None:
+
             obj = self.model.get(self.current_selected_file, None)
-            obj.set_calibration(self.view.buffer.calib)
+            # Copy parameters from buffer : 
+            obj.set_Pm(self.buffer.Pm)
+            obj.set_T(self.buffer.T)
+            obj.set_x0(self.buffer.x0)
+            obj.set_T0(self.buffer.T0)
+
+            obj.set_calibration(self.buffer.calib)
+
             obj.set_fit_model(self.view.fit_mode)
+
             try:
                 if self.view.fit_range_enabled:
                     obj.fitting_range = self.view.fit_range_selector.getRegion()
                 obj.fit_data(guess)
-                self.view.x_spinbox.setValue(obj.x)
+
+                self.buffer = obj # On récupère obj dans buffer après fit
+                # set ptoolbox state:
+                self.view.ptoolbox.set_state_from_buffer(self.buffer)
                 self.update_data_plots(self.current_selected_file)
+
             except RuntimeError:
                 self.fit_error_popup()
-
 
     def fit_error_popup(self):
         self.view.fit_error_popup_window()
@@ -286,5 +361,3 @@ class Presenter:
         #    a.fit_data()
         #print([k for k in self.model.values()])
         self.populate_file_list()
-
- 

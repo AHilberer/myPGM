@@ -1,9 +1,51 @@
 import numpy as np
 import pandas as pd
 from copy import deepcopy
+from importlib import resources
 from scipy.optimize import minimize
+from PyQt5.QtWidgets import QFrame
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, QAbstractListModel, QModelIndex
 import csv
+from functools import wraps
+
+class MyHSeparator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.HLine)
+        self.setFrameShadow(QFrame.Sunken)
+
+class MyVSeparator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.VLine)
+        self.setFrameShadow(QFrame.Sunken)
+
+
+class PressureCalculationFailed(Exception):
+    pass
+
+def pressure_valid(func):
+    @wraps(func)
+    # self refers to presenter 
+    def wrapper(self, *args, **kwargs):
+        try:
+            res = func(self, *args, **kwargs)
+            self.view.ptoolbox.set_valid_colors(True)
+            return res
+        except PressureCalculationFailed as err:
+            self.view.ptoolbox.set_valid_colors(False)
+            return None
+    return wrapper
+
+def validate_scalar(value, name="Value"):
+    if np.iscomplex(value):
+        raise PressureCalculationFailed(f"{name} is complex")
+    if np.isnan(value) or np.isinf(value):
+        raise PressureCalculationFailed(f"{name} is NaN or infinite")
+    return True
+
+def load_style(qssfile):
+    return resources.files("myPGM.ui").joinpath(qssfile).read_text()
 
 def customparse_file2data(f):
     with open(f, 'r') as file:
@@ -43,40 +85,6 @@ def customparse_file2data(f):
 
         #print('length: {}'.format(len(data)))
         return data[:, :2] 
-
-
-
-class CustomFileListModel(QAbstractListModel):
-    itemAdded = pyqtSignal()  # Signal emitted when an item is added
-    itemDeleted = pyqtSignal()  # Signal emitted when an item is deleted
-
-    def __init__(self, items=None, parent=None):
-        super().__init__(parent)
-        self.items = items or []
-
-    def rowCount(self, parent=QModelIndex()):
-        return len(self.items)
-
-    def data(self, index, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole:
-            return self.items[index.row()].name
-        elif role == Qt.UserRole:
-            return self.items[index.row()]
-
-    def addItem(self, item):
-        self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
-        self.items.append(item)
-        self.endInsertRows()
-        self.itemAdded.emit()  # Emit signal to notify the view
-
-    def deleteItem(self, index):
-        self.beginRemoveRows(QModelIndex(), index, index)
-        del self.items[index]
-        self.endRemoveRows()
-        self.itemDeleted.emit()  # Emit signal to notify the view
-
-
-
 
 
 
