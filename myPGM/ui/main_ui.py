@@ -42,7 +42,7 @@ from myPGM.helpers import load_style, MyHSeparator, MyVSeparator
 from myPGM.data_model import PressureGaugeDataObject
 
 #from myPGM.ui.PvPm_plot_window import PmPPlotWindow
-#from myPGM.ui.PvPm_table_window import HPTableWidget, HPTableWindow, HPDataTable
+from myPGM.ui.PvPmTable import HPTableWindow
 from myPGM.ui.FileListViewerWidget import FileListViewerWidget
 from myPGM.ui.PressureToolbox import PressureToolbox
 
@@ -342,11 +342,16 @@ class MainWindow(QMainWindow):
 
 #        self.data = HPDataTable()
 #
-#        self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
-#
+        self.PvPmTableWindowWindow = HPTableWindow()
+        self.PvPmTableWindowWindow.show()
+
+        # just for testing, will be removed
+
+        test_table = np.array([["Pm", "P", "x", "T", "x0", "T0", "calib", "file"], ["Pm1", "P1", "x1", "T1", "x01", "T01", "calib1", "file1"], ["Pm2", "P2", "x2", "T2", "x02", "T02", "calib2", "file2"]])
+        self.PvPmTableWindowWindow.table_widget.updatetable(test_table)
 #        self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
 #
-#        self.data.changed.connect(self.DataTableWindow.table_widget.updatetable)
+#        self.data.changed.connect(self.PvPmTableWindow.table_widget.updatetable)
 #        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
 
 
@@ -363,7 +368,7 @@ class MainWindow(QMainWindow):
         try:
             style = load_style('dark-mode.qss')
             self.setStyleSheet(style)
-            #self.DataTableWindow.setStyleSheet(style)
+            #self.PvPmTableWindow.setStyleSheet(style)
             #self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
@@ -392,7 +397,7 @@ class MainWindow(QMainWindow):
         try:
             style = load_style('light-mode.qss')
             self.setStyleSheet(style)
-            #self.DataTableWindow.setStyleSheet(style)
+            #self.PvPmTableWindow.setStyleSheet(style)
             #self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
@@ -685,11 +690,11 @@ class MainWindow(QMainWindow):
 
 
     def toggle_PvPm(self):
-        if self.DataTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
-            self.DataTableWindow.hide()
+        if self.PvPmTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
+            self.PvPmTableWindow.hide()
             self.PvPmPlotWindow.hide()
         else:
-            self.DataTableWindow.show()
+            self.PvPmTableWindow.show()
             self.PvPmPlotWindow.show()
 
 
