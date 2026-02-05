@@ -58,6 +58,7 @@ class MainWindow(QMainWindow):
     start_auto_fit_signal = pyqtSignal(object)
     subtract_ManualBg_signal = pyqtSignal(object)
     modified_fit_range_signal = pyqtSignal(object)
+    add_current_fit_signal = pyqtSignal(object)
 
     def __init__(self):
         super().__init__()
@@ -330,7 +331,7 @@ class MainWindow(QMainWindow):
         FitBoxLayout.addLayout(PlotLayout)
 
         self.add_fitted_button = QPushButton("Add fit to table")
-        #self.add_fitted_button.clicked.connect(self.add_current_fit)
+        self.add_fitted_button.clicked.connect(self.add_current_fit)
         FitBoxLayout.addWidget(self.add_fitted_button)
 
         #####################################################################################
@@ -342,13 +343,13 @@ class MainWindow(QMainWindow):
 
 #        self.data = HPDataTable()
 #
-        self.PvPmTableWindowWindow = HPTableWindow()
-        self.PvPmTableWindowWindow.show()
+        self.PvPmTableWindow = HPTableWindow()
+        self.PvPmTableWindow.show()
 
         # just for testing, will be removed
 
-        test_table = np.array([["Pm", "P", "x", "T", "x0", "T0", "calib", "file"], ["Pm1", "P1", "x1", "T1", "x01", "T01", "calib1", "file1"], ["Pm2", "P2", "x2", "T2", "x02", "T02", "calib2", "file2"]])
-        self.PvPmTableWindowWindow.table_widget.updatetable(test_table)
+        # test_table = np.array([["Pm", "P", "x", "T", "x0", "T0", "calib", "file"], ["Pm1", "P1", "x1", "T1", "x01", "T01", "calib1", "file1"], ["Pm2", "P2", "x2", "T2", "x02", "T02", "calib2", "file2"]])
+        # self.PvPmTableWindow.table_widget.updatetable(test_table)
 #        self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
 #
 #        self.data.changed.connect(self.PvPmTableWindow.table_widget.updatetable)
@@ -460,14 +461,7 @@ class MainWindow(QMainWindow):
 #        # update is called two time, not very good but working
 
     def add_current_fit(self):
-        if self.current_selected_file_index is not None:
-            current_spectrum = self.file_list_model.data(
-                self.current_selected_file_index, role=Qt.UserRole
-            )
-            if current_spectrum.fit_toolbox_config is not None:
-                current_spectrum.fit_toolbox_config.file = current_spectrum.name
-                current_spectrum.fit_toolbox_config.Pm = self.buffer.Pm
-                self.data.add(current_spectrum.fit_toolbox_config)
+        self.add_current_fit_signal.emit(None)
 
     def toggle_derivative(self, checked):
         if self.Derivative_enabled:
