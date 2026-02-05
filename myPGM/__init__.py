@@ -15,7 +15,8 @@ def main():
     try:
         style = load_style('light-mode.qss')
         app.setStyleSheet(style)
-    except:
+    except Exception as e:
+        print(e)
         pass
     model = PressureGaugeDataManager()
     view = MainWindow()
