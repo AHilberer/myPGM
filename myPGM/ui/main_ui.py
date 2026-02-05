@@ -41,7 +41,7 @@ from myPGM.helpers import load_style, MyHSeparator, MyVSeparator
 
 from myPGM.data_model import PressureGaugeDataObject
 
-#from myPGM.ui.PvPm_plot_window import PmPPlotWindow
+from myPGM.ui.PvPmPlot import PvPmPlotWindow
 from myPGM.ui.PvPmTable import HPTableWindow
 from myPGM.ui.FileListViewerWidget import FileListViewerWidget
 from myPGM.ui.PressureToolbox import PressureToolbox
@@ -353,11 +353,8 @@ class MainWindow(QMainWindow):
         self.PvPmTableWindow = HPTableWindow()
         self.PvPmTableWindow.show()
 
-        # just for testing, will be removed
-
-        # test_table = np.array([["Pm", "P", "x", "T", "x0", "T0", "calib", "file"], ["Pm1", "P1", "x1", "T1", "x01", "T01", "calib1", "file1"], ["Pm2", "P2", "x2", "T2", "x02", "T02", "calib2", "file2"]])
-        # self.PvPmTableWindow.table_widget.updatetable(test_table)
-#        self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
+        self.PvPmPlotWindow = PvPmPlotWindow()
+        self.PvPmPlotWindow.show()
 #
 #        self.data.changed.connect(self.PvPmTableWindow.table_widget.updatetable)
 #        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
@@ -377,7 +374,7 @@ class MainWindow(QMainWindow):
             style = load_style('dark-mode.qss')
             self.setStyleSheet(style)
             self.PvPmTableWindow.setStyleSheet(style)
-            #self.PvPmPlotWindow.setStyleSheet(style)
+            self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
         self.plot_label_color = "white"
@@ -397,6 +394,7 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setLabel("bottom", **styles)
 
         self.ptoolbox.set_dark_mode()
+        self.PvPmPlotWindow.set_dark_mode()
 #        self.PvPmPlotWindow.updateplot()
 
         #self.theme_switched.emit() #need to replot data ?
@@ -406,7 +404,7 @@ class MainWindow(QMainWindow):
             style = load_style('light-mode.qss')
             self.setStyleSheet(style)
             self.PvPmTableWindow.setStyleSheet(style)
-            #self.PvPmPlotWindow.setStyleSheet(style)
+            self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
         self.plot_label_color = "black"
@@ -427,6 +425,7 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setLabel("bottom", **styles)
 
         self.ptoolbox.set_light_mode()
+        self.PvPmPlotWindow.set_light_mode()
         #self.PvPmPlotWindow.updateplot()
 
         #self.theme_switched.emit() #need to replot data ?
@@ -691,12 +690,12 @@ class MainWindow(QMainWindow):
 
 
     def toggle_PvPm(self):
-        if self.PvPmTableWindow.isVisible():# or self.PvPmPlotWindow.isVisible():
+        if self.PvPmTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
             self.PvPmTableWindow.hide()
-            #self.PvPmPlotWindow.hide()
+            self.PvPmPlotWindow.hide()
         else:
             self.PvPmTableWindow.show()
-            #self.PvPmPlotWindow.show()
+            self.PvPmPlotWindow.show()
 
 
 

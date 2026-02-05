@@ -3,8 +3,8 @@ import pyqtgraph as pg
 
 from PyQt5.QtWidgets import (QMainWindow,)
 
-class PmPPlotWindow(QMainWindow):
-	def __init__(self, HPDataTable_, calibrations_):
+class PvPmPlotWindow(QMainWindow):
+	def __init__(self):
 		super().__init__()
 		
 		self.setWindowTitle("PvPm Plot")
@@ -21,29 +21,44 @@ class PmPPlotWindow(QMainWindow):
 		self.plot_graph.addLegend()
 		self.plot_graph.showGrid(x=True, y=True)
 
-		self.data = HPDataTable_
-		self.calibrations = calibrations_
+		# self.data = HPDataTable_
+		# self.calibrations = calibrations_
 		self.lines = {}
 
 		self.updateplot()
 
+
+	def set_dark_mode(self):
+		styles = {"color": 'white', "font-size": "16px"}
+		self.plot_graph.setBackground("#202020")
+		self.plot_graph.setLabel("left", "P (GPa)", **styles)
+		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+   
+
+	def set_light_mode(self):
+		styles = {"color": 'black', "font-size": "16px"}
+		self.plot_graph.setBackground("white")
+		self.plot_graph.setLabel("left", "P (GPa)", **styles)
+		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+
 	def updateplot(self): 
-		gr = self.data.df.groupby('calib')
-		groups = gr.groups.keys()
+		pass
+		# gr = self.data.df.groupby('calib')
+		# groups = gr.groups.keys()
 		
-		for g in groups:
-			subdf = gr.get_group(g)
-			if g in list(self.lines.keys()):
-				self.lines[g].setData(list(subdf['Pm']), list(subdf['P']))
+		# for g in groups:
+		# 	subdf = gr.get_group(g)
+		# 	if g in list(self.lines.keys()):
+		# 		self.lines[g].setData(list(subdf['Pm']), list(subdf['P']))
 				
-			else :
-				self.pens[g] = pg.mkPen(color=self.calibrations[g].color)
-				self.lines[g] = self.plot_graph.plot(
-					list(subdf['Pm']),
-					list(subdf['P']),
-					name=g,
-					pen=self.pens[g],
-					symbol="o",
-					symbolSize=8,
-					symbolBrush=self.calibrations[g].color,)
+		# 	else :
+		# 		self.pens[g] = pg.mkPen(color=self.calibrations[g].color)
+		# 		self.lines[g] = self.plot_graph.plot(
+		# 			list(subdf['Pm']),
+		# 			list(subdf['P']),
+		# 			name=g,
+		# 			pen=self.pens[g],
+		# 			symbol="o",
+		# 			symbolSize=8,
+		# 			symbolBrush=self.calibrations[g].color,)
 
