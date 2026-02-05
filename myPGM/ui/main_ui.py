@@ -369,7 +369,7 @@ class MainWindow(QMainWindow):
         try:
             style = load_style('dark-mode.qss')
             self.setStyleSheet(style)
-            #self.PvPmTableWindow.setStyleSheet(style)
+            self.PvPmTableWindow.setStyleSheet(style)
             #self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
@@ -398,7 +398,7 @@ class MainWindow(QMainWindow):
         try:
             style = load_style('light-mode.qss')
             self.setStyleSheet(style)
-            #self.PvPmTableWindow.setStyleSheet(style)
+            self.PvPmTableWindow.setStyleSheet(style)
             #self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
