@@ -37,7 +37,7 @@ class HPTableWidget(QTableWidget):
         # deleteline_shortcut.activated.connect(self.remove_line)
 
     def updatetable(self, incomming_table):
-        print(incomming_table)
+        #print(incomming_table)
         self.setRowCount(len(incomming_table))
         self.setColumnCount(len(incomming_table[0]))
         self.setHorizontalHeaderLabels(list(incomming_table[0].keys()))
