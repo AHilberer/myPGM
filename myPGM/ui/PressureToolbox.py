@@ -31,6 +31,14 @@ class PressureToolbox(QWidget):
     x0Changed = pyqtSignal(float)
     T0Changed = pyqtSignal(float)
 
+    GREEN = LIGHTMODEGREEN = "#ccffcc"
+    RED = LIGHTMODERED = "#ee6b6e"
+    BLUE = LIGHTMODEBLUE = "#c1d9ff"
+
+    DARKMODEGREEN = "#3b8132"
+    DARKMODERED = "#c30010"
+    DARKMODEBLUE = "#0077b6"
+
     def __init__(self):
         super().__init__()
 
@@ -42,7 +50,7 @@ class PressureToolbox(QWidget):
         self.Pm_spinbox.setDecimals(2)
         self.Pm_spinbox.setRange(-np.inf, np.inf)
         self.Pm_spinbox.setSingleStep(0.1)
-        self.Pm_spinbox.setStyleSheet("background: #c1d9ff;")
+        self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
         self.Pm_spinbox.setMinimumWidth(80)
 
         self.P_spinbox = QDoubleSpinBox()
@@ -80,6 +88,8 @@ class PressureToolbox(QWidget):
         self.T0_spinbox.setRange(-np.inf, +np.inf)
         self.T0_spinbox.setSingleStep(1)
         self.T0_spinbox.setMinimumWidth(80)
+
+        self._xP_bgcolor = None
 
         self.calibration_combo = QComboBox()
         self.calibration_combo.setObjectName("calibration_combo")
@@ -124,6 +134,7 @@ class PressureToolbox(QWidget):
         self.calibrations = calib_dict
         self.init_calib_combo()
         self.init_connects()
+        self.set_valid_colors(True)
 
     def init_connects(self):
         self.calibration_combo.currentTextChanged.connect(self.calib_changed)
@@ -219,9 +230,36 @@ class PressureToolbox(QWidget):
     def set_valid_colors(self, valid):
         if valid:
             # green
-            self.P_spinbox.setStyleSheet("background: #ccffcc;")
-            self.x_spinbox.setStyleSheet("background: #ccffcc;")
+            self.P_spinbox.setStyleSheet(f"background: {PressureToolbox.GREEN};")
+            self.x_spinbox.setStyleSheet(f"background: {PressureToolbox.GREEN};")
+            self._xP_bgcolor = PressureToolbox.GREEN
         else:
             # red
-            self.P_spinbox.setStyleSheet("background: #ee6b6e;")
-            self.x_spinbox.setStyleSheet("background: #ee6b6e;")
+            self.P_spinbox.setStyleSheet(f"background: {PressureToolbox.RED};")
+            self.x_spinbox.setStyleSheet(f"background: {PressureToolbox.RED};")
+            self._xP_bgcolor = PressureToolbox.RED
+
+    def set_dark_mode(self):
+        PressureToolbox.GREEN = PressureToolbox.DARKMODEGREEN
+        PressureToolbox.RED = PressureToolbox.DARKMODERED
+        PressureToolbox.BLUE = PressureToolbox.DARKMODEBLUE
+        
+        if self._xP_bgcolor == PressureToolbox.LIGHTMODEGREEN:
+            self.set_valid_colors(True)
+        elif self._xP_bgcolor == PressureToolbox.LIGHTMODERED:
+            self.set_valid_colors(False)
+
+        self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
+
+
+    def set_light_mode(self):
+        PressureToolbox.GREEN = PressureToolbox.LIGHTMODEGREEN
+        PressureToolbox.RED = PressureToolbox.LIGHTMODERED
+        PressureToolbox.BLUE = PressureToolbox.LIGHTMODEBLUE
+
+        if self._xP_bgcolor == PressureToolbox.DARKMODEGREEN:
+            self.set_valid_colors(True)
+        elif self._xP_bgcolor == PressureToolbox.DARKMODERED:
+            self.set_valid_colors(False)
+
+        self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
