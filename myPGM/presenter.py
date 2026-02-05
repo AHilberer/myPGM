@@ -26,6 +26,7 @@ class Presenter:
         self.buffer = PressureGaugeDataObject()
 
         self.initialize_calibrations_menu()
+        self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
         self.initialize_fit_models_menu()
         self.initialize_buffer()
 
@@ -389,7 +390,7 @@ class Presenter:
                     "T0": f"{obj.T0:.3f}"
                 })
         self.view.PvPmTableWindow.table_widget.updatetable(table_data)
-
+        self.view.PvPmPlotWindow.updateplot(table_data)
 
     def initialize_example(self):
         for i, current_file in enumerate(self.example_files):
