@@ -29,34 +29,12 @@ class HPTableWidget(QTableWidget):
         self.setHorizontalHeaderLabels(column_labels)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
-        # Create a mapping of column labels to their indices
         
 
         #self.cellChanged[int, int].connect(self.getfromentry)
 
         # deleteline_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
         # deleteline_shortcut.activated.connect(self.remove_line)
-
-    # def getfromentry(self, row, col):
-    #     # takes care of types
-    #     try:
-    #         newval = float(self.item(row, col).text())
-    #     except ValueError:
-    #         newval = self.item(row, col).text()
-
-    #     key = self.data.df.columns[col]
-
-    #     if key != "calib":
-    #         self.data.setitemval(row, key, newval)
-
-    #         if key == "P":
-    #             self.data.reinvcalc_item_P(row)
-    #         elif key in ["x", "x0", "T", "T0"]:
-    #             self.data.recalc_item_P(row)
-
-    #     else:  # k = calib
-    #         # I do not accept any calib change (for now a least)
-    #         pass
 
     def updatetable(self, incomming_table):
         print(incomming_table)

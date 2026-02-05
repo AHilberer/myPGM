@@ -330,9 +330,16 @@ class MainWindow(QMainWindow):
         # splitter.setStyleSheet("QSplitter::handle {background: rgb(55, 100, 110);} ")
         FitBoxLayout.addLayout(PlotLayout)
 
+
+        self.table_interactions = QHBoxLayout()
         self.add_fitted_button = QPushButton("Add fit to table")
         self.add_fitted_button.clicked.connect(self.add_current_fit)
-        FitBoxLayout.addWidget(self.add_fitted_button)
+        self.table_interactions.addWidget(self.add_fitted_button, stretch=3)
+
+        self.toggle_PvPm_button = QPushButton("P vs Pm")
+        self.toggle_PvPm_button.clicked.connect(self.toggle_PvPm)
+        self.table_interactions.addWidget(self.toggle_PvPm_button, stretch=1)
+        FitBoxLayout.addLayout(self.table_interactions)
 
         #####################################################################################
         # #? Setup PvPm table and plotwindow
@@ -684,12 +691,12 @@ class MainWindow(QMainWindow):
 
 
     def toggle_PvPm(self):
-        if self.PvPmTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
+        if self.PvPmTableWindow.isVisible():# or self.PvPmPlotWindow.isVisible():
             self.PvPmTableWindow.hide()
-            self.PvPmPlotWindow.hide()
+            #self.PvPmPlotWindow.hide()
         else:
             self.PvPmTableWindow.show()
-            self.PvPmPlotWindow.show()
+            #self.PvPmPlotWindow.show()
 
 
 
