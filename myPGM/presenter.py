@@ -26,6 +26,7 @@ class Presenter:
         self.buffer = PressureGaugeDataObject()
 
         self.initialize_calibrations_menu()
+        self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
         self.initialize_fit_models_menu()
         self.initialize_buffer()
 
@@ -47,6 +48,7 @@ class Presenter:
 
         self.view.start_auto_fit_signal.connect(self.fit_current_file)
         self.view.fit_from_click_signal.connect(self.fit_current_file)
+        self.view.add_current_fit_signal.connect(self.add_current_fit_to_table)
 
         self.view.CHullBg_button.clicked.connect(self.subtract_auto_bg)
         self.view.ResetBg_button.clicked.connect(self.reset_bg)
@@ -351,6 +353,44 @@ class Presenter:
     def fit_error_popup(self):
         self.view.fit_error_popup_window()
 
+
+    def add_current_fit_to_table(self):
+        if self.current_selected_file is not None:
+            obj = self.model.get(self.current_selected_file, None)
+            if obj.fit_result is not None:
+                obj.include_in_table = True
+                self.update_PvPm_table()
+            else:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Critical)
+                msg.setText("No fit result to add to table.")
+                msg.setWindowTitle("Error")
+                msg.exec_()
+        else:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("No file selected.")
+            msg.setWindowTitle("Error")
+            msg.exec_()
+
+
+    def update_PvPm_table(self):
+        table_data = []
+        self.view.PvPmTableWindow.table_widget.clearContents()
+        for obj in self.model.values():
+            if getattr(obj, "include_in_table", False) and obj.fit_result is not None:
+                table_data.append({
+                    "Pm": f"{obj.Pm:.2f}",
+                    "P": f"{obj.P:.2f}",
+                    "calib": obj.calib.name,
+                    "file": obj.filename,
+                    "x": f"{obj.x:.3f}",
+                    "T": f"{obj.T:.3f}",
+                    "x0": f"{obj.x0:.3f}",
+                    "T0": f"{obj.T0:.3f}"
+                })
+        self.view.PvPmTableWindow.table_widget.updatetable(table_data)
+        self.view.PvPmPlotWindow.updateplot(table_data)
 
     def initialize_example(self):
         for i, current_file in enumerate(self.example_files):

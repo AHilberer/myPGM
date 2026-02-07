@@ -41,8 +41,8 @@ from myPGM.helpers import load_style, MyHSeparator, MyVSeparator
 
 from myPGM.data_model import PressureGaugeDataObject
 
-#from myPGM.ui.PvPm_plot_window import PmPPlotWindow
-#from myPGM.ui.PvPm_table_window import HPTableWidget, HPTableWindow, HPDataTable
+from myPGM.ui.PvPmPlot import PvPmPlotWindow
+from myPGM.ui.PvPmTable import HPTableWindow
 from myPGM.ui.FileListViewerWidget import FileListViewerWidget
 from myPGM.ui.PressureToolbox import PressureToolbox
 
@@ -58,6 +58,7 @@ class MainWindow(QMainWindow):
     start_auto_fit_signal = pyqtSignal(object)
     subtract_ManualBg_signal = pyqtSignal(object)
     modified_fit_range_signal = pyqtSignal(object)
+    add_current_fit_signal = pyqtSignal(object)
 
     def __init__(self):
         super().__init__()
@@ -329,9 +330,16 @@ class MainWindow(QMainWindow):
         # splitter.setStyleSheet("QSplitter::handle {background: rgb(55, 100, 110);} ")
         FitBoxLayout.addLayout(PlotLayout)
 
+
+        self.table_interactions = QHBoxLayout()
         self.add_fitted_button = QPushButton("Add fit to table")
-        #self.add_fitted_button.clicked.connect(self.add_current_fit)
-        FitBoxLayout.addWidget(self.add_fitted_button)
+        self.add_fitted_button.clicked.connect(self.add_current_fit)
+        self.table_interactions.addWidget(self.add_fitted_button, stretch=3)
+
+        self.toggle_PvPm_button = QPushButton("P vs Pm")
+        self.toggle_PvPm_button.clicked.connect(self.toggle_PvPm)
+        self.table_interactions.addWidget(self.toggle_PvPm_button, stretch=1)
+        FitBoxLayout.addLayout(self.table_interactions)
 
         #####################################################################################
         # #? Setup PvPm table and plotwindow
@@ -342,11 +350,13 @@ class MainWindow(QMainWindow):
 
 #        self.data = HPDataTable()
 #
-#        self.DataTableWindow = HPTableWindow(self.data, self.calibrations)
+        self.PvPmTableWindow = HPTableWindow()
+        self.PvPmTableWindow.show()
+
+        self.PvPmPlotWindow = PvPmPlotWindow()
+        self.PvPmPlotWindow.show()
 #
-#        self.PvPmPlotWindow = PmPPlotWindow(self.data, self.calibrations)
-#
-#        self.data.changed.connect(self.DataTableWindow.table_widget.updatetable)
+#        self.data.changed.connect(self.PvPmTableWindow.table_widget.updatetable)
 #        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
 
 
@@ -363,8 +373,8 @@ class MainWindow(QMainWindow):
         try:
             style = load_style('dark-mode.qss')
             self.setStyleSheet(style)
-            #self.DataTableWindow.setStyleSheet(style)
-            #self.PvPmPlotWindow.setStyleSheet(style)
+            self.PvPmTableWindow.setStyleSheet(style)
+            self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
         self.plot_label_color = "white"
@@ -384,6 +394,7 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setLabel("bottom", **styles)
 
         self.ptoolbox.set_dark_mode()
+        self.PvPmPlotWindow.set_dark_mode()
 #        self.PvPmPlotWindow.updateplot()
 
         #self.theme_switched.emit() #need to replot data ?
@@ -392,8 +403,8 @@ class MainWindow(QMainWindow):
         try:
             style = load_style('light-mode.qss')
             self.setStyleSheet(style)
-            #self.DataTableWindow.setStyleSheet(style)
-            #self.PvPmPlotWindow.setStyleSheet(style)
+            self.PvPmTableWindow.setStyleSheet(style)
+            self.PvPmPlotWindow.setStyleSheet(style)
         except:
             pass
         self.plot_label_color = "black"
@@ -414,6 +425,7 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setLabel("bottom", **styles)
 
         self.ptoolbox.set_light_mode()
+        self.PvPmPlotWindow.set_light_mode()
         #self.PvPmPlotWindow.updateplot()
 
         #self.theme_switched.emit() #need to replot data ?
@@ -455,14 +467,7 @@ class MainWindow(QMainWindow):
 #        # update is called two time, not very good but working
 
     def add_current_fit(self):
-        if self.current_selected_file_index is not None:
-            current_spectrum = self.file_list_model.data(
-                self.current_selected_file_index, role=Qt.UserRole
-            )
-            if current_spectrum.fit_toolbox_config is not None:
-                current_spectrum.fit_toolbox_config.file = current_spectrum.name
-                current_spectrum.fit_toolbox_config.Pm = self.buffer.Pm
-                self.data.add(current_spectrum.fit_toolbox_config)
+        self.add_current_fit_signal.emit(None)
 
     def toggle_derivative(self, checked):
         if self.Derivative_enabled:
@@ -685,11 +690,11 @@ class MainWindow(QMainWindow):
 
 
     def toggle_PvPm(self):
-        if self.DataTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
-            self.DataTableWindow.hide()
+        if self.PvPmTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
+            self.PvPmTableWindow.hide()
             self.PvPmPlotWindow.hide()
         else:
-            self.DataTableWindow.show()
+            self.PvPmTableWindow.show()
             self.PvPmPlotWindow.show()
 
 
