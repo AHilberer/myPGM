@@ -16,38 +16,27 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QMessageBox,
     QAction,
-    QListView,
     QGridLayout,
-    QStyle,
-    QFormLayout,
     QSplitter,
-    QFrame,
     
 )
 from PyQt5.QtCore import (
     Qt,
-    QModelIndex,
-    QItemSelectionModel,
-    pyqtSlot,
-    QSize,
-    QAbstractListModel,
     pyqtSignal,
 )
 from PyQt5.QtGui import QColor, QIcon
 
-from scipy.ndimage import uniform_filter1d, gaussian_filter1d
+from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
 from myPGM.helpers import load_style, MyHSeparator, MyVSeparator
-
-from myPGM.data_model import PressureGaugeDataObject
 
 from myPGM.ui.PvPmPlot import PvPmPlotWindow
 from myPGM.ui.PvPmTable import HPTableWindow
 from myPGM.ui.FileListViewerWidget import FileListViewerWidget
 from myPGM.ui.PressureToolbox import PressureToolbox
 
-
 import pyqtgraph as pg
+
 
 class MainWindow(QMainWindow):
 
@@ -131,10 +120,7 @@ class MainWindow(QMainWindow):
         exit_menu.addAction(exit_action)
 
         #####################################################################################
-        # this will be our initial state
-#        self.buffer = None
-#        self.calibrations = None 
-        self.fit_models = None  # Why still here???
+        # ? Setup Pressure Toolbox in the top panel
 
         PToolboxGroup = QGroupBox('Pressure toolbox')
         PToolboxLayout = QHBoxLayout()
@@ -244,11 +230,7 @@ class MainWindow(QMainWindow):
         BgBox = QHBoxLayout()
 
         self.CHullBg_button = QPushButton("Auto Bg", self)
-        # self.CHullBg_button.setStyleSheet("background-color : white")
-        # self.CHullBg_button.setIcon(QIcon(os.path.dirname(__file__)+'/resources/icons/auto_bg.png'))
-        # self.CHullBg_button.setIconSize(QSize(45,45))
-        # self.CHullBg_button.setFixedSize(QSize(50,50))
-
+   
         BgBox.addWidget(self.CHullBg_button, stretch=3)
 
         self.ManualBg_button = QPushButton("Manual Bg", self)
@@ -351,12 +333,6 @@ class MainWindow(QMainWindow):
         #####################################################################################
         # #? Setup PvPm table and plotwindow
 
-
-
-
-
-#        self.data = HPDataTable()
-#
         self.PvPmTableWindow = HPTableWindow()
         self.PvPmTableWindow.show()
 
@@ -437,15 +413,12 @@ class MainWindow(QMainWindow):
 
         #self.theme_switched.emit() #need to replot data ?
 
-    def load_fit_models(self, models_dict):
-        self.fit_models = models_dict
-        #{a.name: a for a in model_list}
 
-    def populate_fit_models_combo(self):
-        if self.fit_models is not None:
-            self.fit_model_combo.addItems(self.fit_models.keys())
+    def populate_fit_models_combo(self, model_dict):
+        if model_dict is not None:
+            self.fit_model_combo.addItems(model_dict.keys())
 
-            for k, v in self.fit_models.items():
+            for k, v in model_dict.items():
                 ind = self.fit_model_combo.findText(k)
                 self.fit_model_combo.model().item(ind).setBackground(QColor(v.color))
             
@@ -459,19 +432,9 @@ class MainWindow(QMainWindow):
             self.fit_model_combo.setStyleSheet(
                 "background-color: rgba{};    selection-background-color: k;".format(tmp_color)
             )
-            self.fit_mode = self.fit_models[self.fit_model_combo.currentText()]
         else:
             raise ImportError('Error loading fit models.')
 
-#    def add_to_table(self):
-#        self.buffer.file = "No"
-#        self.data.add(self.buffer)
-#
-#    def removelast(self):
-#        if len(self.data) > 0:
-#            self.data.removelast()
-#
-#        # update is called two time, not very good but working
 
     def add_current_fit(self):
         self.add_current_fit_signal.emit(None)
@@ -539,28 +502,6 @@ class MainWindow(QMainWindow):
             self.dir_label.setText(f"Selected directory: {dir_name}")
         return dir_name
 
-    # @pyqtSlot(QModelIndex)
-    # def item_clicked(self, index):
-    #     selected_item = self.file_list_model.data(index, role=Qt.UserRole)
-    #     self.current_file_path = selected_item.path
-    #     self.current_file_label.setText(f"{self.current_file_path}")
-    #     self.smoothing_factor.setValue(selected_item.current_smoothing)
-    #     if selected_item.fit_toolbox_config is not None:
-    #         self.buffer = deepcopy(selected_item.fit_toolbox_config)
-    #         self.Pm_spinbox.setValue(self.buffer.Pm)
-    #         self.P_spinbox.setValue(self.buffer.P)
-    #         self.x_spinbox.setValue(self.buffer.x)
-    #         self.T_spinbox.setValue(self.buffer.T)
-    #         self.x0_spinbox.setValue(self.buffer.x0)
-    #         self.T0_spinbox.setValue(self.buffer.T0)
-    #         self.calibration_combo.setCurrentText(self.buffer.calib.name)
-    #     #self.plot_data()
-    #     if selected_item.fit_result is not None:
-    #         self.plot_fit(selected_item)
-    #     else:
-    #         self.data_fit_line.setData([],[])
-    #         self.data_widget.setTitle('Not fitted', color=self.plot_label_color, size="16pt")
-    
 
 
     def plot_data(self, x, y, buffer):
@@ -585,14 +526,6 @@ class MainWindow(QMainWindow):
         self.deriv_widget.autoRange()
 
 
-    def update_fit_model(self, newind):
-        self.fit_mode = self.fit_models[self.fit_model_combo.currentText()]
-
-        tmp_color = self.fit_model_combo.model().item(newind).background().color().getRgb()
-        self.fit_model_combo.setStyleSheet(
-            "background-color: rgba{};\
-                    selection-background-color: k;".format(tmp_color)
-        )
 
     def toggle_click_fit(self):
         self.click_fit_enabled = not self.click_fit_enabled
@@ -739,7 +672,6 @@ class MainWindow(QMainWindow):
 
 
     def plot_ManualBg(self):
-
         curve_data_x = self.data_scatter.getData()[0]
 
         temp = np.array(self.ManualBg_points)
@@ -783,35 +715,6 @@ class ResizeOnlyLinearRegion(pg.LinearRegionItem):
                 line.setCursor(Qt.SizeHorCursor)
             else:
                 line.unsetCursor()
-
-# class CustomFileListModel(QAbstractListModel):
-#     itemAdded = pyqtSignal()  # Signal emitted when an item is added
-#     itemDeleted = pyqtSignal()  # Signal emitted when an item is deleted
-
-#     def __init__(self, items=None, parent=None):
-#         super().__init__(parent)
-#         self.items = items or []
-
-#     def rowCount(self, parent=QModelIndex()):
-#         return len(self.items)
-
-#     def data(self, index, role=Qt.DisplayRole):
-#         if role == Qt.DisplayRole:
-#             return self.items[index.row()].name
-#         elif role == Qt.UserRole:
-#             return self.items[index.row()]
-
-#     def addItem(self, item):
-#         self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
-#         self.items.append(item)
-#         self.endInsertRows()
-#         self.itemAdded.emit()  # Emit signal to notify the view
-
-#     def deleteItem(self, index):
-#         self.beginRemoveRows(QModelIndex(), index, index)
-#         del self.items[index]
-#         self.endRemoveRows()
-#         self.itemDeleted.emit()  # Emit signal to notify the view
 
 if __name__ == "__main__":
     print("Only MainWindow was executed.")

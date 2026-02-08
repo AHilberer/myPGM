@@ -1,6 +1,4 @@
-import sys
 import os
-import numpy as np
 from copy import deepcopy
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
 from PyQt5.QtCore import Qt, QFileInfo
@@ -32,7 +30,7 @@ class Presenter:
         self.initialize_buffer()
 
         #? Setup Signal-Slot interactions
-        self.view.fit_model_combo.currentIndexChanged.connect(self.view.update_fit_model)
+        self.view.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
 
         self.view.file_list_widget.object_selected.connect(self.file_selected_from_file_list)
         self.view.file_list_widget.add_button.clicked.connect(self.add_new_file)
@@ -55,7 +53,6 @@ class Presenter:
         self.view.ResetBg_button.clicked.connect(self.reset_bg)
         self.view.subtract_ManualBg_signal.connect(self.subtract_manual_bg)
 
-        #self.view.modified_fit_range_signal.connect(self.update_fit_range)
 
         if self.test_mode:
             self.initialize_example()
@@ -69,8 +66,10 @@ class Presenter:
 
     def initialize_fit_models_menu(self):
         model_dict = {a.name: a for a in myPGM.fit_models.model_list}
-        self.view.load_fit_models(model_dict)
-        self.view.populate_fit_models_combo()
+        self.fit_models = model_dict
+        self.view.populate_fit_models_combo(model_dict)
+        self.fit_mode = model_dict[self.view.fit_model_combo.currentText()]
+
 
     def initialize_buffer(self):
         # Default state at opening 
@@ -143,6 +142,8 @@ class Presenter:
 
     def file_selected_from_file_list(self, obj_id):
         self.current_selected_file = obj_id
+        self.view.current_file_label.setText(f"{self.model.get(obj_id).filename}")
+
         self.update_data_plots(obj_id)
         
         # toolbox is updated (is it what we want?)
@@ -157,8 +158,7 @@ class Presenter:
         a = PressureGaugeDataObject()
         self.model.add_instance(a)
         a.load_spectral_data_file(file_name, file_path)
-                # a.set_calibration(myPGM.calibrations.Ruby2020)
-                # a.set_fit_model(myPGM.fit_models.DoubleVoigt)
+
 
     def add_new_file(self):
         try:
@@ -272,16 +272,9 @@ class Presenter:
         else:
             return
 
-    # def update_fit_range(self, fit_range):
-    #     if self.current_selected_file is not None:
-    #         obj = self.model.get(self.current_selected_file, None)
-    #         obj.fitting_range = fit_range
-    #         #print('updating fit range', fit_range)
-    #     else:
-    #         return
+
     
     def populate_file_list(self): 
-
         self.view.file_list_widget.list_widget.clear()
 
         for obj_id in self.ordered_files_to_display:
@@ -303,8 +296,6 @@ class Presenter:
             item.setData(Qt.UserRole, obj.id)  # Store only object ID 
             self.view.file_list_widget.list_widget.addItem(item)
 
-        # print('actual files', [obj.id for obj in self.model.values()])
-        # print('files to display', self.ordered_files_to_display)
 
     def move_up(self):
         if self.current_selected_file is not None:
@@ -328,6 +319,16 @@ class Presenter:
                 )
                 self.populate_file_list()
 
+
+    def update_fit_model(self, newind):
+        self.fit_mode = self.fit_models[self.view.fit_model_combo.currentText()]
+
+        tmp_color = self.view.fit_model_combo.model().item(newind).background().color().getRgb()
+        self.view.fit_model_combo.setStyleSheet(
+            "background-color: rgba{};\
+                    selection-background-color: k;".format(tmp_color)
+        )
+
     def fit_current_file(self, guess=None): 
         if self.current_selected_file is not None:
 
@@ -341,7 +342,7 @@ class Presenter:
             # deepcopy more safe here also:
             obj.set_calibration( deepcopy(self.buffer.calib) )
 
-            obj.set_fit_model(self.view.fit_mode)
+            obj.set_fit_model(self.fit_mode)
 
             try:
                 if self.view.fit_range_enabled:
@@ -407,7 +408,5 @@ class Presenter:
             current_file_path = os.path.dirname(__file__) + "/resources/" + current_file
             self.add_instance_from_path(current_file_path)
         
-        #for a in list(self.model.values())[:-1]:
-        #    a.fit_data()
-        #print([k for k in self.model.values()])
+
         self.populate_file_list()
