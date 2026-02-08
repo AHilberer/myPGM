@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import (QApplication,
                              QSpinBox,
                              QDoubleSpinBox,)
 from PyQt5.QtGui import QColor
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, Qt
 
 from myPGM.calibrations import HPCalibration
 from myPGM.helpers import MyHSeparator, MyVSeparator
@@ -206,14 +206,24 @@ class PressureToolbox(QWidget):
             "{}0 ({})".format(newcalib.xname, newcalib.xunit)
         )
 
-        self.x_spinbox.setSingleStep(newcalib.xstep)
-        self.x0_spinbox.setSingleStep(newcalib.xstep)
-
 #        Upon calib change by user :
 #        buffer.set_calibration(newcalib) is called from presenter
 #        toolbox.set_state_from_buffer(buffer) is called from presenter
 #        toolbox.set_calib is called from toolbox.set_state_buffer below
 #        hence x0 is set. 
+        
+        # if calib is set not from the user through GUI we need this:
+        s = self.calibration_combo.currentText()
+        if s != newcalib.name:
+            ind = self.calibration_combo.findText(newcalib.name, 
+                                            Qt.MatchExactly)
+            self.calibration_combo.blockSignals(True)
+            self.calibration_combo.setCurrentIndex(ind)
+            self.calibration_combo.blockSignals(False)
+
+        self.x_spinbox.setSingleStep(newcalib.xstep)
+        self.x0_spinbox.setSingleStep(newcalib.xstep)
+
     
     def set_state_from_buffer(self, buffer):
         # buffer is a PressureGaugeDataObject

@@ -162,7 +162,7 @@ H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
                                   Tcor_name='NA',
                                   xname = 'nu',
                                   xunit = 'cm-1',
-                                  x0default = 4200,
+                                  x0default = -1,
                                   T0default = 298,
                                   xstep = .1,
                                   color = 'plum')
