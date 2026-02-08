@@ -53,7 +53,6 @@ class Presenter:
         self.view.ResetBg_button.clicked.connect(self.reset_bg)
         self.view.subtract_ManualBg_signal.connect(self.subtract_manual_bg)
 
-        #self.view.modified_fit_range_signal.connect(self.update_fit_range)
 
         if self.test_mode:
             self.initialize_example()
@@ -159,8 +158,7 @@ class Presenter:
         a = PressureGaugeDataObject()
         self.model.add_instance(a)
         a.load_spectral_data_file(file_name, file_path)
-                # a.set_calibration(myPGM.calibrations.Ruby2020)
-                # a.set_fit_model(myPGM.fit_models.DoubleVoigt)
+
 
     def add_new_file(self):
         try:
@@ -274,16 +272,9 @@ class Presenter:
         else:
             return
 
-    # def update_fit_range(self, fit_range):
-    #     if self.current_selected_file is not None:
-    #         obj = self.model.get(self.current_selected_file, None)
-    #         obj.fitting_range = fit_range
-    #         #print('updating fit range', fit_range)
-    #     else:
-    #         return
+
     
     def populate_file_list(self): 
-
         self.view.file_list_widget.list_widget.clear()
 
         for obj_id in self.ordered_files_to_display:
@@ -305,8 +296,6 @@ class Presenter:
             item.setData(Qt.UserRole, obj.id)  # Store only object ID 
             self.view.file_list_widget.list_widget.addItem(item)
 
-        # print('actual files', [obj.id for obj in self.model.values()])
-        # print('files to display', self.ordered_files_to_display)
 
     def move_up(self):
         if self.current_selected_file is not None:
@@ -419,7 +408,5 @@ class Presenter:
             current_file_path = os.path.dirname(__file__) + "/resources/" + current_file
             self.add_instance_from_path(current_file_path)
         
-        #for a in list(self.model.values())[:-1]:
-        #    a.fit_data()
-        #print([k for k in self.model.values()])
+
         self.populate_file_list()
