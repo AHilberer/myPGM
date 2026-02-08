@@ -217,7 +217,9 @@ class PressureToolbox(QWidget):
         if s != newcalib.name:
             ind = self.calibration_combo.findText(newcalib.name, 
                                             Qt.MatchExactly)
+            self.calibration_combo.blockSignals(True)
             self.calibration_combo.setCurrentIndex(ind)
+            self.calibration_combo.blockSignals(False)
 
         self.x_spinbox.setSingleStep(newcalib.xstep)
         self.x0_spinbox.setSingleStep(newcalib.xstep)
