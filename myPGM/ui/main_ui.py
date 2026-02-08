@@ -131,10 +131,7 @@ class MainWindow(QMainWindow):
         exit_menu.addAction(exit_action)
 
         #####################################################################################
-        # this will be our initial state
-#        self.buffer = None
-#        self.calibrations = None 
-        self.fit_models = None  # Why still here???
+        # ? Setup Pressure Toolbox in the top panel
 
         PToolboxGroup = QGroupBox('Pressure toolbox')
         PToolboxLayout = QHBoxLayout()
@@ -437,15 +434,12 @@ class MainWindow(QMainWindow):
 
         #self.theme_switched.emit() #need to replot data ?
 
-    def load_fit_models(self, models_dict):
-        self.fit_models = models_dict
-        #{a.name: a for a in model_list}
 
-    def populate_fit_models_combo(self):
-        if self.fit_models is not None:
-            self.fit_model_combo.addItems(self.fit_models.keys())
+    def populate_fit_models_combo(self, model_dict):
+        if model_dict is not None:
+            self.fit_model_combo.addItems(model_dict.keys())
 
-            for k, v in self.fit_models.items():
+            for k, v in model_dict.items():
                 ind = self.fit_model_combo.findText(k)
                 self.fit_model_combo.model().item(ind).setBackground(QColor(v.color))
             
@@ -459,7 +453,6 @@ class MainWindow(QMainWindow):
             self.fit_model_combo.setStyleSheet(
                 "background-color: rgba{};    selection-background-color: k;".format(tmp_color)
             )
-            self.fit_mode = self.fit_models[self.fit_model_combo.currentText()]
         else:
             raise ImportError('Error loading fit models.')
 
@@ -585,14 +578,6 @@ class MainWindow(QMainWindow):
         self.deriv_widget.autoRange()
 
 
-    def update_fit_model(self, newind):
-        self.fit_mode = self.fit_models[self.fit_model_combo.currentText()]
-
-        tmp_color = self.fit_model_combo.model().item(newind).background().color().getRgb()
-        self.fit_model_combo.setStyleSheet(
-            "background-color: rgba{};\
-                    selection-background-color: k;".format(tmp_color)
-        )
 
     def toggle_click_fit(self):
         self.click_fit_enabled = not self.click_fit_enabled

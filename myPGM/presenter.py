@@ -1,6 +1,4 @@
-import sys
 import os
-import numpy as np
 from copy import deepcopy
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
 from PyQt5.QtCore import Qt, QFileInfo
@@ -32,7 +30,7 @@ class Presenter:
         self.initialize_buffer()
 
         #? Setup Signal-Slot interactions
-        self.view.fit_model_combo.currentIndexChanged.connect(self.view.update_fit_model)
+        self.view.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
 
         self.view.file_list_widget.object_selected.connect(self.file_selected_from_file_list)
         self.view.file_list_widget.add_button.clicked.connect(self.add_new_file)
@@ -69,8 +67,10 @@ class Presenter:
 
     def initialize_fit_models_menu(self):
         model_dict = {a.name: a for a in myPGM.fit_models.model_list}
-        self.view.load_fit_models(model_dict)
-        self.view.populate_fit_models_combo()
+        self.fit_models = model_dict
+        self.view.populate_fit_models_combo(model_dict)
+        self.fit_mode = model_dict[self.view.fit_model_combo.currentText()]
+
 
     def initialize_buffer(self):
         # Default state at opening 
@@ -330,6 +330,16 @@ class Presenter:
                 )
                 self.populate_file_list()
 
+
+    def update_fit_model(self, newind):
+        self.fit_mode = self.fit_models[self.view.fit_model_combo.currentText()]
+
+        tmp_color = self.view.fit_model_combo.model().item(newind).background().color().getRgb()
+        self.view.fit_model_combo.setStyleSheet(
+            "background-color: rgba{};\
+                    selection-background-color: k;".format(tmp_color)
+        )
+
     def fit_current_file(self, guess=None): 
         if self.current_selected_file is not None:
 
@@ -343,7 +353,7 @@ class Presenter:
             # deepcopy more safe here also:
             obj.set_calibration( deepcopy(self.buffer.calib) )
 
-            obj.set_fit_model(self.view.fit_mode)
+            obj.set_fit_model(self.fit_mode)
 
             try:
                 if self.view.fit_range_enabled:
