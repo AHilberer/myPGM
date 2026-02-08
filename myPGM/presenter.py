@@ -143,6 +143,8 @@ class Presenter:
 
     def file_selected_from_file_list(self, obj_id):
         self.current_selected_file = obj_id
+        self.view.current_file_label.setText(f"{self.model.get(obj_id).filename}")
+
         self.update_data_plots(obj_id)
         
         # toolbox is updated (is it what we want?)
