@@ -1,6 +1,7 @@
 import sys
 import os
 import numpy as np
+from copy import deepcopy
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
 from PyQt5.QtCore import Qt, QFileInfo
 from myPGM.data_model import PressureGaugeDataObject
@@ -72,7 +73,7 @@ class Presenter:
         self.view.populate_fit_models_combo()
 
     def initialize_buffer(self):
-        # Default at opening 
+        # Default state at opening 
         calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
         self.buffer.calib = calib_dict["Ruby2020"]
         self.buffer.Pm = 0
@@ -215,6 +216,7 @@ class Presenter:
         if obj.original_data is not None:
             x, y = obj.get_data_to_process()
 
+            # on utilise buffer (juste pour afficher les unités des axes dans plot_data)
             self.view.plot_data(x, y, self.buffer)
             if obj.fit_result is not None:
                 self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y)
@@ -332,7 +334,6 @@ class Presenter:
             obj.set_T(self.buffer.T)
             obj.set_x0(self.buffer.x0)
             obj.set_T0(self.buffer.T0)
-
             obj.set_calibration(self.buffer.calib)
 
             obj.set_fit_model(self.view.fit_mode)
@@ -342,7 +343,12 @@ class Presenter:
                     obj.fitting_range = self.view.fit_range_selector.getRegion()
                 obj.fit_data(guess)
 
-                self.buffer = obj # On récupère obj dans buffer après fit
+                # On récupère obj dans buffer après fit
+                # deepcopy, autrement self.buffer est une ref au dernier 
+                # obj fité et une modif de self.buffer via la GUI 
+                # modifie ce dernier obj !
+                self.buffer = deepcopy(obj) 
+                
                 # set ptoolbox state:
                 self.view.ptoolbox.set_state_from_buffer(self.buffer)
                 self.update_data_plots(self.current_selected_file)
@@ -355,6 +361,7 @@ class Presenter:
 
 
     def add_current_fit_to_table(self):
+
         if self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
             if obj.fit_result is not None:

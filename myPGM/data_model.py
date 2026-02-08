@@ -44,8 +44,8 @@ class PressureGaugeDataObject:
         self.Pm = None
         self.P = None
         self.x = None
-        self.T = 298      # default T and T0 are 298 at __init__ for script use 
-        self.x0 = None    # in GUI T, T0 are  set at 298 independantly..
+        self.T = 298      # default T and T0 are 298 at __init__ for script use
+        self.x0 = None    # in GUI T, T0 are set at 298 independently.
         self.T0 = 298     # x0, T0 are set in set_calibration
 
         # Attributes related to visualization
