@@ -133,16 +133,23 @@ class MainWindow(QMainWindow):
         #####################################################################################
         # this will be our initial state
 #        self.buffer = None
-#        self.calibrations = None
-        self.fit_models = None
+#        self.calibrations = None 
+        self.fit_models = None  # Why still here???
 
-        # P toolbox will be back here !
         PToolboxGroup = QGroupBox('Pressure toolbox')
         PToolboxLayout = QHBoxLayout()
-
+        
         self.ptoolbox = PressureToolbox()
-        PToolboxLayout.addWidget(self.ptoolbox, stretch=1)
 
+        PToolboxSubactionsLayout = QVBoxLayout()        
+        addPToolbox_instance = QPushButton('New PToolbox')
+        addToTable = QPushButton('Add to Table')
+
+        PToolboxSubactionsLayout.addWidget(addPToolbox_instance)
+        PToolboxSubactionsLayout.addWidget(addToTable)
+
+        PToolboxLayout.addWidget(self.ptoolbox, stretch=10)
+        PToolboxLayout.addLayout(PToolboxSubactionsLayout, stretch=1)
         PToolboxGroup.setLayout(PToolboxLayout)
         top_panel_layout.addWidget(PToolboxGroup)
         
@@ -687,6 +694,9 @@ class MainWindow(QMainWindow):
         msg.setText("Attempted fit couldn't converge.")
         msg.setWindowTitle("Fit error")
         msg.exec_()
+
+    def add_ptoolbox_widget(self):
+        pass # HERE
 
 
     def toggle_PvPm(self):

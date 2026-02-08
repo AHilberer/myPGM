@@ -144,10 +144,16 @@ class Presenter:
     def file_selected_from_file_list(self, obj_id):
         self.current_selected_file = obj_id
         self.update_data_plots(obj_id)
+        
+        # toolbox is updated (is it what we want?)
+        obj = self.model.get(obj_id, None)
+        if obj.fit_result is not None:
+            self.buffer = deepcopy(obj)
+            self.view.ptoolbox.set_state_from_buffer(self.buffer)
 
     def add_instance_from_path(self, file_path):
         file_info = QFileInfo(file_path)
-        file_name = file_info.fileName()    
+        file_name = file_info.fileName()
         a = PressureGaugeDataObject()
         self.model.add_instance(a)
         a.load_spectral_data_file(file_name, file_path)
@@ -195,8 +201,6 @@ class Presenter:
             msg.setWindowTitle("Error")
             msg.exec_()
 
-
-
     def delete_current_file(self):
         if self.current_selected_file is not None:
             obj_id = self.current_selected_file
@@ -209,7 +213,6 @@ class Presenter:
             msg.setText("No file selected to delete.")
             msg.setWindowTitle("Error")
             msg.exec_()
-
 
     def update_data_plots(self, obj_id):
         obj = self.model.get(obj_id, None)
@@ -329,12 +332,14 @@ class Presenter:
         if self.current_selected_file is not None:
 
             obj = self.model.get(self.current_selected_file, None)
-            # Copy parameters from buffer : 
+
+            # Set parameters from buffer : 
             obj.set_Pm(self.buffer.Pm)
             obj.set_T(self.buffer.T)
             obj.set_x0(self.buffer.x0)
             obj.set_T0(self.buffer.T0)
-            obj.set_calibration(self.buffer.calib)
+            # deepcopy more safe here also:
+            obj.set_calibration( deepcopy(self.buffer.calib) )
 
             obj.set_fit_model(self.view.fit_mode)
 
@@ -347,8 +352,8 @@ class Presenter:
                 # deepcopy, autrement self.buffer est une ref au dernier 
                 # obj fité et une modif de self.buffer via la GUI 
                 # modifie ce dernier obj !
-                self.buffer = deepcopy(obj) 
-                
+                # ici self.buffer.calib est également copié (deepcopy) 
+                self.buffer = deepcopy(obj)
                 # set ptoolbox state:
                 self.view.ptoolbox.set_state_from_buffer(self.buffer)
                 self.update_data_plots(self.current_selected_file)
@@ -359,9 +364,7 @@ class Presenter:
     def fit_error_popup(self):
         self.view.fit_error_popup_window()
 
-
     def add_current_fit_to_table(self):
-
         if self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
             if obj.fit_result is not None:
