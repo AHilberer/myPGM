@@ -41,8 +41,6 @@ class Presenter:
         self.view.file_list_widget.moveup_button.clicked.connect(self.move_up)
         self.view.file_list_widget.movedown_button.clicked.connect(self.move_down)
 
-
-
         self.view.smoothing_factor.valueChanged.connect(self.smoothen)
 
         self.view.start_auto_fit_signal.connect(self.fit_current_file)
@@ -99,17 +97,20 @@ class Presenter:
     @pressure_valid
     def on_P_edited(self, p):
         self.buffer.set_P(p)
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        # a change on P -> a change on x
+        self.view.ptoolbox.set_xval(self.buffer.x)
     
     @pressure_valid
     def on_x_edited(self, x):
         self.buffer.set_x(x)        
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        # a change on x -> a change on P        
+        self.view.ptoolbox.set_Pval(self.buffer.P)
 
     @pressure_valid
     def on_T_edited(self, T):
         self.buffer.set_T(T)        
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        # a change on T -> a change on P        
+        self.view.ptoolbox.set_Pval(self.buffer.P)
 
     @pressure_valid
     def on_x0_edited(self, x0):
@@ -122,7 +123,8 @@ class Presenter:
         # THE NEW x0 for this gauge is now x0 :
         self.buffer.calib.x0default = x0
 
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        # a change on x0 -> a change on P        
+        self.view.ptoolbox.set_Pval(self.buffer.P)
 
     @pressure_valid
     def on_T0_edited(self, T0):
@@ -131,7 +133,8 @@ class Presenter:
         # THE NEW T0 for this gauge is now T0 :
         self.buffer.calib.T0default = T0
         
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        # a change on T0 -> a change on P        
+        self.view.ptoolbox.set_Pval(self.buffer.P)
 
     @pressure_valid
     def on_calib_changed(self, newcalib):
@@ -392,7 +395,7 @@ class Presenter:
             if getattr(obj, "include_in_table", False) and obj.fit_result is not None:
                 table_data.append({
                     "Pm": f"{obj.Pm:.2f}",
-                    "P": f"{obj.P:.2f}",
+                    "P": f"{obj.P:.3f}",
                     "calib": obj.calib.name,
                     "file": obj.filename,
                     "x": f"{obj.x:.3f}",

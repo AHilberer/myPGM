@@ -158,7 +158,9 @@ class PressureToolbox(QWidget):
     def calib_changed(self, newcalib_name):
         newcalib = self.calibrations[newcalib_name]
 
-        self.set_calib(newcalib)
+        #self.set_calib(newcalib)
+        # self.set_calib will be called from 
+        # set_state_from_buffer in on_calib_changed(presenter.py)
         self.calibChanged.emit(newcalib)
 
     def set_Pmval(self, Pm):
@@ -223,7 +225,6 @@ class PressureToolbox(QWidget):
 
         self.x_spinbox.setSingleStep(newcalib.xstep)
         self.x0_spinbox.setSingleStep(newcalib.xstep)
-
     
     def set_state_from_buffer(self, buffer):
         # buffer is a PressureGaugeDataObject
