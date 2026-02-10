@@ -222,6 +222,22 @@ class PressureGaugeDataObject:
             self.bg = bg
         #self.plot_data()
 
+
+    def spectro_recalib(self, new_x):
+        try:
+            x, y = self.get_data_to_process()
+            self.corrected_data = np.column_stack(
+                (new_x, y)
+            )
+        except:
+            raise RuntimeError('Failed to recalibrate spectrometer.')
+    
+    def reset_spectro_recalib(self):
+        x, y = self.get_data_to_process()
+        self.corrected_data = np.column_stack(
+                (self.normalized_data[:, 0], y)
+            )
+
     def fit_data(self, guess_peak=None):
         """
         Fit the spectrum using the selected model, and update the pressure estimate.
