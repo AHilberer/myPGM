@@ -5,7 +5,7 @@ from PyQt5.QtCore import Qt, QFileInfo
 from myPGM.data_model import PressureGaugeDataObject
 import myPGM.calibrations
 import myPGM.fit_models
-from myPGM.helpers import pressure_valid
+from myPGM.helpers import pressure_valid, spectro_calibration_reader
 
 class Presenter:
     def __init__(self, model, view, test_mode=False):
@@ -14,6 +14,7 @@ class Presenter:
         self.test_mode = test_mode
         self.current_selected_file = None
         self.current_directory = None
+        self.corrected_spectro_x = None
         self.example_files = [
                 "Example_diam_Raman.asc",
                 "Example_Ruby_1.asc",
@@ -51,6 +52,8 @@ class Presenter:
         self.view.ResetBg_button.clicked.connect(self.reset_bg)
         self.view.subtract_ManualBg_signal.connect(self.subtract_manual_bg)
 
+        self.view.Spectro_use_button.toggled.connect(self.toggle_spectro_calib)
+        self.view.LoadSpectro_button.clicked.connect(self.load_spectro_calibration)
 
         if self.test_mode:
             self.initialize_example()
@@ -146,7 +149,18 @@ class Presenter:
     def file_selected_from_file_list(self, obj_id):
         self.current_selected_file = obj_id
         self.view.current_file_label.setText(f"{self.model.get(obj_id).filename}")
-
+        if self.view.Spectro_use_button.isChecked():
+            try:
+                if self.corrected_spectro_x is not None:
+                    if self.current_selected_file is not None:
+                        obj = self.model.get(self.current_selected_file, None)
+                        obj.spectro_recalib(self.corrected_spectro_x)
+            except:
+                pass
+        else:
+            if self.current_selected_file is not None:
+                obj = self.model.get(self.current_selected_file, None)
+                obj.reset_spectro_recalib()
         self.update_data_plots(obj_id)
         
         # toolbox is updated (is it what we want?)
@@ -276,7 +290,35 @@ class Presenter:
             return
 
 
+    def load_spectro_calibration(self):
+        try:
+            selected_file = self.view.get_file_via_dialog()[0]
+            file_info = QFileInfo(selected_file)
+            file_name = file_info.fileName()
+        except:
+            raise RuntimeError("File selection dialog failed.")
+        if selected_file is not None:
+            try:
+                self.corrected_spectro_x = spectro_calibration_reader(selected_file)
+                self.view.Spectro_filename_label.setText(file_name)
+            except:
+                RuntimeError("Failed to load spectrometer calibration file.")
+            #print(self.corrected_spectro_x)
+        return 
     
+    def toggle_spectro_calib(self, checked):
+        if checked:
+            if self.corrected_spectro_x is not None:
+                if self.current_selected_file is not None:
+                    obj = self.model.get(self.current_selected_file, None)
+                    obj.spectro_recalib(self.corrected_spectro_x)
+                    self.update_data_plots(self.current_selected_file)
+        else:
+            if self.current_selected_file is not None:
+                obj = self.model.get(self.current_selected_file, None)
+                obj.reset_spectro_recalib()
+                self.update_data_plots(self.current_selected_file)
+
     def populate_file_list(self): 
         self.view.file_list_widget.list_widget.clear()
 

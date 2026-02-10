@@ -90,6 +90,14 @@ def customparse_file2data(f):
         #print('length: {}'.format(len(data)))
         return data[:, :2] 
 
+def spectro_calibration_reader(f):
+    with open(f, 'r') as file:
+        data_lines = []
+        for line in file:
+            data_lines.append(line)
+        data = np.array(data_lines, dtype=np.float64)
+
+        return data
 
 
 if __name__ == '__main__':

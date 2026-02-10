@@ -244,6 +244,19 @@ class MainWindow(QMainWindow):
         self.ResetBg_button = QPushButton("Reset Bg", self)
         BgBox.addWidget(self.ResetBg_button, stretch=3)
 
+
+        SpectroCalibBox = QHBoxLayout()
+        self.LoadSpectro_button = QPushButton("Load spectro", self)
+        SpectroCalibBox.addWidget(self.LoadSpectro_button, stretch=3)
+
+        self.Spectro_use_button = QPushButton("Use", self)
+        self.Spectro_use_button.setCheckable(True)
+        SpectroCalibBox.addWidget(self.Spectro_use_button, stretch=3)
+
+        self.Spectro_filename_label = QLabel("None", self)
+        SpectroCalibBox.addWidget(self.Spectro_filename_label, stretch=3)
+
+        
         SmoothBox = QHBoxLayout()
         SmoothBox.addWidget(QLabel("Smoothing:", self), stretch=1)
 
@@ -260,6 +273,7 @@ class MainWindow(QMainWindow):
         SmoothBox.addWidget(self.Derivative_button, stretch=2)
 
         CorrectionBox.addLayout(BgBox)
+        CorrectionBox.addLayout(SpectroCalibBox)
         CorrectionBox.addLayout(SmoothBox)
 
         InteractionBox.addLayout(CorrectionBox)
@@ -491,6 +505,8 @@ class MainWindow(QMainWindow):
             return selected_files
         else:
             return None
+
+
 
 
     def select_directory_from_dialog(self):
