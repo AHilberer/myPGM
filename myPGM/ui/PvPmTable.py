@@ -38,17 +38,21 @@ class HPTableWidget(QTableWidget):
 
     def updatetable(self, incomming_table):
         #print(incomming_table)
-        self.setRowCount(len(incomming_table))
-        self.setColumnCount(len(incomming_table[0]))
-        self.setHorizontalHeaderLabels(list(incomming_table[0].keys()))
-        self.column_index = {label: i for i, label in enumerate(incomming_table[0].keys())}
+        if incomming_table is [] or incomming_table is None:
+            self.setRowCount(0)
+            return
+        else:
 
-        for row, data in enumerate(incomming_table):
-            for key, value in data.items():
-                col = self.column_index[key]
-                self.setItem(row, col, QTableWidgetItem(str(value)))
+            self.setRowCount(len(incomming_table))
+            self.setColumnCount(len(incomming_table[0]))
+            self.setHorizontalHeaderLabels(list(incomming_table[0].keys()))
+            self.column_index = {label: i for i, label in enumerate(incomming_table[0].keys())}
 
-        # self.cellChanged[int, int].connect(self.getfromentry)
+            for row, data in enumerate(incomming_table):
+                for key, value in data.items():
+                    col = self.column_index[key]
+                    self.setItem(row, col, QTableWidgetItem(str(value)))
+
 
     def remove_line(self):
         index = self.currentRow()

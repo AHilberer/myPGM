@@ -1,7 +1,4 @@
-import os
 import numpy as np
-from copy import deepcopy
-from scipy.optimize import curve_fit
 from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -48,6 +45,8 @@ class MainWindow(QMainWindow):
     subtract_ManualBg_signal = pyqtSignal(object)
     modified_fit_range_signal = pyqtSignal(object)
     add_current_fit_signal = pyqtSignal(object)
+    open_session_signal = pyqtSignal()
+    save_session_signal = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -97,8 +96,8 @@ class MainWindow(QMainWindow):
 
         open_session_action = QAction("Open session", self)
         save_session_action = QAction("Save session", self)
-        open_session_action.triggered.connect(self.switch_to_dark)
-        save_session_action.triggered.connect(self.switch_to_light)
+        open_session_action.triggered.connect(self.open_session_signal.emit)
+        save_session_action.triggered.connect(self.save_session_signal.emit)
         files_menu.addAction(open_session_action)
         files_menu.addAction(save_session_action)
         #####################################################################################
@@ -505,6 +504,31 @@ class MainWindow(QMainWindow):
             return selected_files
         else:
             return None
+
+    def get_save_session_filename_dialog(self):
+        options = QFileDialog.Options()
+        file_name, file_type = QFileDialog.getSaveFileName(
+            self,
+            "Save session",
+            "",
+            "Session Files (*.json);;All Files (*)",
+            options=options,
+        )
+        if file_type == "Session Files (*.json)":
+            if file_name and not file_name.endswith(".json"):
+                file_name += ".json"
+        return file_name or None
+
+    def get_open_session_filename_dialog(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open session",
+            "",
+            "Session Files (*.json);;All Files (*)",
+            options=options,
+        )
+        return file_name or None
 
 
 

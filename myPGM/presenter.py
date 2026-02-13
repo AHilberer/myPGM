@@ -1,4 +1,6 @@
 import os
+import json
+import numpy as np
 from copy import deepcopy
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
 from PyQt5.QtCore import Qt, QFileInfo
@@ -56,6 +58,9 @@ class Presenter:
 
         self.view.Spectro_use_button.toggled.connect(self.toggle_spectro_calib)
         self.view.LoadSpectro_button.clicked.connect(self.load_spectro_calibration)
+
+        self.view.open_session_signal.connect(self.load_session)
+        self.view.save_session_signal.connect(self.save_session)
 
         if self.test_mode:
             self.initialize_example()
@@ -338,6 +343,14 @@ class Presenter:
             item.setData(Qt.UserRole, obj.id)  # Store only object ID 
             self.view.file_list_widget.list_widget.addItem(item)
 
+    def select_file_in_list(self, obj_id):
+        list_widget = self.view.file_list_widget.list_widget
+        for i in range(list_widget.count()):
+            item = list_widget.item(i)
+            if item.data(Qt.UserRole) == obj_id:
+                list_widget.setCurrentItem(item)
+                return
+
 
     def move_up(self):
         if self.current_selected_file is not None:
@@ -452,3 +465,89 @@ class Presenter:
         
 
         self.populate_file_list()
+
+    def save_session(self):
+        file_path = self.view.get_save_session_filename_dialog()
+        if not file_path:
+            return
+
+        session = {
+            "version": 1,
+            "ordered_files": self.ordered_files_to_display,
+            "current_selected_file": self.current_selected_file,
+            "buffer": self.buffer.to_dict(),
+            "corrected_spectro_x": self.corrected_spectro_x.tolist()
+            if self.corrected_spectro_x is not None
+            else None,
+            "spectro_use_enabled": self.view.Spectro_use_button.isChecked(),
+            "files": [obj.to_dict() for obj in self.model.values()],
+        }
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as file_handle:
+                json.dump(session, file_handle, indent=2)
+        except Exception as exc:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText(f"Failed to save session: {exc}")
+            msg.setWindowTitle("Save error")
+            msg.exec_()
+
+    def load_session(self):
+        file_path = self.view.get_open_session_filename_dialog()
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as file_handle:
+                session = json.load(file_handle)
+        except Exception as exc:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText(f"Failed to load session: {exc}")
+            msg.setWindowTitle("Load error")
+            msg.exec_()
+            return
+
+        self.model.clear()
+        self.ordered_files_to_display = []
+        self.current_selected_file = None
+        self.corrected_spectro_x = None
+
+        calib_dict = self.view.ptoolbox.calibrations
+        model_dict = self.fit_models
+
+        for payload in session.get("files", []):
+            obj = PressureGaugeDataObject.from_dict(payload, calib_dict, model_dict)
+            self.model.add_instance(obj)
+
+        self.ordered_files_to_display = session.get(
+            "ordered_files",
+            [obj.id for obj in self.model.values()],
+        )
+        self.populate_file_list()
+
+        buffer_payload = session.get("buffer")
+        if buffer_payload:
+            self.buffer = PressureGaugeDataObject.from_dict(
+                buffer_payload, calib_dict, model_dict
+            )
+            if self.buffer.calib is None and calib_dict:
+                self.buffer.calib = list(calib_dict.values())[0]
+            self.view.ptoolbox.set_state_from_buffer(self.buffer)
+
+        corrected_spectro_x = session.get("corrected_spectro_x")
+        if corrected_spectro_x is not None:
+            self.corrected_spectro_x = np.asarray(corrected_spectro_x)
+
+        self.view.Spectro_use_button.setChecked(
+            session.get("spectro_use_enabled", False)
+        )
+
+        selected_id = session.get("current_selected_file")
+        if selected_id in self.model:
+            self.current_selected_file = selected_id
+            self.select_file_in_list(selected_id)
+            self.file_selected_from_file_list(selected_id)
+
+        self.update_PvPm_table()

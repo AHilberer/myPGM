@@ -1,18 +1,56 @@
 import os
 import time
 import numpy as np
-from scipy.optimize import minimize
-from scipy.signal import find_peaks
-from inspect import getfullargspec
+
 import myPGM.helpers
-import myPGM.calibrations
-import myPGM.fit_models
+
 from scipy.spatial import ConvexHull
-from scipy.ndimage import uniform_filter1d, gaussian_filter1d
+from scipy.ndimage import uniform_filter1d
 from scipy.optimize import curve_fit
 from collections.abc import MutableMapping
 
-import matplotlib.pyplot as plt
+
+def _array_to_list(value):
+    if value is None:
+        return None
+    return np.asarray(value).tolist()
+
+
+def _list_to_array(value):
+    if value is None:
+        return None
+    return np.asarray(value)
+
+
+def _json_scalar(value):
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def _fit_result_to_dict(fit_result):
+    if fit_result is None:
+        return None
+    opti = fit_result.get("opti")
+    cov = fit_result.get("cov")
+    return {
+        "opti": _array_to_list(opti)
+        if isinstance(opti, (list, tuple, np.ndarray))
+        else _json_scalar(opti),
+        "cov": _array_to_list(cov),
+    }
+
+
+def _fit_result_from_dict(payload):
+    if payload is None:
+        return None
+    opti = payload.get("opti")
+    cov = payload.get("cov")
+    if isinstance(opti, list):
+        opti = np.asarray(opti)
+    if isinstance(cov, list):
+        cov = np.asarray(cov)
+    return {"opti": opti, "cov": cov}
 
 
 class PressureGaugeDataObject:
@@ -85,6 +123,74 @@ class PressureGaugeDataObject:
         self.normalized_data[:,0] = self.original_data[:,0]
         self.normalized_data[:,1] = self.original_data[:,1]-np.min(self.original_data[:,1])
         self.normalized_data[:,1]=self.original_data[:,1]/max(self.original_data[:,1])
+
+    def to_dict(self):
+        return {
+            "id": _json_scalar(self.id),
+            "filename": self.filename,
+            "full_path": self.full_path,
+            "original_data": _array_to_list(self.original_data),
+            "normalized_data": _array_to_list(self.normalized_data),
+            "corrected_data": _array_to_list(self.corrected_data),
+            "bg": _array_to_list(self.bg),
+            "current_smoothing": _json_scalar(self.current_smoothing),
+            "fit_model": self.fit_model.name if self.fit_model else None,
+            "fit_result": _fit_result_to_dict(self.fit_result),
+            "fitted_data": _array_to_list(self.fitted_data),
+            "fit_toolbox_config": self.fit_toolbox_config,
+            "fitting_range": list(self.fitting_range) if self.fitting_range is not None else None,
+            "calib": self.calib.name if self.calib else None,
+            "Pm": _json_scalar(self.Pm),
+            "P": _json_scalar(self.P),
+            "x": _json_scalar(self.x),
+            "T": _json_scalar(self.T),
+            "x0": _json_scalar(self.x0),
+            "T0": _json_scalar(self.T0),
+            "include_in_filelist": self.include_in_filelist,
+            "include_in_table": self.include_in_table,
+            "table_id": _json_scalar(self.table_id),
+        }
+
+    @classmethod
+    def from_dict(cls, payload, calib_dict=None, model_dict=None):
+        obj = cls()
+        obj.id = payload.get("id", obj.id)
+        obj.filename = payload.get("filename")
+        obj.full_path = payload.get("full_path")
+        obj.original_data = _list_to_array(payload.get("original_data"))
+        obj.normalized_data = _list_to_array(payload.get("normalized_data"))
+        obj.corrected_data = _list_to_array(payload.get("corrected_data"))
+        obj.bg = _list_to_array(payload.get("bg"))
+        obj.current_smoothing = payload.get("current_smoothing")
+
+        calib_name = payload.get("calib")
+        if calib_dict is not None and calib_name in calib_dict:
+            obj.calib = calib_dict[calib_name]
+        else:
+            obj.calib = None
+
+        fit_model_name = payload.get("fit_model")
+        if model_dict is not None and fit_model_name in model_dict:
+            obj.fit_model = model_dict[fit_model_name]
+        else:
+            obj.fit_model = None
+
+        obj.fit_result = _fit_result_from_dict(payload.get("fit_result"))
+        obj.fitted_data = _list_to_array(payload.get("fitted_data"))
+        obj.fit_toolbox_config = payload.get("fit_toolbox_config")
+        obj.fitting_range = payload.get("fitting_range")
+
+        obj.Pm = payload.get("Pm")
+        obj.P = payload.get("P")
+        obj.x = payload.get("x")
+        obj.T = payload.get("T", 298)
+        obj.x0 = payload.get("x0")
+        obj.T0 = payload.get("T0", 298)
+
+        obj.include_in_filelist = payload.get("include_in_filelist", False)
+        obj.include_in_table = payload.get("include_in_table", False)
+        obj.table_id = payload.get("table_id")
+        return obj
 
 
 #    We may choose to use such read-only properties to avoid problems?
@@ -326,6 +432,9 @@ class PressureGaugeDataManager(MutableMapping):
 
     def __repr__(self):
         return f"{type(self).__name__} ({len(self.__dict__)} pressure gauge data point(s))"
+
+    def clear(self):
+        self.__dict__.clear()
 
     def add_instance(self, instance):
         """
