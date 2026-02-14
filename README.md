@@ -63,7 +63,7 @@ or manually install the required non-native python packages: numpy, pandas, matp
 Start the software using :
 
 ```bash
-python3 start.py
+python3 run.py
 ```
 
 ## Executables

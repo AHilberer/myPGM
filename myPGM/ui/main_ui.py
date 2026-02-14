@@ -656,7 +656,7 @@ class MainWindow(QMainWindow):
             ]
             self.data_fit_line.setData(x, fitted)
             self.data_widget.addItem(self.data_fit_line)
-            self.data_widget.setTitle(f"Fitted pressure : {P : > 10.2f} GPa", color=self.plot_label_color, size="16pt")
+            self.data_widget.setTitle(f"Fitted pressure : {P : > 10.3f} GPa", color=self.plot_label_color, size="16pt")
 
         elif fit_model.type == "edge":
             self.data_edge_marker.setValue(fit_result["opti"])
@@ -665,7 +665,7 @@ class MainWindow(QMainWindow):
                 
             self.deriv_widget.addItem(self.deriv_edge_marker)
 
-            self.data_widget.setTitle(f"Fitted pressure : {P : > 10.2f} GPa", color=self.plot_label_color, size="16pt")
+            self.data_widget.setTitle(f"Fitted pressure : {P : > 10.3f} GPa", color=self.plot_label_color, size="16pt")
                                 
         else:
                 print("Plot fit not implemented")

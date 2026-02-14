@@ -476,7 +476,7 @@ class Presenter(QObject):
             if getattr(obj, "include_in_table", False):
                 table_data.append({
                     "Pm": f"{obj.Pm:.2f}",
-                    "P": f"{obj.P:.2f}",
+                    "P": f"{obj.P:.3f}",
                     "calib": obj.calib.name,
                     "file": obj.filename,
                     "x": f"{obj.x:.3f}",
