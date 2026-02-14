@@ -43,14 +43,12 @@ class HPTableWidget(QTableWidget):
         # deleteline_shortcut.activated.connect(self.remove_line)
 
     def updatetable(self, incomming_table):
-        #print(incomming_table)
-        if incomming_table is [] or incomming_table is None:
+        if incomming_table == [] or incomming_table is None:
             self.setRowCount(0)
             return
         else:
 
             self.setRowCount(len(incomming_table))
-            print(incomming_table)
             self.setColumnCount(len(incomming_table[0]))
             self.setHorizontalHeaderLabels(list(incomming_table[0].keys()))
             self.column_index = {label: i for i, label in enumerate(incomming_table[0].keys())}

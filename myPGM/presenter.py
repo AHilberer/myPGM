@@ -3,14 +3,15 @@ import json
 import numpy as np
 from copy import deepcopy
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
-from PyQt5.QtCore import Qt, QFileInfo
+from PyQt5.QtCore import Qt, QFileInfo, QObject
 from myPGM.data_model import PressureGaugeDataObject
 import myPGM.calibrations
 import myPGM.fit_models
 from myPGM.helpers import pressure_valid, spectro_calibration_reader
 
-class Presenter:
+class Presenter(QObject):
     def __init__(self, model, view, test_mode=False):
+        super().__init__()
         self.model = model
         self.view = view
         self.test_mode = test_mode
@@ -26,6 +27,8 @@ class Presenter:
             ]
         self.ordered_files_to_display = []
         self.buffer = PressureGaugeDataObject()
+        self.additional_buffer = PressureGaugeDataObject()
+
 
         self.initialize_calibrations_menu()
         self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
@@ -71,6 +74,7 @@ class Presenter:
     def initialize_calibrations_menu(self):
         calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
         self.view.ptoolbox.initialize(calib_dict)
+        self.view.additional_toolbox_window.initialize(calib_dict)
 
     def initialize_fit_models_menu(self):
         model_dict = {a.name: a for a in myPGM.fit_models.model_list}
@@ -88,8 +92,11 @@ class Presenter:
         self.buffer.x0 = 694.28
         self.buffer.T0 = 298
         self.buffer.set_x(694.28)
- 
+
+        self.additional_buffer = deepcopy(self.buffer)
+
         self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        self.view.additional_toolbox_window.set_state_from_buffer(self.additional_buffer)
     
         # Connects
         self.view.ptoolbox.calibChanged.connect(self.on_calib_changed)
@@ -100,53 +107,76 @@ class Presenter:
         self.view.ptoolbox.x0Changed.connect(self.on_x0_edited)
         self.view.ptoolbox.T0Changed.connect(self.on_T0_edited)
 
+        self.view.additional_toolbox_window.calibChanged.connect(self.on_calib_changed)
+        self.view.additional_toolbox_window.PmChanged.connect(self.on_Pm_edited)
+        self.view.additional_toolbox_window.PChanged.connect(self.on_P_edited)
+        self.view.additional_toolbox_window.xChanged.connect(self.on_x_edited)
+        self.view.additional_toolbox_window.TChanged.connect(self.on_T_edited)
+        self.view.additional_toolbox_window.x0Changed.connect(self.on_x0_edited)
+        self.view.additional_toolbox_window.T0Changed.connect(self.on_T0_edited)
+
+    
+    def _get_toolbox_context(self, sender=None):
+        src = sender or self.sender()
+        if src == self.view.additional_toolbox_window:
+            return self.view.additional_toolbox_window, self.additional_buffer
+        return self.view.ptoolbox, self.buffer
+
     @pressure_valid
     def on_Pm_edited(self, Pm):
-        self.buffer.set_Pm(Pm)
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_Pm(Pm)
+        toolbox.set_state_from_buffer(buffer)
 
     @pressure_valid
     def on_P_edited(self, p):
-        self.buffer.set_P(p)
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_P(p)
+        toolbox.set_state_from_buffer(buffer)
     
     @pressure_valid
     def on_x_edited(self, x):
-        self.buffer.set_x(x)        
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_x(x)        
+        toolbox.set_state_from_buffer(buffer)
 
     @pressure_valid
     def on_T_edited(self, T):
-        self.buffer.set_T(T)        
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_T(T)        
+        toolbox.set_state_from_buffer(buffer)
 
     @pressure_valid
     def on_x0_edited(self, x0):
-        self.buffer.set_x0(x0)
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_x0(x0)
 
         # All those are the same, unique instance:
         #print(buffer.calib is toolbox.calibrations[buffer.calib.name])
         #print(buffer.calib is calib_dict[buffer.calib.name])
 
         # THE NEW x0 for this gauge is now x0 :
-        self.buffer.calib.x0default = x0
+        buffer.calib.x0default = x0
 
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        toolbox.set_state_from_buffer(buffer)
 
     @pressure_valid
     def on_T0_edited(self, T0):
-        self.buffer.set_T0(T0)  
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_T0(T0)  
 
         # THE NEW T0 for this gauge is now T0 :
-        self.buffer.calib.T0default = T0
+        buffer.calib.T0default = T0
         
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        toolbox.set_state_from_buffer(buffer)
 
     @pressure_valid
     def on_calib_changed(self, newcalib):
+        toolbox, buffer = self._get_toolbox_context()
         # data model method!
-        self.buffer.set_calibration(newcalib)
+        buffer.set_calibration(newcalib)
         # view method
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        toolbox.set_state_from_buffer(buffer)
 
     def file_selected_from_file_list(self, obj_id):
         self.current_selected_file = obj_id

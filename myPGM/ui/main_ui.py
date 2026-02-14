@@ -110,6 +110,14 @@ class MainWindow(QMainWindow):
         light_action.triggered.connect(self.switch_to_light)
         theme_menu.addAction(dark_action)
         theme_menu.addAction(light_action)
+
+        #####################################################################################
+        # #? Setup PToolbox menu
+        ptoolbox_menu = menubar.addMenu("PToolbox")
+
+        additional_toolbox = QAction("Toggle additional PToolbox", self)
+        additional_toolbox.triggered.connect(self.toggle_additional_ptoolbox)
+        ptoolbox_menu.addAction(additional_toolbox)
         #####################################################################################
         # #? Exit button setup
         exit_menu = menubar.addMenu("Exit")
@@ -126,15 +134,13 @@ class MainWindow(QMainWindow):
         
         self.ptoolbox = PressureToolbox()
 
-        PToolboxSubactionsLayout = QVBoxLayout()        
-        self.popPToolbox_button = QPushButton('New PToolbox')
+        #PToolboxSubactionsLayout = QVBoxLayout()        
+        #self.popPToolbox_button = QPushButton('New PToolbox')
         self.PToolbox_toTable_button = QPushButton('Add to Table')
 
-        PToolboxSubactionsLayout.addWidget(self.popPToolbox_button)
-        PToolboxSubactionsLayout.addWidget(self.PToolbox_toTable_button)
 
         PToolboxLayout.addWidget(self.ptoolbox, stretch=10)
-        PToolboxLayout.addLayout(PToolboxSubactionsLayout, stretch=1)
+        PToolboxLayout.addWidget(self.PToolbox_toTable_button, stretch=1)
         PToolboxGroup.setLayout(PToolboxLayout)
         top_panel_layout.addWidget(PToolboxGroup)
         
@@ -355,6 +361,8 @@ class MainWindow(QMainWindow):
 #        self.data.changed.connect(self.PvPmTableWindow.table_widget.updatetable)
 #        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
 
+        self.additional_toolbox_window = PressureToolbox()
+        #self.additional_toolbox_window.show()
 
 
     #####################################################################################
@@ -371,6 +379,7 @@ class MainWindow(QMainWindow):
             self.setStyleSheet(style)
             self.PvPmTableWindow.setStyleSheet(style)
             self.PvPmPlotWindow.setStyleSheet(style)
+            self.additional_toolbox_window.setStyleSheet(style)
         except:
             pass
         self.plot_label_color = "white"
@@ -390,6 +399,7 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setLabel("bottom", **styles)
 
         self.ptoolbox.set_dark_mode()
+        self.additional_toolbox_window.set_dark_mode()
         self.PvPmPlotWindow.set_dark_mode()
 #        self.PvPmPlotWindow.updateplot()
 
@@ -401,6 +411,7 @@ class MainWindow(QMainWindow):
             self.setStyleSheet(style)
             self.PvPmTableWindow.setStyleSheet(style)
             self.PvPmPlotWindow.setStyleSheet(style)
+            self.additional_toolbox_window.setStyleSheet(style)
         except:
             pass
         self.plot_label_color = "black"
@@ -422,6 +433,7 @@ class MainWindow(QMainWindow):
 
         self.ptoolbox.set_light_mode()
         self.PvPmPlotWindow.set_light_mode()
+        self.additional_toolbox_window.set_light_mode()
         #self.PvPmPlotWindow.updateplot()
 
         #self.theme_switched.emit() #need to replot data ?
@@ -529,8 +541,6 @@ class MainWindow(QMainWindow):
             options=options,
         )
         return file_name or None
-
-
 
 
     def select_directory_from_dialog(self):
@@ -668,9 +678,6 @@ class MainWindow(QMainWindow):
         msg.setWindowTitle("Fit error")
         msg.exec_()
 
-    def add_ptoolbox_widget(self):
-        pass # HERE
-
 
     def toggle_PvPm(self):
         if self.PvPmTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
@@ -680,7 +687,11 @@ class MainWindow(QMainWindow):
             self.PvPmTableWindow.show()
             self.PvPmPlotWindow.show()
 
-
+    def toggle_additional_ptoolbox(self):
+        if self.additional_toolbox_window.isVisible():
+            self.additional_toolbox_window.hide()
+        else:
+            self.additional_toolbox_window.show()
 
     def toggle_ManualBg(self):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:

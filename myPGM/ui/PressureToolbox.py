@@ -41,6 +41,9 @@ class PressureToolbox(QWidget):
     def __init__(self):
         super().__init__()
 
+        self.setObjectName("PressureToolbox")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+
         Toolboxlayout = QHBoxLayout()
 
         self.Pm_spinbox = QDoubleSpinBox()
