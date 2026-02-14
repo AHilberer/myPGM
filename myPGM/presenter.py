@@ -354,16 +354,15 @@ class Presenter(QObject):
     def populate_file_list(self): 
         self.view.file_list_widget.list_widget.clear()
 
-        for obj_id in self.ordered_files_to_display:
-            try:
-                obj = self.model.get(obj_id)
-                if not getattr(obj, "include_in_filelist"):
-                    self.ordered_files_to_display.remove(obj_id)
-            except:
-                self.ordered_files_to_display.remove(obj_id)
+        self.ordered_files_to_display = [
+            obj_id
+            for obj_id in self.ordered_files_to_display
+            if obj_id in self.model
+            and getattr(self.model.get(obj_id), "include_in_filelist", False)
+        ]
 
         for obj in self.model.values():
-            if getattr(obj, "include_in_filelist") and (obj.id not in self.ordered_files_to_display):
+            if getattr(obj, "include_in_filelist", False) and obj.id not in self.ordered_files_to_display:
                 self.ordered_files_to_display.append(obj.id)
 
         for obj_id in self.ordered_files_to_display:
@@ -501,7 +500,9 @@ class Presenter(QObject):
         # create a new object from buffer and add it to the model, then update table and plot
         new_obj = deepcopy(self.buffer)
         new_obj.id = PressureGaugeDataObject.generate_id()
-        new_obj.filename = "None"
+        new_obj.filename = None
+        new_obj.full_path = None
+        new_obj.include_in_filelist = False
         new_obj.include_in_table = True
         self.model.add_instance(new_obj)
         self.update_PvPm_table()
