@@ -103,6 +103,16 @@ class PressureGaugeDataObject:
 
         return f"PressureGaugeDataObject(id={self.id}, name={self.filename}, P={self.P})"
 
+    @staticmethod
+    def generate_id():
+        """
+        Generate a unique ID based on the current time in milliseconds.
+
+        :return: int
+        """
+        return int(time.time() * 1000)
+    
+
     def load_spectral_data_file(self, file_name, file_path):
         self.filename = file_name
         self.full_path = file_path

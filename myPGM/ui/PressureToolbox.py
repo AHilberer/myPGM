@@ -1,4 +1,3 @@
-#import os
 import numpy as np
 from PyQt5.QtWidgets import (QApplication, 
                              QWidget, 
@@ -42,7 +41,6 @@ class PressureToolbox(QWidget):
     def __init__(self):
         super().__init__()
 
-        ToolboxGroup = QGroupBox("Pressure toolbox")
         Toolboxlayout = QHBoxLayout()
 
         self.Pm_spinbox = QDoubleSpinBox()

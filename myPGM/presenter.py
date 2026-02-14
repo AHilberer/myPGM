@@ -44,8 +44,6 @@ class Presenter:
         self.view.file_list_widget.moveup_button.clicked.connect(self.move_up)
         self.view.file_list_widget.movedown_button.clicked.connect(self.move_down)
 
-
-
         self.view.smoothing_factor.valueChanged.connect(self.smoothen)
 
         self.view.start_auto_fit_signal.connect(self.fit_current_file)
@@ -61,6 +59,8 @@ class Presenter:
 
         self.view.open_session_signal.connect(self.load_session)
         self.view.save_session_signal.connect(self.save_session)
+
+        self.view.PToolbox_toTable_button.clicked.connect(self.add_current_PToolbox_to_table)
 
         if self.test_mode:
             self.initialize_example()
@@ -444,7 +444,7 @@ class Presenter:
         table_data = []
         self.view.PvPmTableWindow.table_widget.clearContents()
         for obj in self.model.values():
-            if getattr(obj, "include_in_table", False) and obj.fit_result is not None:
+            if getattr(obj, "include_in_table", False):
                 table_data.append({
                     "Pm": f"{obj.Pm:.2f}",
                     "P": f"{obj.P:.2f}",
@@ -465,6 +465,16 @@ class Presenter:
         
 
         self.populate_file_list()
+
+
+    def add_current_PToolbox_to_table(self):
+        # create a new object from buffer and add it to the model, then update table and plot
+        new_obj = deepcopy(self.buffer)
+        new_obj.id = PressureGaugeDataObject.generate_id()
+        new_obj.filename = "None"
+        new_obj.include_in_table = True
+        self.model.add_instance(new_obj)
+        self.update_PvPm_table()
 
     def save_session(self):
         file_path = self.view.get_save_session_filename_dialog()

@@ -127,11 +127,11 @@ class MainWindow(QMainWindow):
         self.ptoolbox = PressureToolbox()
 
         PToolboxSubactionsLayout = QVBoxLayout()        
-        addPToolbox_instance = QPushButton('New PToolbox')
-        addToTable = QPushButton('Add to Table')
+        self.popPToolbox_button = QPushButton('New PToolbox')
+        self.PToolbox_toTable_button = QPushButton('Add to Table')
 
-        PToolboxSubactionsLayout.addWidget(addPToolbox_instance)
-        PToolboxSubactionsLayout.addWidget(addToTable)
+        PToolboxSubactionsLayout.addWidget(self.popPToolbox_button)
+        PToolboxSubactionsLayout.addWidget(self.PToolbox_toTable_button)
 
         PToolboxLayout.addWidget(self.ptoolbox, stretch=10)
         PToolboxLayout.addLayout(PToolboxSubactionsLayout, stretch=1)
@@ -313,7 +313,7 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setBackground("white")
         styles = {"color": "black", "font-size": "16px"}
         self.deriv_widget.setLabel("bottom", "Spectral unit", **styles)
-        self.deriv_widget.setLabel("left", "I' (a.u.)", **styles)
+        self.deriv_widget.setLabel("left", "dI/dx", **styles)
 
         self.deriv_scatter = pg.ScatterPlotItem(symbol='o', size=4, brush='grey')
         self.deriv_widget.addItem(self.deriv_scatter)
@@ -559,7 +559,7 @@ class MainWindow(QMainWindow):
 
     # derivative data
         self.deriv_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
-        self.deriv_widget.setLabel("left", 'Intensity')
+        self.deriv_widget.setLabel("left", 'dI/dx')
 
         dI = gaussian_filter1d(y, mode="nearest", sigma=1, order=1)
         self.deriv_scatter.setData(x, dI)

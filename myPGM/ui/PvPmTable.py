@@ -50,6 +50,7 @@ class HPTableWidget(QTableWidget):
         else:
 
             self.setRowCount(len(incomming_table))
+            print(incomming_table)
             self.setColumnCount(len(incomming_table[0]))
             self.setHorizontalHeaderLabels(list(incomming_table[0].keys()))
             self.column_index = {label: i for i, label in enumerate(incomming_table[0].keys())}
