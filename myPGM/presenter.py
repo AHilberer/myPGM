@@ -1,14 +1,17 @@
 import os
+import json
+import numpy as np
 from copy import deepcopy
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
-from PyQt5.QtCore import Qt, QFileInfo
+from PyQt5.QtCore import Qt, QFileInfo, QObject
 from myPGM.data_model import PressureGaugeDataObject
 import myPGM.calibrations
 import myPGM.fit_models
 from myPGM.helpers import pressure_valid, spectro_calibration_reader
 
-class Presenter:
+class Presenter(QObject):
     def __init__(self, model, view, test_mode=False):
+        super().__init__()
         self.model = model
         self.view = view
         self.test_mode = test_mode
@@ -24,6 +27,8 @@ class Presenter:
             ]
         self.ordered_files_to_display = []
         self.buffer = PressureGaugeDataObject()
+        self.additional_buffer = PressureGaugeDataObject()
+
 
         self.initialize_calibrations_menu()
         self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
@@ -55,6 +60,11 @@ class Presenter:
         self.view.Spectro_use_button.toggled.connect(self.toggle_spectro_calib)
         self.view.LoadSpectro_button.clicked.connect(self.load_spectro_calibration)
 
+        self.view.open_session_signal.connect(self.load_session)
+        self.view.save_session_signal.connect(self.save_session)
+
+        self.view.PToolbox_toTable_button.clicked.connect(self.add_current_PToolbox_to_table)
+
         if self.test_mode:
             self.initialize_example()
 
@@ -64,6 +74,7 @@ class Presenter:
     def initialize_calibrations_menu(self):
         calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
         self.view.ptoolbox.initialize(calib_dict)
+        self.view.additional_toolbox_window.initialize(calib_dict)
 
     def initialize_fit_models_menu(self):
         model_dict = {a.name: a for a in myPGM.fit_models.model_list}
@@ -81,8 +92,11 @@ class Presenter:
         self.buffer.x0 = 694.28
         self.buffer.T0 = 298
         self.buffer.set_x(694.28)
- 
+
+        self.additional_buffer = deepcopy(self.buffer)
+
         self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        self.view.additional_toolbox_window.set_state_from_buffer(self.additional_buffer)
     
         # Connects
         self.view.ptoolbox.calibChanged.connect(self.on_calib_changed)
@@ -93,58 +107,76 @@ class Presenter:
         self.view.ptoolbox.x0Changed.connect(self.on_x0_edited)
         self.view.ptoolbox.T0Changed.connect(self.on_T0_edited)
 
+        self.view.additional_toolbox_window.calibChanged.connect(self.on_calib_changed)
+        self.view.additional_toolbox_window.PmChanged.connect(self.on_Pm_edited)
+        self.view.additional_toolbox_window.PChanged.connect(self.on_P_edited)
+        self.view.additional_toolbox_window.xChanged.connect(self.on_x_edited)
+        self.view.additional_toolbox_window.TChanged.connect(self.on_T_edited)
+        self.view.additional_toolbox_window.x0Changed.connect(self.on_x0_edited)
+        self.view.additional_toolbox_window.T0Changed.connect(self.on_T0_edited)
+
+    
+    def _get_toolbox_context(self, sender=None):
+        src = sender or self.sender()
+        if src == self.view.additional_toolbox_window:
+            return self.view.additional_toolbox_window, self.additional_buffer
+        return self.view.ptoolbox, self.buffer
+
     @pressure_valid
     def on_Pm_edited(self, Pm):
-        self.buffer.set_Pm(Pm)
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_Pm(Pm)
+        toolbox.set_state_from_buffer(buffer)
 
     @pressure_valid
     def on_P_edited(self, p):
-        self.buffer.set_P(p)
-        # a change on P -> a change on x
-        self.view.ptoolbox.set_xval(self.buffer.x)
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_P(p)
+        toolbox.set_state_from_buffer(buffer)
     
     @pressure_valid
     def on_x_edited(self, x):
-        self.buffer.set_x(x)        
-        # a change on x -> a change on P        
-        self.view.ptoolbox.set_Pval(self.buffer.P)
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_x(x)        
+        toolbox.set_state_from_buffer(buffer)
 
     @pressure_valid
     def on_T_edited(self, T):
-        self.buffer.set_T(T)        
-        # a change on T -> a change on P        
-        self.view.ptoolbox.set_Pval(self.buffer.P)
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_T(T)        
+        toolbox.set_state_from_buffer(buffer)
 
     @pressure_valid
     def on_x0_edited(self, x0):
-        self.buffer.set_x0(x0)
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_x0(x0)
 
         # All those are the same, unique instance:
         #print(buffer.calib is toolbox.calibrations[buffer.calib.name])
         #print(buffer.calib is calib_dict[buffer.calib.name])
 
         # THE NEW x0 for this gauge is now x0 :
-        self.buffer.calib.x0default = x0
+        buffer.calib.x0default = x0
 
-        # a change on x0 -> a change on P        
-        self.view.ptoolbox.set_Pval(self.buffer.P)
+        toolbox.set_state_from_buffer(buffer)
 
     @pressure_valid
     def on_T0_edited(self, T0):
-        self.buffer.set_T0(T0)  
+        toolbox, buffer = self._get_toolbox_context()
+        buffer.set_T0(T0)  
 
         # THE NEW T0 for this gauge is now T0 :
-        self.buffer.calib.T0default = T0
+        buffer.calib.T0default = T0
         
-        # a change on T0 -> a change on P        
-        self.view.ptoolbox.set_Pval(self.buffer.P)
+        toolbox.set_state_from_buffer(buffer)
 
     @pressure_valid
     def on_calib_changed(self, newcalib):
+        toolbox, buffer = self._get_toolbox_context()
         # data model method!
-        self.buffer.set_calibration(newcalib)
+        buffer.set_calibration(newcalib)
         # view method
-        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+        toolbox.set_state_from_buffer(buffer)
 
     def file_selected_from_file_list(self, obj_id):
         self.current_selected_file = obj_id
@@ -322,16 +354,15 @@ class Presenter:
     def populate_file_list(self): 
         self.view.file_list_widget.list_widget.clear()
 
-        for obj_id in self.ordered_files_to_display:
-            try:
-                obj = self.model.get(obj_id)
-                if not getattr(obj, "include_in_filelist"):
-                    self.ordered_files_to_display.remove(obj_id)
-            except:
-                self.ordered_files_to_display.remove(obj_id)
+        self.ordered_files_to_display = [
+            obj_id
+            for obj_id in self.ordered_files_to_display
+            if obj_id in self.model
+            and getattr(self.model.get(obj_id), "include_in_filelist", False)
+        ]
 
         for obj in self.model.values():
-            if getattr(obj, "include_in_filelist") and (obj.id not in self.ordered_files_to_display):
+            if getattr(obj, "include_in_filelist", False) and obj.id not in self.ordered_files_to_display:
                 self.ordered_files_to_display.append(obj.id)
 
         for obj_id in self.ordered_files_to_display:
@@ -340,6 +371,14 @@ class Presenter:
             item = QListWidgetItem(text)
             item.setData(Qt.UserRole, obj.id)  # Store only object ID 
             self.view.file_list_widget.list_widget.addItem(item)
+
+    def select_file_in_list(self, obj_id):
+        list_widget = self.view.file_list_widget.list_widget
+        for i in range(list_widget.count()):
+            item = list_widget.item(i)
+            if item.data(Qt.UserRole) == obj_id:
+                list_widget.setCurrentItem(item)
+                return
 
 
     def move_up(self):
@@ -434,7 +473,7 @@ class Presenter:
         table_data = []
         self.view.PvPmTableWindow.table_widget.clearContents()
         for obj in self.model.values():
-            if getattr(obj, "include_in_table", False) and obj.fit_result is not None:
+            if getattr(obj, "include_in_table", False):
                 table_data.append({
                     "Pm": f"{obj.Pm:.2f}",
                     "P": f"{obj.P:.3f}",
@@ -455,3 +494,101 @@ class Presenter:
         
 
         self.populate_file_list()
+
+
+    def add_current_PToolbox_to_table(self):
+        # create a new object from buffer and add it to the model, then update table and plot
+        new_obj = deepcopy(self.buffer)
+        new_obj.id = PressureGaugeDataObject.generate_id()
+        new_obj.filename = None
+        new_obj.full_path = None
+        new_obj.include_in_filelist = False
+        new_obj.include_in_table = True
+        self.model.add_instance(new_obj)
+        self.update_PvPm_table()
+
+    def save_session(self):
+        file_path = self.view.get_save_session_filename_dialog()
+        if not file_path:
+            return
+
+        session = {
+            "version": 1,
+            "ordered_files": self.ordered_files_to_display,
+            "current_selected_file": self.current_selected_file,
+            "buffer": self.buffer.to_dict(),
+            "corrected_spectro_x": self.corrected_spectro_x.tolist()
+            if self.corrected_spectro_x is not None
+            else None,
+            "spectro_use_enabled": self.view.Spectro_use_button.isChecked(),
+            "files": [obj.to_dict() for obj in self.model.values()],
+        }
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as file_handle:
+                json.dump(session, file_handle, indent=2)
+        except Exception as exc:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText(f"Failed to save session: {exc}")
+            msg.setWindowTitle("Save error")
+            msg.exec_()
+
+    def load_session(self):
+        file_path = self.view.get_open_session_filename_dialog()
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as file_handle:
+                session = json.load(file_handle)
+        except Exception as exc:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText(f"Failed to load session: {exc}")
+            msg.setWindowTitle("Load error")
+            msg.exec_()
+            return
+
+        self.model.clear()
+        self.ordered_files_to_display = []
+        self.current_selected_file = None
+        self.corrected_spectro_x = None
+
+        calib_dict = self.view.ptoolbox.calibrations
+        model_dict = self.fit_models
+
+        for payload in session.get("files", []):
+            obj = PressureGaugeDataObject.from_dict(payload, calib_dict, model_dict)
+            self.model.add_instance(obj)
+
+        self.ordered_files_to_display = session.get(
+            "ordered_files",
+            [obj.id for obj in self.model.values()],
+        )
+        self.populate_file_list()
+
+        buffer_payload = session.get("buffer")
+        if buffer_payload:
+            self.buffer = PressureGaugeDataObject.from_dict(
+                buffer_payload, calib_dict, model_dict
+            )
+            if self.buffer.calib is None and calib_dict:
+                self.buffer.calib = list(calib_dict.values())[0]
+            self.view.ptoolbox.set_state_from_buffer(self.buffer)
+
+        corrected_spectro_x = session.get("corrected_spectro_x")
+        if corrected_spectro_x is not None:
+            self.corrected_spectro_x = np.asarray(corrected_spectro_x)
+
+        self.view.Spectro_use_button.setChecked(
+            session.get("spectro_use_enabled", False)
+        )
+
+        selected_id = session.get("current_selected_file")
+        if selected_id in self.model:
+            self.current_selected_file = selected_id
+            self.select_file_in_list(selected_id)
+            self.file_selected_from_file_list(selected_id)
+
+        self.update_PvPm_table()

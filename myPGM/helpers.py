@@ -34,10 +34,18 @@ def pressure_valid(func):
     def wrapper(self, *args, **kwargs):
         try:
             res = func(self, *args, **kwargs)
-            self.view.ptoolbox.set_valid_colors(True)
+            if hasattr(self, "_get_toolbox_context") and hasattr(self, "sender"):
+                toolbox, _ = self._get_toolbox_context(self.sender())
+                toolbox.set_valid_colors(True)
+            else:
+                self.view.ptoolbox.set_valid_colors(True)
             return res
         except PressureCalculationFailed as err:
-            self.view.ptoolbox.set_valid_colors(False)
+            if hasattr(self, "_get_toolbox_context") and hasattr(self, "sender"):
+                toolbox, _ = self._get_toolbox_context(self.sender())
+                toolbox.set_valid_colors(False)
+            else:
+                self.view.ptoolbox.set_valid_colors(False)
             return None
     return wrapper
 

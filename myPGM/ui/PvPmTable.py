@@ -18,7 +18,11 @@ class HPTableWidget(QTableWidget):
 
         #self.data = HPDataTable_
 
-        self.setStyleSheet("font-size: 12px;")
+        self.setStyleSheet(
+            "QTableWidget { font-size: 11px; }"
+            "QHeaderView::section { padding: 2px; }"
+            "QTableWidget::item { padding: 2px; }"
+        )
 
         #nrows, ncols = self.data.df.shape
 
@@ -28,6 +32,8 @@ class HPTableWidget(QTableWidget):
 
         self.setHorizontalHeaderLabels(column_labels)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.verticalHeader().setDefaultSectionSize(18)
+        self.horizontalHeader().setDefaultSectionSize(70)
 
         
 
@@ -37,18 +43,21 @@ class HPTableWidget(QTableWidget):
         # deleteline_shortcut.activated.connect(self.remove_line)
 
     def updatetable(self, incomming_table):
-        #print(incomming_table)
-        self.setRowCount(len(incomming_table))
-        self.setColumnCount(len(incomming_table[0]))
-        self.setHorizontalHeaderLabels(list(incomming_table[0].keys()))
-        self.column_index = {label: i for i, label in enumerate(incomming_table[0].keys())}
+        if incomming_table == [] or incomming_table is None:
+            self.setRowCount(0)
+            return
+        else:
 
-        for row, data in enumerate(incomming_table):
-            for key, value in data.items():
-                col = self.column_index[key]
-                self.setItem(row, col, QTableWidgetItem(str(value)))
+            self.setRowCount(len(incomming_table))
+            self.setColumnCount(len(incomming_table[0]))
+            self.setHorizontalHeaderLabels(list(incomming_table[0].keys()))
+            self.column_index = {label: i for i, label in enumerate(incomming_table[0].keys())}
 
-        # self.cellChanged[int, int].connect(self.getfromentry)
+            for row, data in enumerate(incomming_table):
+                for key, value in data.items():
+                    col = self.column_index[key]
+                    self.setItem(row, col, QTableWidgetItem(str(value)))
+
 
     def remove_line(self):
         index = self.currentRow()
@@ -74,17 +83,17 @@ class HPTableWindow(QWidget):
 
         table_actions_layout = QHBoxLayout()
 
-        self.table_save_csv_button = QPushButton("Save data to csv")
-        self.table_load_csv_button = QPushButton("Load data from csv")
+        self.table_save_csv_button = QPushButton("Save table to csv")
+        # self.table_load_csv_button = QPushButton("Load data from csv")
         table_actions_layout.addWidget(self.table_save_csv_button)
-        table_actions_layout.addWidget(self.table_load_csv_button)
+        # table_actions_layout.addWidget(self.table_load_csv_button)
 
         layout.addLayout(table_actions_layout)
 
         self.setLayout(layout)
 
         self.table_save_csv_button.clicked.connect(self.save_data_to_csv)
-        self.table_load_csv_button.clicked.connect(self.load_data_from_csv)
+        # self.table_load_csv_button.clicked.connect(self.load_data_from_csv)
 
         # save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
         # load_shortcut = QShortcut(QKeySequence("Ctrl+O"), self)
@@ -92,18 +101,25 @@ class HPTableWindow(QWidget):
         # load_shortcut.activated.connect(self.load_data_from_csv)
 
     def save_data_to_csv(self):
-        pass
-        # file = self.get_save_filename_dialog()
-        # if file:
-        #     self.data.df.to_csv(file, sep="\t", decimal=".", header=True, index=False)
+        
+        file = self.get_save_filename_dialog()
+        if file:
+            with open(file, "w") as file:
+                row_count = self.table_widget.rowCount()
+                column_count = self.table_widget.columnCount()
 
-    def load_data_from_csv(self):
-        pass
-        # file = self.get_load_filename_dialog()
-        # if file:
-        #     df_ = pd.read_csv(file, sep="\t", decimal=".", header=[0], index_col=None)
+                # Write header row
+                headers = [self.table_widget.horizontalHeaderItem(i).text() for i in range(column_count)]
+                file.write(",".join(headers) + "\n")
 
-        # self.data.reconstruct_from_df(df_, self.calibrations)
+                # Write data rows
+                for row in range(row_count):
+                    row_data = []
+                    for col in range(column_count):
+                        item = self.table_widget.item(row, col)
+                        row_data.append(item.text() if item else "")
+                    file.write(",".join(row_data) + "\n")
+
 
     def get_save_filename_dialog(self):
         options = QFileDialog.Options()
@@ -113,7 +129,7 @@ class HPTableWindow(QWidget):
 
         fileName, fileType = QFileDialog.getSaveFileName(
             self,
-            "myPRL-qt: Save data to csv",
+            "myPGM: Save data to csv",
             "",
             "CSV Files (*.csv);;All Files (*)",
             options=options,
@@ -138,7 +154,7 @@ class HPTableWindow(QWidget):
 
         fileName, _ = QFileDialog.getOpenFileName(
             self,
-            "myPRL-qt: Load data from csv",
+            "myPGM: Load data from csv",
             "",
             "CSV Files (*.csv);;All Files (*)",
             options=options,

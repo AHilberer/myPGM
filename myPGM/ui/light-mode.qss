@@ -2,6 +2,10 @@ QMainWindow {
   background: #ececec;
 }
 
+PressureToolbox {
+  background-color: #ececec;
+}
+
 QLabel {
 color: black;
 }

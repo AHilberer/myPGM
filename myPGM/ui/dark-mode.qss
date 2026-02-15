@@ -2,6 +2,10 @@ QMainWindow {
   background: #202020;
 }
 
+PressureToolbox {
+  background-color: #202020;
+}
+
 QLabel {
 color: #ededed;
 }
