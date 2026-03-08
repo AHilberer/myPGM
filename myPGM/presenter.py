@@ -90,6 +90,13 @@ class Presenter(QObject):
         self.view.ptoolbox.initialize(calib_dict)
         self.view.additional_toolbox_window.initialize(calib_dict)
 
+    def _show_error(self, text, title="Error"):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setText(text)
+        msg.setWindowTitle(title)
+        msg.exec_()
+
     def initialize_fit_models_menu(self):
         model_dict = {a.name: a for a in myPGM.fit_models.model_list}
         self.fit_models = model_dict
@@ -264,17 +271,9 @@ class Presenter(QObject):
                 self.add_instance_from_path(file)
                 self.populate_file_list()
             else:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setText("No files in selected directory.")
-                msg.setWindowTitle("Error")
-                msg.exec_()
+                self._show_error("No files in selected directory.")
         else:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("No directory selected.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
+            self._show_error("No directory selected.")
 
     def delete_current_file(self):
         if self.current_selected_file is not None:
@@ -285,11 +284,7 @@ class Presenter(QObject):
             self.update_PvPm_table()
             self.view.current_file_label.setText("No file selected")
         else:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("No file selected to delete.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
+            self._show_error("No file selected to delete.")
 
     def update_data_plots(self, obj_id, preserve_view=False):
         obj = self.model.get(obj_id, None)
@@ -597,17 +592,9 @@ class Presenter(QObject):
                 obj.include_in_table = True
                 self.update_PvPm_table()
             else:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setText("No fit result to add to table.")
-                msg.setWindowTitle("Error")
-                msg.exec_()
+                self._show_error("No fit result to add to table.")
         else:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("No file selected.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
+            self._show_error("No file selected.")
 
 
     def update_PvPm_table(self):
@@ -655,11 +642,7 @@ class Presenter(QObject):
             with open(file_path, "w", encoding="utf-8") as file_handle:
                 json.dump(session, file_handle, indent=2)
         except Exception as exc:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText(f"Failed to save session: {exc}")
-            msg.setWindowTitle("Save error")
-            msg.exec_()
+            self._show_error(f"Failed to save session: {exc}", title="Save error")
 
     def load_session(self):
         file_path = self.view.get_open_session_filename_dialog()
@@ -670,11 +653,7 @@ class Presenter(QObject):
             with open(file_path, "r", encoding="utf-8") as file_handle:
                 session = json.load(file_handle)
         except Exception as exc:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText(f"Failed to load session: {exc}")
-            msg.setWindowTitle("Load error")
-            msg.exec_()
+            self._show_error(f"Failed to load session: {exc}", title="Load error")
             return
 
         self.model.clear()
