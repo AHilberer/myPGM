@@ -214,18 +214,20 @@ class Presenter(QObject):
     def file_selected_from_file_list(self, obj_id):
         self.current_selected_file = obj_id
         self.view.current_file_label.setText(f"{self.model.get(obj_id).filename}")
+
+        obj = self.model.get(self.current_selected_file, None)
+        if obj is None:
+            return
+
         if self.view.Spectro_use_button.isChecked():
             try:
                 if self.corrected_spectro_x is not None:
-                    if self.current_selected_file is not None:
-                        obj = self.model.get(self.current_selected_file, None)
-                        obj.spectro_recalib(self.corrected_spectro_x)
-            except:
+                    obj.spectro_recalib(self.corrected_spectro_x)
+            except Exception:
                 pass
         else:
-            if self.current_selected_file is not None:
-                obj = self.model.get(self.current_selected_file, None)
-                obj.reset_spectro_recalib()
+            obj.reset_spectro_recalib()
+
         self.update_data_plots(obj_id)
         
         # toolbox is updated (is it what we want?)
@@ -398,37 +400,36 @@ class Presenter(QObject):
 
 
     def smoothen(self, smoothing_factor):
-        if self.current_selected_file is not None:
-            obj = self.model.get(self.current_selected_file, None)
-            obj.smoothen(int(smoothing_factor))
-            self.update_data_plots(self.current_selected_file)
-        else:
-            return
-    
-    def subtract_auto_bg(self):
-        if self.current_selected_file is not None:
-            obj = self.model.get(self.current_selected_file, None)
-            obj.convexhull_bg()
-            self.update_data_plots(self.current_selected_file)
-        else:
+        if self.current_selected_file is None:
             return
 
-    def subtract_manual_bg(self, bg):
-        if self.current_selected_file is not None:
-            obj = self.model.get(self.current_selected_file, None)
-            if bg is not None:
-                obj.subtract_external_bg(bg)
-                self.update_data_plots(self.current_selected_file, preserve_view=True)
-        else:
+        obj = self.model.get(self.current_selected_file, None)
+        obj.smoothen(int(smoothing_factor))
+        self.update_data_plots(self.current_selected_file)
+    
+    def subtract_auto_bg(self):
+        if self.current_selected_file is None:
             return
+
+        obj = self.model.get(self.current_selected_file, None)
+        obj.convexhull_bg()
+        self.update_data_plots(self.current_selected_file)
+
+    def subtract_manual_bg(self, bg):
+        if self.current_selected_file is None or bg is None:
+            return
+
+        obj = self.model.get(self.current_selected_file, None)
+        obj.subtract_external_bg(bg)
+        self.update_data_plots(self.current_selected_file, preserve_view=True)
     
     def reset_bg(self):
-        if self.current_selected_file is not None:
-            obj = self.model.get(self.current_selected_file, None)
-            obj.reset_bg()
-            self.update_data_plots(self.current_selected_file)
-        else:
+        if self.current_selected_file is None:
             return
+
+        obj = self.model.get(self.current_selected_file, None)
+        obj.reset_bg()
+        self.update_data_plots(self.current_selected_file)
 
 
     def load_spectro_calibration(self):
@@ -448,17 +449,18 @@ class Presenter(QObject):
         return 
     
     def toggle_spectro_calib(self, checked):
+        if self.current_selected_file is None:
+            return
+
+        obj = self.model.get(self.current_selected_file, None)
         if checked:
             if self.corrected_spectro_x is not None:
-                if self.current_selected_file is not None:
-                    obj = self.model.get(self.current_selected_file, None)
-                    obj.spectro_recalib(self.corrected_spectro_x)
-                    self.update_data_plots(self.current_selected_file)
-        else:
-            if self.current_selected_file is not None:
-                obj = self.model.get(self.current_selected_file, None)
-                obj.reset_spectro_recalib()
+                obj.spectro_recalib(self.corrected_spectro_x)
                 self.update_data_plots(self.current_selected_file)
+            return
+
+        obj.reset_spectro_recalib()
+        self.update_data_plots(self.current_selected_file)
 
     def populate_file_list(self): 
         self.view.file_list_widget.list_widget.clear()
