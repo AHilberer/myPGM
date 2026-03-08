@@ -265,6 +265,8 @@ class Presenter(QObject):
             self.model.delete_instance(obj_id)
             self.current_selected_file = None
             self.populate_file_list()
+            self.update_PvPm_table()
+            self.view.current_file_label.setText("No file selected")
         else:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
