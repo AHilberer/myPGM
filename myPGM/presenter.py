@@ -36,6 +36,7 @@ class Presenter(QObject):
         self.initialize_buffer()
         self.view.PvPmTableWindow.set_data_manager(self.model)
         self.view.PvPmPlotWindow.set_data_manager(self.model)
+        self.view.PvPmTableWindow.table_widget.recall_requested.connect(self.recall_from_table)
 
         #? Setup Signal-Slot interactions
         self.view.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
@@ -390,6 +391,33 @@ class Presenter(QObject):
             if item.data(Qt.UserRole) == obj_id:
                 list_widget.setCurrentItem(item)
                 return
+
+    def recall_from_table(self, obj_id):
+        try:
+            obj_id = int(obj_id)
+        except (TypeError, ValueError):
+            return
+
+        obj = self.model.get(obj_id, None)
+        if obj is None:
+            return
+
+        # If the entry is tied to a loaded file, reuse the normal file-selection flow.
+        if getattr(obj, "include_in_filelist", False):
+            self.select_file_in_list(obj_id)
+            self.file_selected_from_file_list(obj_id)
+            return
+
+        # For table-only entries, restore toolbox state from the recalled object.
+        self.current_selected_file = None
+        self.view.current_file_label.setText("No file selected")
+        self.buffer = deepcopy(obj)
+        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+
+        if obj.fit_model is not None and obj.fit_model.name in self.fit_models:
+            ind = self.view.fit_model_combo.findText(obj.fit_model.name, Qt.MatchExactly)
+            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
+                self.view.fit_model_combo.setCurrentIndex(ind)
 
 
     def move_up(self):

@@ -7,11 +7,16 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QTableWidget,
+    QAbstractItemView,
 )
+from PyQt5.QtCore import pyqtSignal
 
 
 class HPTableWidget(QTableWidget):
     """Qt widget class for HPDataTable objects"""
+
+    # Use object to avoid truncation of large integer IDs in Qt int signals.
+    recall_requested = pyqtSignal(object)
 
     def __init__(self):
         super().__init__()
@@ -33,6 +38,10 @@ class HPTableWidget(QTableWidget):
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.verticalHeader().setDefaultSectionSize(18)
         self.horizontalHeader().setDefaultSectionSize(70)
+        self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.cellDoubleClicked.connect(self._on_cell_double_clicked)
 
         
 
@@ -93,6 +102,10 @@ class HPTableWidget(QTableWidget):
                 for key, value in data.items():
                     col = self.column_index[key]
                     self.setItem(row, col, QTableWidgetItem(str(value)))
+
+    def _on_cell_double_clicked(self, row, _column):
+        if 0 <= row < len(self.row_object_ids):
+            self.recall_requested.emit(self.row_object_ids[row])
 
 
 #    def remove_line(self):
