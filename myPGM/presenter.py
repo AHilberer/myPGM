@@ -185,6 +185,11 @@ class Presenter(QObject):
             if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
                 self.view.fit_model_combo.setCurrentIndex(ind)
 
+        if toolbox == self.view.ptoolbox and buffer.calib is not None:
+            xlabel = f"{buffer.calib.xname} ({buffer.calib.xunit})"
+            self.view.data_widget.setLabel("bottom", xlabel)
+            self.view.deriv_widget.setLabel("bottom", xlabel)
+
         # view method
         toolbox.set_state_from_buffer(buffer)
 
@@ -279,25 +284,76 @@ class Presenter(QObject):
         obj = self.model.get(obj_id, None)
         if obj.original_data is not None:
             x, y = obj.get_data_to_process()
+            x_min = float(np.min(x))
+            x_max = float(np.max(x))
 
             # on utilise buffer (juste pour afficher les unités des axes dans plot_data)
             self.view.plot_data(x, y, self.buffer)
             if obj.fit_result is not None:
                 self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y)
 
-            if obj.fitting_range is not None:
-                self.view.fit_range_selector.setRegion(obj.fitting_range)
-            else:
-                if not self.view.fit_range_selector_edited:
-                    x_range = x[-1]-x[0]
-                    x_mean = (x[0]+x[-1])/2
-                    self.view.fit_range_selector.setRegion((x_mean - x_range*0.15, x_mean + x_range*0.15))
-            
+            self.view.fit_range_selector.setBounds((x_min, x_max))
 
-            self.view.fit_range_selector.setBounds((x[0], x[-1]))
+            if obj.fitting_range is not None:
+                sanitized_range = self._sanitize_fitting_range(obj.fitting_range, x_min, x_max)
+                obj.fitting_range = sanitized_range
+                self.view.fit_range_selector.setRegion(sanitized_range)
+            else:
+                current_region = self.view.fit_range_selector.getRegion()
+                if (not self.view.fit_range_selector_edited) or self._range_needs_reset(current_region, x_min, x_max):
+                    self.view.fit_range_selector.setRegion(
+                        self._centered_nonzero_range(x_min, x_max)
+                    )
             
         else:
             print('No data to be plotted.')
+
+    def _centered_nonzero_range(self, x_min, x_max):
+        x_span = max(float(x_max) - float(x_min), 1e-9)
+        x_mean = (float(x_min) + float(x_max)) / 2.0
+        half_width = max(x_span * 0.15, 1e-6)
+        return (x_mean - half_width, x_mean + half_width)
+
+    def _sanitize_fitting_range(self, fit_range, x_min, x_max):
+        centered = self._centered_nonzero_range(x_min, x_max)
+
+        if fit_range is None or len(fit_range) != 2:
+            return centered
+
+        try:
+            low = float(fit_range[0])
+            high = float(fit_range[1])
+        except (TypeError, ValueError):
+            return centered
+
+        if not (np.isfinite(low) and np.isfinite(high)):
+            return centered
+
+        if low > high:
+            low, high = high, low
+
+        low = max(low, float(x_min))
+        high = min(high, float(x_max))
+
+        x_span = max(float(x_max) - float(x_min), 1e-9)
+        min_width = max(x_span * 0.02, 1e-6)
+
+        # If the range collapses (typically clipped to one edge), recenter it.
+        if (high - low) < min_width:
+            return centered
+
+        return (low, high)
+
+    def _range_needs_reset(self, fit_range, x_min, x_max):
+        sanitized = self._sanitize_fitting_range(fit_range, x_min, x_max)
+        low, high = float(sanitized[0]), float(sanitized[1])
+        cur_low = float(fit_range[0]) if fit_range is not None and len(fit_range) == 2 else np.nan
+        cur_high = float(fit_range[1]) if fit_range is not None and len(fit_range) == 2 else np.nan
+
+        if not (np.isfinite(cur_low) and np.isfinite(cur_high)):
+            return True
+
+        return (abs(cur_low - low) > 1e-12) or (abs(cur_high - high) > 1e-12)
 
 
     def smoothen(self, smoothing_factor):

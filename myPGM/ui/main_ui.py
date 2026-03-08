@@ -478,7 +478,8 @@ class MainWindow(QMainWindow):
             self.turn_off_fit_range_edit()
             self.fit_range_edit_enabled = False
         else:
-            self.data_widget.addItem(self.fit_range_selector)
+            # Do not let the selector item influence ViewBox auto-range.
+            self.data_widget.addItem(self.fit_range_selector, ignoreBounds=True)
         self.fit_range_enabled = not self.fit_range_enabled
 
     def toggle_fit_range_edit(self):
