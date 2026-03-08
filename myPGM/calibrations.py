@@ -5,7 +5,8 @@ from scipy.optimize import minimize
 class HPCalibration():
     ''' A general HP calibration object '''
     def __init__(self, name, func, Tcor_name, 
-                    xname, xunit, x0default, T0default, xstep, color):
+                    xname, xunit, x0default, T0default, xstep, color,
+                    default_fit_model=None):
         self.name = name
         self.func = func
         self.Tcor_name = Tcor_name
@@ -15,6 +16,7 @@ class HPCalibration():
         self.T0default = T0default
         self.xstep = xstep  # x step in spinboxes using mousewheel
         self.color = color  # color printed in calibration combobox
+        self.default_fit_model = default_fit_model
 
     def __repr__(self):
         return 'HPCalibration : ' + str( self.__dict__ )
@@ -105,7 +107,8 @@ Ruby2020 = HPCalibration(name = 'Ruby2020',
                                  x0default = 694.28,
                                  T0default = 298,
                                  xstep = .01,
-                                 color = 'firebrick')
+                                 color = 'firebrick',
+                                 default_fit_model='Double Voigt')
         
 SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        func = PsamDatchi1997,
@@ -115,7 +118,8 @@ SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        x0default = 685.41,
                                        T0default = 298,
                                        xstep = .01,
-                                       color = 'mediumseagreen')
+                                       color = 'mediumseagreen',
+                                       default_fit_model='Single Voigt')
 
 Hilberer2026 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2026',
                                     func = PHilberer2026,
@@ -125,7 +129,8 @@ Hilberer2026 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2026',
                                     x0default = 1334,
                                     T0default = 298,
                                     xstep = .1,
-                                    color = 'orangered')
+                                    color = 'deepskyblue',
+                                    default_fit_model='Raman Edge')
 
 Akahama2006 = HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
                                     func = PAkahama2006,
@@ -135,7 +140,8 @@ Akahama2006 = HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
                                     x0default = 1334,
                                     T0default = 298,
                                     xstep = .1,
-                                    color = 'darkgrey')
+                                    color = 'royalblue',
+                                    default_fit_model='Raman Edge')
 
 Eremets2023 = HPCalibration(name = 'Diamond Raman Edge Eremets 2023',
                                     func = PEremets2023,
@@ -145,7 +151,8 @@ Eremets2023 = HPCalibration(name = 'Diamond Raman Edge Eremets 2023',
                                     x0default = 1332.5,
                                     T0default = 298,
                                     xstep = .1,
-                                    color = 'steelblue')
+                                    color = 'steelblue',
+                                    default_fit_model='Raman Edge')
         
 cBNDatchi = HPCalibration(name = 'cBN Raman Datchi 2007',
                                   func = PcBN,
@@ -155,7 +162,8 @@ cBNDatchi = HPCalibration(name = 'cBN Raman Datchi 2007',
                                   x0default = 1054,
                                   T0default = 298,
                                   xstep = .1,
-                                  color = 'lightblue')
+                                  color = 'hotpink',
+                                  default_fit_model='Single Voigt')
 
 H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
                                   func = H2_Vibron,
@@ -165,7 +173,8 @@ H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
                                   x0default = -1,
                                   T0default = 298,
                                   xstep = .1,
-                                  color = 'plum')
+                                  color = 'orangered',
+                                  default_fit_model='Single Voigt')
 
 
 calib_list = [Ruby2020, 

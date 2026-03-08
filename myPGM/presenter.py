@@ -177,6 +177,13 @@ class Presenter(QObject):
         toolbox, buffer = self._get_toolbox_context()
         # data model method!
         buffer.set_calibration(newcalib)
+
+        default_fit_name = getattr(newcalib, "default_fit_model", None)
+        if default_fit_name in self.fit_models:
+            ind = self.view.fit_model_combo.findText(default_fit_name, Qt.MatchExactly)
+            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
+                self.view.fit_model_combo.setCurrentIndex(ind)
+
         # view method
         toolbox.set_state_from_buffer(buffer)
 
