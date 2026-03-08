@@ -34,6 +34,8 @@ class Presenter(QObject):
         self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
         self.initialize_fit_models_menu()
         self.initialize_buffer()
+        self.view.PvPmTableWindow.set_data_manager(self.model)
+        self.view.PvPmPlotWindow.set_data_manager(self.model)
 
         #? Setup Signal-Slot interactions
         self.view.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
@@ -470,22 +472,8 @@ class Presenter(QObject):
 
 
     def update_PvPm_table(self):
-        table_data = []
-        self.view.PvPmTableWindow.table_widget.clearContents()
-        for obj in self.model.values():
-            if getattr(obj, "include_in_table", False):
-                table_data.append({
-                    "Pm": f"{obj.Pm:.2f}",
-                    "P": f"{obj.P:.3f}",
-                    "calib": obj.calib.name,
-                    "file": obj.filename,
-                    "x": f"{obj.x:.3f}",
-                    "T": f"{obj.T:.3f}",
-                    "x0": f"{obj.x0:.3f}",
-                    "T0": f"{obj.T0:.3f}"
-                })
-        self.view.PvPmTableWindow.table_widget.updatetable(table_data)
-        self.view.PvPmPlotWindow.updateplot(table_data)
+        self.view.PvPmTableWindow.table_widget.updatetable()
+        self.view.PvPmPlotWindow.updateplot()
 
     def initialize_example(self):
         for i, current_file in enumerate(self.example_files):

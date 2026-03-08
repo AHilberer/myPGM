@@ -16,6 +16,9 @@ class HPTableWidget(QTableWidget):
     def __init__(self):
         super().__init__()
 
+        self.data_manager = None
+        self.row_object_ids = []
+
         self.setStyleSheet(
             "QTableWidget { font-size: 11px; }"
             "QHeaderView::section { padding: 2px; }"
@@ -33,23 +36,60 @@ class HPTableWidget(QTableWidget):
 
         
 
-        #self.cellChanged[int, int].connect(self.getfromentry)
+        #self.cellChanged[int, int].connect(self.get_from_entry)
 
-        # deleteline_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
-        # deleteline_shortcut.activated.connect(self.remove_line)
+        # delete_line_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
+        # delete_line_shortcut.activated.connect(self.remove_line)
 
-    def updatetable(self, incomming_table):
-        if incomming_table == [] or incomming_table is None:
+    def set_data_manager(self, data_manager):
+        self.data_manager = data_manager
+
+    @staticmethod
+    def _format_float(value, decimals):
+        if value is None:
+            return ""
+        return f"{float(value):.{decimals}f}"
+
+    def _build_rows_from_manager(self):
+        if self.data_manager is None:
+            return [], []
+
+        rows = []
+        row_ids = []
+        for obj in self.data_manager.values():
+            if getattr(obj, "include_in_table", False):
+                rows.append(
+                    {
+                        "Pm": self._format_float(obj.Pm, 2),
+                        "P": self._format_float(obj.P, 3),
+                        "x": self._format_float(obj.x, 3),
+                        "T": self._format_float(obj.T, 3),
+                        "x0": self._format_float(obj.x0, 3),
+                        "T0": self._format_float(obj.T0, 3),
+                        "calib": obj.calib.name if obj.calib is not None else "",
+                        "file": obj.filename if obj.filename is not None else "",
+                    }
+                )
+                row_ids.append(obj.id)
+        return rows, row_ids
+
+    def updatetable(self, incoming_table=None):
+        if incoming_table is None:
+            incoming_table, self.row_object_ids = self._build_rows_from_manager()
+        else:
+            self.row_object_ids = []
+
+        if incoming_table == []:
             self.setRowCount(0)
             return
         else:
 
-            self.setRowCount(len(incomming_table))
-            self.setColumnCount(len(incomming_table[0]))
-            self.setHorizontalHeaderLabels(list(incomming_table[0].keys()))
-            self.column_index = {label: i for i, label in enumerate(incomming_table[0].keys())}
+            self.setRowCount(len(incoming_table))
+            self.setColumnCount(len(incoming_table[0]))
+            self.setHorizontalHeaderLabels(list(incoming_table[0].keys()))
+            self.column_index = {label: i for i, label in enumerate(incoming_table[0].keys())}
 
-            for row, data in enumerate(incomming_table):
+            for row, data in enumerate(incoming_table):
                 for key, value in data.items():
                     col = self.column_index[key]
                     self.setItem(row, col, QTableWidgetItem(str(value)))
@@ -62,8 +102,10 @@ class HPTableWidget(QTableWidget):
 
 
 class HPTableWindow(QWidget):
-    def __init__(self): # HPDataTable_, calibrations_):
+    def __init__(self):  # HPDataTable_, calibrations_):
         super().__init__()
+
+        self.data_manager = None
 
         self.setWindowTitle("PvPm table")
         self.setGeometry(1000, 100, 450, 400)
@@ -95,6 +137,7 @@ class HPTableWindow(QWidget):
 
         self.table_save_csv_button.clicked.connect(self.save_data_to_csv)
         self.remove_selected_button.clicked.connect(self.delete_selected)
+        self.clear_table_button.clicked.connect(self.clear_table)
         
 
 
@@ -109,10 +152,31 @@ class HPTableWindow(QWidget):
     def delete_selected(self):
         
         index = self.table_widget.currentRow()
-        # we need access to the object here to the 
-        # PressureGaugeDataObject.include_in_table to set it False
+        if index < 0:
+            return
+
+        if self.data_manager is not None and index < len(self.table_widget.row_object_ids):
+            obj_id = self.table_widget.row_object_ids[index]
+            obj = self.data_manager.get(obj_id, None)
+            if obj is not None:
+                obj.include_in_table = False
+            self.table_widget.updatetable()
+            return
 
         self.table_widget.removeRow(index)
+
+    def clear_table(self):
+        if self.data_manager is not None:
+            for obj in self.data_manager.values():
+                obj.include_in_table = False
+            self.table_widget.updatetable()
+            return
+
+        self.table_widget.setRowCount(0)
+
+    def set_data_manager(self, data_manager):
+        self.data_manager = data_manager
+        self.table_widget.set_data_manager(data_manager)
 
     def save_data_to_csv(self):
         
