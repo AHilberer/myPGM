@@ -291,15 +291,29 @@ class Presenter(QObject):
             msg.setWindowTitle("Error")
             msg.exec_()
 
-    def update_data_plots(self, obj_id):
+    def update_data_plots(self, obj_id, preserve_view=False):
         obj = self.model.get(obj_id, None)
         if obj.original_data is not None:
+            data_view_range = None
+            deriv_view_range = None
+            data_autorange = None
+            deriv_autorange = None
+            if preserve_view:
+                data_vb = self.view.data_widget.plotItem.vb
+                deriv_vb = self.view.deriv_widget.plotItem.vb
+                data_view_range = self.view.data_widget.plotItem.vb.viewRange()
+                deriv_view_range = self.view.deriv_widget.plotItem.vb.viewRange()
+                data_autorange = tuple(data_vb.autoRangeEnabled())
+                deriv_autorange = tuple(deriv_vb.autoRangeEnabled())
+                data_vb.enableAutoRange(x=False, y=False)
+                deriv_vb.enableAutoRange(x=False, y=False)
+
             x, y = obj.get_data_to_process()
             x_min = float(np.min(x))
             x_max = float(np.max(x))
 
             # on utilise buffer (juste pour afficher les unités des axes dans plot_data)
-            self.view.plot_data(x, y, self.buffer)
+            self.view.plot_data(x, y, self.buffer, preserve_view=preserve_view)
             if obj.fit_result is not None:
                 self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y)
 
@@ -314,6 +328,27 @@ class Presenter(QObject):
                 if (not self.view.fit_range_selector_edited) or self._range_needs_reset(current_region, x_min, x_max):
                     self.view.fit_range_selector.setRegion(
                         self._centered_nonzero_range(x_min, x_max)
+                    )
+
+            if preserve_view and data_view_range is not None and deriv_view_range is not None:
+                self.view.data_widget.plotItem.vb.setRange(
+                    xRange=tuple(data_view_range[0]),
+                    yRange=tuple(data_view_range[1]),
+                    padding=0,
+                )
+                self.view.deriv_widget.plotItem.vb.setRange(
+                    xRange=tuple(deriv_view_range[0]),
+                    yRange=tuple(deriv_view_range[1]),
+                    padding=0,
+                )
+                if data_autorange is not None and deriv_autorange is not None:
+                    self.view.data_widget.plotItem.vb.enableAutoRange(
+                        x=bool(data_autorange[0]),
+                        y=bool(data_autorange[1]),
+                    )
+                    self.view.deriv_widget.plotItem.vb.enableAutoRange(
+                        x=bool(deriv_autorange[0]),
+                        y=bool(deriv_autorange[1]),
                     )
             
         else:
@@ -388,7 +423,7 @@ class Presenter(QObject):
             obj = self.model.get(self.current_selected_file, None)
             if bg is not None:
                 obj.subtract_external_bg(bg)
-                self.update_data_plots(self.current_selected_file)
+                self.update_data_plots(self.current_selected_file, preserve_view=True)
         else:
             return
     
@@ -547,7 +582,7 @@ class Presenter(QObject):
                 self.buffer = deepcopy(obj)
                 # set ptoolbox state:
                 self.view.ptoolbox.set_state_from_buffer(self.buffer)
-                self.update_data_plots(self.current_selected_file)
+                self.update_data_plots(self.current_selected_file, preserve_view=True)
 
             except RuntimeError:
                 self.fit_error_popup()
