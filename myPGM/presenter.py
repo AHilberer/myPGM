@@ -2,12 +2,21 @@ import os
 import json
 import numpy as np
 from copy import deepcopy
+from importlib.metadata import PackageNotFoundError, version
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
 from PyQt5.QtCore import Qt, QFileInfo, QObject
 from myPGM.data_model import PressureGaugeDataObject
 import myPGM.calibrations
 import myPGM.fit_models
 from myPGM.helpers import pressure_valid, spectro_calibration_reader
+
+
+def get_app_version():
+    try:
+        return version("myPGM")
+    except PackageNotFoundError:
+        # Running from source tree without installed package metadata.
+        return "dev"
 
 class Presenter(QObject):
     def __init__(self, model, view, test_mode=False):
@@ -28,6 +37,8 @@ class Presenter(QObject):
         self.ordered_files_to_display = []
         self.buffer = PressureGaugeDataObject()
         self.additional_buffer = PressureGaugeDataObject()
+        self.app_version = get_app_version()
+        self.view.setWindowTitle(f"myPGM - myPressureGaugeMonitor v{self.app_version}")
 
 
         self.initialize_calibrations_menu()
@@ -594,7 +605,7 @@ class Presenter(QObject):
             return
 
         session = {
-            "version": 1,
+            "app_version": self.app_version,
             "ordered_files": self.ordered_files_to_display,
             "current_selected_file": self.current_selected_file,
             "buffer": self.buffer.to_dict(),
