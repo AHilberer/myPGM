@@ -478,7 +478,8 @@ class MainWindow(QMainWindow):
             self.turn_off_fit_range_edit()
             self.fit_range_edit_enabled = False
         else:
-            self.data_widget.addItem(self.fit_range_selector)
+            # Do not let the selector item influence ViewBox auto-range.
+            self.data_widget.addItem(self.fit_range_selector, ignoreBounds=True)
         self.fit_range_enabled = not self.fit_range_enabled
 
     def toggle_fit_range_edit(self):
@@ -554,7 +555,7 @@ class MainWindow(QMainWindow):
 
 
 
-    def plot_data(self, x, y, buffer):
+    def plot_data(self, x, y, buffer, preserve_view=False):
         self.data_widget.removeItem(self.data_edge_marker)
         self.deriv_widget.removeItem(self.deriv_edge_marker)
         self.data_widget.removeItem(self.data_fit_line)
@@ -565,7 +566,8 @@ class MainWindow(QMainWindow):
         self.data_widget.setLabel("left", 'Intensity')
 
         self.data_scatter.setData(x, y)
-        self.data_widget.autoRange()
+        if not preserve_view:
+            self.data_widget.autoRange()
 
     # derivative data
         self.deriv_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
@@ -573,7 +575,8 @@ class MainWindow(QMainWindow):
 
         dI = gaussian_filter1d(y, mode="nearest", sigma=1, order=1)
         self.deriv_scatter.setData(x, dI)
-        self.deriv_widget.autoRange()
+        if not preserve_view:
+            self.deriv_widget.autoRange()
 
 
 

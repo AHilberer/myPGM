@@ -2,12 +2,21 @@ import os
 import json
 import numpy as np
 from copy import deepcopy
+from importlib.metadata import PackageNotFoundError, version
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
 from PyQt5.QtCore import Qt, QFileInfo, QObject
 from myPGM.data_model import PressureGaugeDataObject
 import myPGM.calibrations
 import myPGM.fit_models
 from myPGM.helpers import pressure_valid, spectro_calibration_reader
+
+
+def get_app_version():
+    try:
+        return version("myPGM")
+    except PackageNotFoundError:
+        # Running from source tree without installed package metadata.
+        return "dev"
 
 class Presenter(QObject):
     def __init__(self, model, view, test_mode=False):
@@ -28,12 +37,17 @@ class Presenter(QObject):
         self.ordered_files_to_display = []
         self.buffer = PressureGaugeDataObject()
         self.additional_buffer = PressureGaugeDataObject()
+        self.app_version = get_app_version()
+        self.view.setWindowTitle(f"myPGM - myPressureGaugeMonitor v{self.app_version}")
 
 
         self.initialize_calibrations_menu()
         self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
         self.initialize_fit_models_menu()
         self.initialize_buffer()
+        self.view.PvPmTableWindow.set_data_manager(self.model)
+        self.view.PvPmPlotWindow.set_data_manager(self.model)
+        self.view.PvPmTableWindow.table_widget.recall_requested.connect(self.recall_from_table)
 
         #? Setup Signal-Slot interactions
         self.view.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
@@ -75,6 +89,13 @@ class Presenter(QObject):
         calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
         self.view.ptoolbox.initialize(calib_dict)
         self.view.additional_toolbox_window.initialize(calib_dict)
+
+    def _show_error(self, text, title="Error"):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setText(text)
+        msg.setWindowTitle(title)
+        msg.exec_()
 
     def initialize_fit_models_menu(self):
         model_dict = {a.name: a for a in myPGM.fit_models.model_list}
@@ -175,24 +196,38 @@ class Presenter(QObject):
         toolbox, buffer = self._get_toolbox_context()
         # data model method!
         buffer.set_calibration(newcalib)
+
+        default_fit_name = getattr(newcalib, "default_fit_model", None)
+        if default_fit_name in self.fit_models:
+            ind = self.view.fit_model_combo.findText(default_fit_name, Qt.MatchExactly)
+            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
+                self.view.fit_model_combo.setCurrentIndex(ind)
+
+        if toolbox == self.view.ptoolbox and buffer.calib is not None:
+            xlabel = f"{buffer.calib.xname} ({buffer.calib.xunit})"
+            self.view.data_widget.setLabel("bottom", xlabel)
+            self.view.deriv_widget.setLabel("bottom", xlabel)
+
         # view method
         toolbox.set_state_from_buffer(buffer)
 
     def file_selected_from_file_list(self, obj_id):
         self.current_selected_file = obj_id
         self.view.current_file_label.setText(f"{self.model.get(obj_id).filename}")
+
+        obj = self.model.get(self.current_selected_file, None)
+        if obj is None:
+            return
+
         if self.view.Spectro_use_button.isChecked():
             try:
                 if self.corrected_spectro_x is not None:
-                    if self.current_selected_file is not None:
-                        obj = self.model.get(self.current_selected_file, None)
-                        obj.spectro_recalib(self.corrected_spectro_x)
-            except:
+                    obj.spectro_recalib(self.corrected_spectro_x)
+            except Exception:
                 pass
         else:
-            if self.current_selected_file is not None:
-                obj = self.model.get(self.current_selected_file, None)
-                obj.reset_spectro_recalib()
+            obj.reset_spectro_recalib()
+
         self.update_data_plots(obj_id)
         
         # toolbox is updated (is it what we want?)
@@ -238,17 +273,9 @@ class Presenter(QObject):
                 self.add_instance_from_path(file)
                 self.populate_file_list()
             else:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setText("No files in selected directory.")
-                msg.setWindowTitle("Error")
-                msg.exec_()
+                self._show_error("No files in selected directory.")
         else:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("No directory selected.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
+            self._show_error("No directory selected.")
 
     def delete_current_file(self):
         if self.current_selected_file is not None:
@@ -256,70 +283,153 @@ class Presenter(QObject):
             self.model.delete_instance(obj_id)
             self.current_selected_file = None
             self.populate_file_list()
+            self.update_PvPm_table()
+            self.view.current_file_label.setText("No file selected")
         else:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("No file selected to delete.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
+            self._show_error("No file selected to delete.")
 
-    def update_data_plots(self, obj_id):
+    def update_data_plots(self, obj_id, preserve_view=False):
         obj = self.model.get(obj_id, None)
         if obj.original_data is not None:
+            data_view_range = None
+            deriv_view_range = None
+            data_autorange = None
+            deriv_autorange = None
+            if preserve_view:
+                data_vb = self.view.data_widget.plotItem.vb
+                deriv_vb = self.view.deriv_widget.plotItem.vb
+                data_view_range = self.view.data_widget.plotItem.vb.viewRange()
+                deriv_view_range = self.view.deriv_widget.plotItem.vb.viewRange()
+                data_autorange = tuple(data_vb.autoRangeEnabled())
+                deriv_autorange = tuple(deriv_vb.autoRangeEnabled())
+                data_vb.enableAutoRange(x=False, y=False)
+                deriv_vb.enableAutoRange(x=False, y=False)
+
             x, y = obj.get_data_to_process()
+            x_min = float(np.min(x))
+            x_max = float(np.max(x))
 
             # on utilise buffer (juste pour afficher les unités des axes dans plot_data)
-            self.view.plot_data(x, y, self.buffer)
+            self.view.plot_data(x, y, self.buffer, preserve_view=preserve_view)
             if obj.fit_result is not None:
                 self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y)
 
-            if obj.fitting_range is not None:
-                self.view.fit_range_selector.setRegion(obj.fitting_range)
-            else:
-                if not self.view.fit_range_selector_edited:
-                    x_range = x[-1]-x[0]
-                    x_mean = (x[0]+x[-1])/2
-                    self.view.fit_range_selector.setRegion((x_mean - x_range*0.15, x_mean + x_range*0.15))
-            
+            self.view.fit_range_selector.setBounds((x_min, x_max))
 
-            self.view.fit_range_selector.setBounds((x[0], x[-1]))
+            if obj.fitting_range is not None:
+                sanitized_range = self._sanitize_fitting_range(obj.fitting_range, x_min, x_max)
+                obj.fitting_range = sanitized_range
+                self.view.fit_range_selector.setRegion(sanitized_range)
+            else:
+                current_region = self.view.fit_range_selector.getRegion()
+                if (not self.view.fit_range_selector_edited) or self._range_needs_reset(current_region, x_min, x_max):
+                    self.view.fit_range_selector.setRegion(
+                        self._centered_nonzero_range(x_min, x_max)
+                    )
+
+            if preserve_view and data_view_range is not None and deriv_view_range is not None:
+                self.view.data_widget.plotItem.vb.setRange(
+                    xRange=tuple(data_view_range[0]),
+                    yRange=tuple(data_view_range[1]),
+                    padding=0,
+                )
+                self.view.deriv_widget.plotItem.vb.setRange(
+                    xRange=tuple(deriv_view_range[0]),
+                    yRange=tuple(deriv_view_range[1]),
+                    padding=0,
+                )
+                if data_autorange is not None and deriv_autorange is not None:
+                    self.view.data_widget.plotItem.vb.enableAutoRange(
+                        x=bool(data_autorange[0]),
+                        y=bool(data_autorange[1]),
+                    )
+                    self.view.deriv_widget.plotItem.vb.enableAutoRange(
+                        x=bool(deriv_autorange[0]),
+                        y=bool(deriv_autorange[1]),
+                    )
             
         else:
             print('No data to be plotted.')
 
+    def _centered_nonzero_range(self, x_min, x_max):
+        x_span = max(float(x_max) - float(x_min), 1e-9)
+        x_mean = (float(x_min) + float(x_max)) / 2.0
+        half_width = max(x_span * 0.15, 1e-6)
+        return (x_mean - half_width, x_mean + half_width)
+
+    def _sanitize_fitting_range(self, fit_range, x_min, x_max):
+        centered = self._centered_nonzero_range(x_min, x_max)
+
+        if fit_range is None or len(fit_range) != 2:
+            return centered
+
+        try:
+            low = float(fit_range[0])
+            high = float(fit_range[1])
+        except (TypeError, ValueError):
+            return centered
+
+        if not (np.isfinite(low) and np.isfinite(high)):
+            return centered
+
+        if low > high:
+            low, high = high, low
+
+        low = max(low, float(x_min))
+        high = min(high, float(x_max))
+
+        x_span = max(float(x_max) - float(x_min), 1e-9)
+        min_width = max(x_span * 0.02, 1e-6)
+
+        # If the range collapses (typically clipped to one edge), recenter it.
+        if (high - low) < min_width:
+            return centered
+
+        return (low, high)
+
+    def _range_needs_reset(self, fit_range, x_min, x_max):
+        sanitized = self._sanitize_fitting_range(fit_range, x_min, x_max)
+        low, high = float(sanitized[0]), float(sanitized[1])
+        cur_low = float(fit_range[0]) if fit_range is not None and len(fit_range) == 2 else np.nan
+        cur_high = float(fit_range[1]) if fit_range is not None and len(fit_range) == 2 else np.nan
+
+        if not (np.isfinite(cur_low) and np.isfinite(cur_high)):
+            return True
+
+        return (abs(cur_low - low) > 1e-12) or (abs(cur_high - high) > 1e-12)
+
 
     def smoothen(self, smoothing_factor):
-        if self.current_selected_file is not None:
-            obj = self.model.get(self.current_selected_file, None)
-            obj.smoothen(int(smoothing_factor))
-            self.update_data_plots(self.current_selected_file)
-        else:
-            return
-    
-    def subtract_auto_bg(self):
-        if self.current_selected_file is not None:
-            obj = self.model.get(self.current_selected_file, None)
-            obj.convexhull_bg()
-            self.update_data_plots(self.current_selected_file)
-        else:
+        if self.current_selected_file is None:
             return
 
-    def subtract_manual_bg(self, bg):
-        if self.current_selected_file is not None:
-            obj = self.model.get(self.current_selected_file, None)
-            if bg is not None:
-                obj.subtract_external_bg(bg)
-                self.update_data_plots(self.current_selected_file)
-        else:
+        obj = self.model.get(self.current_selected_file, None)
+        obj.smoothen(int(smoothing_factor))
+        self.update_data_plots(self.current_selected_file)
+    
+    def subtract_auto_bg(self):
+        if self.current_selected_file is None:
             return
+
+        obj = self.model.get(self.current_selected_file, None)
+        obj.convexhull_bg()
+        self.update_data_plots(self.current_selected_file)
+
+    def subtract_manual_bg(self, bg):
+        if self.current_selected_file is None or bg is None:
+            return
+
+        obj = self.model.get(self.current_selected_file, None)
+        obj.subtract_external_bg(bg)
+        self.update_data_plots(self.current_selected_file, preserve_view=True)
     
     def reset_bg(self):
-        if self.current_selected_file is not None:
-            obj = self.model.get(self.current_selected_file, None)
-            obj.reset_bg()
-            self.update_data_plots(self.current_selected_file)
-        else:
+        if self.current_selected_file is None:
             return
+
+        obj = self.model.get(self.current_selected_file, None)
+        obj.reset_bg()
+        self.update_data_plots(self.current_selected_file)
 
 
     def load_spectro_calibration(self):
@@ -339,17 +449,18 @@ class Presenter(QObject):
         return 
     
     def toggle_spectro_calib(self, checked):
+        if self.current_selected_file is None:
+            return
+
+        obj = self.model.get(self.current_selected_file, None)
         if checked:
             if self.corrected_spectro_x is not None:
-                if self.current_selected_file is not None:
-                    obj = self.model.get(self.current_selected_file, None)
-                    obj.spectro_recalib(self.corrected_spectro_x)
-                    self.update_data_plots(self.current_selected_file)
-        else:
-            if self.current_selected_file is not None:
-                obj = self.model.get(self.current_selected_file, None)
-                obj.reset_spectro_recalib()
+                obj.spectro_recalib(self.corrected_spectro_x)
                 self.update_data_plots(self.current_selected_file)
+            return
+
+        obj.reset_spectro_recalib()
+        self.update_data_plots(self.current_selected_file)
 
     def populate_file_list(self): 
         self.view.file_list_widget.list_widget.clear()
@@ -379,6 +490,33 @@ class Presenter(QObject):
             if item.data(Qt.UserRole) == obj_id:
                 list_widget.setCurrentItem(item)
                 return
+
+    def recall_from_table(self, obj_id):
+        try:
+            obj_id = int(obj_id)
+        except (TypeError, ValueError):
+            return
+
+        obj = self.model.get(obj_id, None)
+        if obj is None:
+            return
+
+        # If the entry is tied to a loaded file, reuse the normal file-selection flow.
+        if getattr(obj, "include_in_filelist", False):
+            self.select_file_in_list(obj_id)
+            self.file_selected_from_file_list(obj_id)
+            return
+
+        # For table-only entries, restore toolbox state from the recalled object.
+        self.current_selected_file = None
+        self.view.current_file_label.setText("No file selected")
+        self.buffer = deepcopy(obj)
+        self.view.ptoolbox.set_state_from_buffer(self.buffer)
+
+        if obj.fit_model is not None and obj.fit_model.name in self.fit_models:
+            ind = self.view.fit_model_combo.findText(obj.fit_model.name, Qt.MatchExactly)
+            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
+                self.view.fit_model_combo.setCurrentIndex(ind)
 
 
     def move_up(self):
@@ -441,7 +579,7 @@ class Presenter(QObject):
                 self.buffer = deepcopy(obj)
                 # set ptoolbox state:
                 self.view.ptoolbox.set_state_from_buffer(self.buffer)
-                self.update_data_plots(self.current_selected_file)
+                self.update_data_plots(self.current_selected_file, preserve_view=True)
 
             except RuntimeError:
                 self.fit_error_popup()
@@ -456,36 +594,14 @@ class Presenter(QObject):
                 obj.include_in_table = True
                 self.update_PvPm_table()
             else:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setText("No fit result to add to table.")
-                msg.setWindowTitle("Error")
-                msg.exec_()
+                self._show_error("No fit result to add to table.")
         else:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("No file selected.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
+            self._show_error("No file selected.")
 
 
     def update_PvPm_table(self):
-        table_data = []
-        self.view.PvPmTableWindow.table_widget.clearContents()
-        for obj in self.model.values():
-            if getattr(obj, "include_in_table", False):
-                table_data.append({
-                    "Pm": f"{obj.Pm:.2f}",
-                    "P": f"{obj.P:.3f}",
-                    "calib": obj.calib.name,
-                    "file": obj.filename,
-                    "x": f"{obj.x:.3f}",
-                    "T": f"{obj.T:.3f}",
-                    "x0": f"{obj.x0:.3f}",
-                    "T0": f"{obj.T0:.3f}"
-                })
-        self.view.PvPmTableWindow.table_widget.updatetable(table_data)
-        self.view.PvPmPlotWindow.updateplot(table_data)
+        self.view.PvPmTableWindow.table_widget.updatetable()
+        self.view.PvPmPlotWindow.updateplot()
 
     def initialize_example(self):
         for i, current_file in enumerate(self.example_files):
@@ -513,7 +629,7 @@ class Presenter(QObject):
             return
 
         session = {
-            "version": 1,
+            "app_version": self.app_version,
             "ordered_files": self.ordered_files_to_display,
             "current_selected_file": self.current_selected_file,
             "buffer": self.buffer.to_dict(),
@@ -528,11 +644,7 @@ class Presenter(QObject):
             with open(file_path, "w", encoding="utf-8") as file_handle:
                 json.dump(session, file_handle, indent=2)
         except Exception as exc:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText(f"Failed to save session: {exc}")
-            msg.setWindowTitle("Save error")
-            msg.exec_()
+            self._show_error(f"Failed to save session: {exc}", title="Save error")
 
     def load_session(self):
         file_path = self.view.get_open_session_filename_dialog()
@@ -543,11 +655,7 @@ class Presenter(QObject):
             with open(file_path, "r", encoding="utf-8") as file_handle:
                 session = json.load(file_handle)
         except Exception as exc:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText(f"Failed to load session: {exc}")
-            msg.setWindowTitle("Load error")
-            msg.exec_()
+            self._show_error(f"Failed to load session: {exc}", title="Load error")
             return
 
         self.model.clear()

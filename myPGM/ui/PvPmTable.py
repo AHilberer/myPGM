@@ -7,16 +7,22 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QTableWidget,
+    QAbstractItemView,
 )
+from PyQt5.QtCore import pyqtSignal
 
 
 class HPTableWidget(QTableWidget):
     """Qt widget class for HPDataTable objects"""
 
+    # Use object to avoid truncation of large integer IDs in Qt int signals.
+    recall_requested = pyqtSignal(object)
+
     def __init__(self):
         super().__init__()
 
-        #self.data = HPDataTable_
+        self.data_manager = None
+        self.row_object_ids = []
 
         self.setStyleSheet(
             "QTableWidget { font-size: 11px; }"
@@ -24,50 +30,95 @@ class HPTableWidget(QTableWidget):
             "QTableWidget::item { padding: 2px; }"
         )
 
-        #nrows, ncols = self.data.df.shape
-
         column_labels = ["Pm", "P", "x", "T", "x0", "T0", "calib", "file"]
         self.setColumnCount(len(column_labels))
-        self.setRowCount(3)
+        #self.setRowCount(3)
 
         self.setHorizontalHeaderLabels(column_labels)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.verticalHeader().setDefaultSectionSize(18)
         self.horizontalHeader().setDefaultSectionSize(70)
+        self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.cellDoubleClicked.connect(self._on_cell_double_clicked)
 
         
 
-        #self.cellChanged[int, int].connect(self.getfromentry)
+        #self.cellChanged[int, int].connect(self.get_from_entry)
 
-        # deleteline_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
-        # deleteline_shortcut.activated.connect(self.remove_line)
+        # delete_line_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
+        # delete_line_shortcut.activated.connect(self.remove_line)
 
-    def updatetable(self, incomming_table):
-        if incomming_table == [] or incomming_table is None:
+    def set_data_manager(self, data_manager):
+        self.data_manager = data_manager
+
+    @staticmethod
+    def _format_float(value, decimals):
+        if value is None:
+            return ""
+        return f"{float(value):.{decimals}f}"
+
+    def _build_rows_from_manager(self):
+        if self.data_manager is None:
+            return [], []
+
+        rows = []
+        row_ids = []
+        for obj in self.data_manager.values():
+            if getattr(obj, "include_in_table", False):
+                rows.append(
+                    {
+                        "Pm": self._format_float(obj.Pm, 2),
+                        "P": self._format_float(obj.P, 3),
+                        "x": self._format_float(obj.x, 3),
+                        "T": self._format_float(obj.T, 3),
+                        "x0": self._format_float(obj.x0, 3),
+                        "T0": self._format_float(obj.T0, 3),
+                        "calib": obj.calib.name if obj.calib is not None else "",
+                        "file": obj.filename if obj.filename is not None else "",
+                    }
+                )
+                row_ids.append(obj.id)
+        return rows, row_ids
+
+    def updatetable(self, incoming_table=None):
+        if incoming_table is None:
+            incoming_table, self.row_object_ids = self._build_rows_from_manager()
+        else:
+            self.row_object_ids = []
+
+        if incoming_table == []:
             self.setRowCount(0)
             return
         else:
 
-            self.setRowCount(len(incomming_table))
-            self.setColumnCount(len(incomming_table[0]))
-            self.setHorizontalHeaderLabels(list(incomming_table[0].keys()))
-            self.column_index = {label: i for i, label in enumerate(incomming_table[0].keys())}
+            self.setRowCount(len(incoming_table))
+            self.setColumnCount(len(incoming_table[0]))
+            self.setHorizontalHeaderLabels(list(incoming_table[0].keys()))
+            self.column_index = {label: i for i, label in enumerate(incoming_table[0].keys())}
 
-            for row, data in enumerate(incomming_table):
+            for row, data in enumerate(incoming_table):
                 for key, value in data.items():
                     col = self.column_index[key]
                     self.setItem(row, col, QTableWidgetItem(str(value)))
 
+    def _on_cell_double_clicked(self, row, _column):
+        if 0 <= row < len(self.row_object_ids):
+            self.recall_requested.emit(self.row_object_ids[row])
 
-    def remove_line(self):
-        index = self.currentRow()
-        if index >= 0:
-            self.data.removespecific(index)
+
+#    def remove_line(self):
+#        index = self.currentRow()
+#        if index >= 0:
+#            self.data.removespecific(index)
 
 
 class HPTableWindow(QWidget):
-    def __init__(self): # HPDataTable_, calibrations_):
+    def __init__(self):  # HPDataTable_, calibrations_):
         super().__init__()
+
+        self.data_manager = None
 
         self.setWindowTitle("PvPm table")
         self.setGeometry(1000, 100, 450, 400)
@@ -83,8 +134,13 @@ class HPTableWindow(QWidget):
 
         table_actions_layout = QHBoxLayout()
 
-        self.table_save_csv_button = QPushButton("Save table to csv")
+        self.remove_selected_button = QPushButton("Remove selected")
+        self.clear_table_button = QPushButton("Clear table")
+
+        self.table_save_csv_button = QPushButton("Export table to csv")
         # self.table_load_csv_button = QPushButton("Load data from csv")
+        table_actions_layout.addWidget(self.remove_selected_button)        
+        table_actions_layout.addWidget(self.clear_table_button)        
         table_actions_layout.addWidget(self.table_save_csv_button)
         # table_actions_layout.addWidget(self.table_load_csv_button)
 
@@ -93,12 +149,47 @@ class HPTableWindow(QWidget):
         self.setLayout(layout)
 
         self.table_save_csv_button.clicked.connect(self.save_data_to_csv)
+        self.remove_selected_button.clicked.connect(self.delete_selected)
+        self.clear_table_button.clicked.connect(self.clear_table)
+        
+
+
+
         # self.table_load_csv_button.clicked.connect(self.load_data_from_csv)
 
         # save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
         # load_shortcut = QShortcut(QKeySequence("Ctrl+O"), self)
         # save_shortcut.activated.connect(self.save_data_to_csv)
         # load_shortcut.activated.connect(self.load_data_from_csv)
+
+    def delete_selected(self):
+        
+        index = self.table_widget.currentRow()
+        if index < 0:
+            return
+
+        if self.data_manager is not None and index < len(self.table_widget.row_object_ids):
+            obj_id = self.table_widget.row_object_ids[index]
+            obj = self.data_manager.get(obj_id, None)
+            if obj is not None:
+                obj.include_in_table = False
+            self.table_widget.updatetable()
+            return
+
+        self.table_widget.removeRow(index)
+
+    def clear_table(self):
+        if self.data_manager is not None:
+            for obj in self.data_manager.values():
+                obj.include_in_table = False
+            self.table_widget.updatetable()
+            return
+
+        self.table_widget.setRowCount(0)
+
+    def set_data_manager(self, data_manager):
+        self.data_manager = data_manager
+        self.table_widget.set_data_manager(data_manager)
 
     def save_data_to_csv(self):
         
@@ -146,21 +237,21 @@ class HPTableWindow(QWidget):
         else:
             return None
 
-    def get_load_filename_dialog(self):
-        options = QFileDialog.Options()
-        # options = QFileDialog.DontUseNativeDialog
-        # seems to bring an warning on Linux 5.10.0-19-amd64 #1 SMP Debian 5.10.149-2 (2022-10-21) x86_64 GNU/Linux
-        # if I choose to not use Native Dialog - Hope it works with native on other platform
+    # def get_load_filename_dialog(self):
+    #     options = QFileDialog.Options()
+    #     # options = QFileDialog.DontUseNativeDialog
+    #     # seems to bring an warning on Linux 5.10.0-19-amd64 #1 SMP Debian 5.10.149-2 (2022-10-21) x86_64 GNU/Linux
+    #     # if I choose to not use Native Dialog - Hope it works with native on other platform
 
-        fileName, _ = QFileDialog.getOpenFileName(
-            self,
-            "myPGM: Load data from csv",
-            "",
-            "CSV Files (*.csv);;All Files (*)",
-            options=options,
-        )
-        if fileName:
-            return fileName
-        else:
-            return None
+    #     fileName, _ = QFileDialog.getOpenFileName(
+    #         self,
+    #         "myPGM: Load data from csv",
+    #         "",
+    #         "CSV Files (*.csv);;All Files (*)",
+    #         options=options,
+    #     )
+    #     if fileName:
+    #         return fileName
+    #     else:
+    #         return None
 
