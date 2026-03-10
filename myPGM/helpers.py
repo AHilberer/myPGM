@@ -111,7 +111,14 @@ def spectro_calibration_reader(f):
         with open(f, 'r') as file:
             data_lines = []
             for line in file:
-                data_lines.append(line)
+                try:
+                    # in case of header/footer
+                    v = float(line)
+                    data_lines.append(v)
+                except ValueError:
+                    #print(line)
+                    pass
+
             data = np.array(data_lines, dtype=np.float64)
         return data
 
@@ -124,13 +131,16 @@ def spectro_calibration_reader(f):
 if __name__ == '__main__':
     
     import os
-    f1 = os.path.dirname(__file__)+'/resources/'+'alternate_spectro_calib_2cols.asc'
-    f2 = os.path.dirname(__file__)+'/resources/'+'Example_Ruby_1.asc'
 
-    print(spectro_calibration_reader(f1))
+    f1 = os.path.dirname(__file__)+'/resources/'+'Example_Ruby_1.asc'
+    f2 = os.path.dirname(__file__)+'/resources/'+'alternate_spectro_calib_2cols.asc'
+    f3 = os.path.dirname(__file__)+'/resources/'+'alternate_spectro_calib_1col_header.asc'    
+
+
+    print(customparse_file2data(f1))
 
     print(spectro_calibration_reader(f2))
+    print(spectro_calibration_reader(f3))
 
 
-    print(customparse_file2data(f2))
-
+    print(all(spectro_calibration_reader(f2) == spectro_calibration_reader(f3)))
