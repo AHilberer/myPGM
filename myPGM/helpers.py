@@ -71,7 +71,9 @@ def customparse_file2data(f):
         chunk = file.read(chunk_size)
         file.seek(0)  # Reset file pointer to the beginning
 
-        delimiter = csv.Sniffer().sniff(chunk).delimiter
+#        delimiter = csv.Sniffer().sniff(chunk).delimiter
+        candidates = [',', '\t', ';', ' ']
+        delimiter = max(candidates, key=lambda d: chunk.count(d))
 
         count = 0
         data_lines = []
@@ -99,17 +101,46 @@ def customparse_file2data(f):
         return data[:, :2] 
 
 def spectro_calibration_reader(f):
-    with open(f, 'r') as file:
-        data_lines = []
-        for line in file:
-            data_lines.append(line)
-        data = np.array(data_lines, dtype=np.float64)
-
+    try:
+        # two-column file
+        data = customparse_file2data(f)[:, 0]
         return data
+
+    except IndexError:
+        # single-column file (?)
+        with open(f, 'r') as file:
+            data_lines = []
+            for line in file:
+                try:
+                    # in case of header/footer
+                    v = float(line)
+                    data_lines.append(v)
+                except ValueError:
+                    #print(line)
+                    pass
+
+            data = np.array(data_lines, dtype=np.float64)
+        return data
+
+    except Exception as e:
+        # catch any other exception
+        print(f"An error occurred: {e}")
+        return None  
 
 
 if __name__ == '__main__':
-    import os
-    f1 = os.path.dirname(__file__)+'/resources/various_file_formats/'+'Example_Ruby_3_tab_very_long_header.asc'
     
+    import os
+
+    f1 = os.path.dirname(__file__)+'/resources/'+'Example_Ruby_1.asc'
+    f2 = os.path.dirname(__file__)+'/resources/'+'alternate_spectro_calib_2cols.asc'
+    f3 = os.path.dirname(__file__)+'/resources/'+'alternate_spectro_calib_1col_header.asc'    
+
+
     print(customparse_file2data(f1))
+
+    print(spectro_calibration_reader(f2))
+    print(spectro_calibration_reader(f3))
+
+
+    print(all(spectro_calibration_reader(f2) == spectro_calibration_reader(f3)))

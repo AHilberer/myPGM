@@ -24,6 +24,7 @@ class HPTableWidget(QTableWidget):
         self.data_manager = None
         self.row_object_ids = []
 
+
         self.setStyleSheet(
             "QTableWidget { font-size: 11px; }"
             "QHeaderView::section { padding: 2px; }"
@@ -35,9 +36,21 @@ class HPTableWidget(QTableWidget):
         #self.setRowCount(3)
 
         self.setHorizontalHeaderLabels(column_labels)
-        self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+#        self.resizeColumnsToContents()
+        h_header = self.horizontalHeader()
+        ncols = self.columnCount()
+        
+        for col in range(ncols-2):
+            h_header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        
+        self.setColumnWidth(ncols-2, 70)
+        h_header.setSectionResizeMode(ncols-2, QHeaderView.Interactive)
+        
+        h_header.setSectionResizeMode(ncols-1, QHeaderView.Stretch)
+
         self.verticalHeader().setDefaultSectionSize(18)
-        self.horizontalHeader().setDefaultSectionSize(70)
+#        self.horizontalHeader().setDefaultSectionSize(70)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -121,7 +134,7 @@ class HPTableWindow(QWidget):
         self.data_manager = None
 
         self.setWindowTitle("PvPm table")
-        self.setGeometry(1000, 100, 450, 400)
+        self.setGeometry(1000, 100, 500, 400)
 
         # centerPoint = QDesktopWidget().availableGeometry().center()
         # thePosition = (centerPoint.x() + 200, centerPoint.y() + 50)
