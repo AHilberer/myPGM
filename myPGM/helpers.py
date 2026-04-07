@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 from copy import deepcopy
 from scipy.optimize import minimize
 from PyQt5.QtWidgets import QFrame
