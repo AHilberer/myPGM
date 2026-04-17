@@ -48,6 +48,7 @@ class Presenter(QObject):
         self.view.PvPmTableWindow.set_data_manager(self.model)
         self.view.PvPmPlotWindow.set_data_manager(self.model)
         self.view.PvPmTableWindow.table_widget.recall_requested.connect(self.recall_from_table)
+        self.view.PvPmTableWindow.table_changed.connect(self.update_PvPm_table)
 
         #? Setup Signal-Slot interactions
         self.view.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)

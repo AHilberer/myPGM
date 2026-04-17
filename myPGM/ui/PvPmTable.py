@@ -130,6 +130,8 @@ class HPTableWidget(QTableWidget):
 
 
 class HPTableWindow(QWidget):
+    table_changed = pyqtSignal()
+
     def __init__(self):  # HPDataTable_, calibrations_):
         super().__init__()
 
@@ -188,7 +190,7 @@ class HPTableWindow(QWidget):
             obj = self.data_manager.get(obj_id, None)
             if obj is not None:
                 obj.include_in_table = False
-            self.table_widget.updatetable()
+            self.table_changed.emit()
             return
 
         self.table_widget.removeRow(index)
@@ -197,7 +199,7 @@ class HPTableWindow(QWidget):
         if self.data_manager is not None:
             for obj in self.data_manager.values():
                 obj.include_in_table = False
-            self.table_widget.updatetable()
+            self.table_changed.emit()
             return
 
         self.table_widget.setRowCount(0)
