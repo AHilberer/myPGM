@@ -4,6 +4,7 @@
 <img alt="Demo myPGM UI" src="myPGM/resources/UI_demo.png"> </img>
 </div>
 
+<br>
 
 **myPGM** is a spectroscopic pressure gauge fitting software for pressure determination in high pressure experiments.
 
@@ -41,9 +42,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-Run the code.
-
-To exit the virtual environment use:
+Later, to exit the virtual environment use:
 
 ```bash
 deactivate
@@ -55,8 +54,6 @@ deactivate
 ```bash
 python3 -m pip install -r requirements.txt
 ```
-
-or manually install the required non-native python packages: numpy, pandas, matplotlib, scipy and PyQt5.
 
 ### 4) Run as a script:
 
@@ -72,4 +69,4 @@ Currently not available (WIP)
 ## Contributors
 
 - __Antoine Hilberer__ - antoine.hilberer@cea.fr
-- __Alexis Forestier__
+- __Alexis Forestier__ - alexis.forestier@cea.fr
