@@ -136,7 +136,7 @@ class MainWindow(QMainWindow):
 
         #PToolboxSubactionsLayout = QVBoxLayout()        
         #self.popPToolbox_button = QPushButton('New PToolbox')
-        self.PToolbox_toTable_button = QPushButton('Add to Table')
+        self.PToolbox_toTable_button = QPushButton('Add \nto\n table')
 
 
         PToolboxLayout.addWidget(self.ptoolbox, stretch=10)
