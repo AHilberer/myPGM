@@ -1,3 +1,5 @@
+import csv
+
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -205,16 +207,16 @@ class HPTableWindow(QWidget):
         self.table_widget.set_data_manager(data_manager)
 
     def save_data_to_csv(self):
-        
-        file = self.get_save_filename_dialog()
-        if file:
-            with open(file, "w") as file:
+        file_path = self.get_save_filename_dialog()
+        if file_path:
+            with open(file_path, "w", newline="", encoding="utf-8") as file_handle:
+                writer = csv.writer(file_handle)
                 row_count = self.table_widget.rowCount()
                 column_count = self.table_widget.columnCount()
 
                 # Write header row
                 headers = [self.table_widget.horizontalHeaderItem(i).text() for i in range(column_count)]
-                file.write(",".join(headers) + "\n")
+                writer.writerow(headers)
 
                 # Write data rows
                 for row in range(row_count):
@@ -222,7 +224,7 @@ class HPTableWindow(QWidget):
                     for col in range(column_count):
                         item = self.table_widget.item(row, col)
                         row_data.append(item.text() if item else "")
-                    file.write(",".join(row_data) + "\n")
+                    writer.writerow(row_data)
 
 
     def get_save_filename_dialog(self):
