@@ -2,6 +2,14 @@ QMainWindow {
   background: #202020;
 }
 
+QDialog {
+  background-color: #202020;
+}
+
+QInputDialog {
+  background-color: #202020;
+}
+
 PressureToolbox {
   background-color: #202020;
 }

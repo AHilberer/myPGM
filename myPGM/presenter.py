@@ -76,6 +76,7 @@ class Presenter(QObject):
 
         self.view.open_session_signal.connect(self.load_session)
         self.view.save_session_signal.connect(self.save_session)
+        self.view.theme_switched.connect(self.on_theme_switched)
 
         self.view.PToolbox_toTable_button.clicked.connect(self.add_current_PToolbox_to_table)
 
@@ -351,6 +352,10 @@ class Presenter(QObject):
         else:
             print('No data to be plotted.')
 
+    def on_theme_switched(self):
+        if self.current_selected_file is not None:
+            self.update_data_plots(self.current_selected_file, preserve_view=True)
+
     def _centered_nonzero_range(self, x_min, x_max):
         x_span = max(float(x_max) - float(x_min), 1e-9)
         x_mean = (float(x_min) + float(x_max)) / 2.0
@@ -587,10 +592,16 @@ class Presenter(QObject):
     def fit_error_popup(self):
         self.view.fit_error_popup_window()
 
-    def add_current_fit_to_table(self):
+    def add_current_fit_to_table(self, _=None):
         if self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
             if obj.fit_result is not None:
+                pm_value = self.view.prompt_fit_pm(self.buffer.Pm)
+                if pm_value is None:
+                    return
+                obj.set_Pm(pm_value)
+                self.buffer.set_Pm(pm_value)
+                self.view.ptoolbox.set_Pmval(pm_value)
                 obj.include_in_table = True
                 self.update_PvPm_table()
             else:

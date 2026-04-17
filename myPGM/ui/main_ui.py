@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (
     QDoubleSpinBox,
     QGroupBox,
     QMessageBox,
+    QInputDialog,
     QAction,
     QGridLayout,
     QSplitter,
@@ -403,7 +404,7 @@ class MainWindow(QMainWindow):
         self.PvPmPlotWindow.set_dark_mode()
 #        self.PvPmPlotWindow.updateplot()
 
-        #self.theme_switched.emit() #need to replot data ?
+        self.theme_switched.emit()
 
     def switch_to_light(self):
         try:
@@ -436,7 +437,7 @@ class MainWindow(QMainWindow):
         self.additional_toolbox_window.set_light_mode()
         #self.PvPmPlotWindow.updateplot()
 
-        #self.theme_switched.emit() #need to replot data ?
+        self.theme_switched.emit()
 
 
     def populate_fit_models_combo(self, model_dict):
@@ -463,6 +464,19 @@ class MainWindow(QMainWindow):
 
     def add_current_fit(self):
         self.add_current_fit_signal.emit(None)
+
+    def prompt_fit_pm(self, current_pm):
+        dialog = QInputDialog(self)
+        dialog.setInputMode(QInputDialog.DoubleInput)
+        dialog.setWindowTitle("Input Pm")
+        dialog.setLabelText("Pm (bar)")
+        dialog.setDoubleValue(current_pm)
+        dialog.setDoubleRange(-1e12, 1e12)
+        dialog.setDoubleDecimals(2)
+        dialog.setStyleSheet(self.styleSheet())
+        if dialog.exec_():
+            return dialog.doubleValue()
+        return None
 
     def toggle_derivative(self, checked):
         if self.Derivative_enabled:
