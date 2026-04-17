@@ -122,9 +122,7 @@ def spectro_calibration_reader(f):
         return data
 
     except Exception as e:
-        # catch any other exception
-        print(f"An error occurred: {e}")
-        return None  
+        raise RuntimeError(f"Could not read spectrometer calibration file: {e}") from e
 
 
 if __name__ == '__main__':

@@ -98,6 +98,33 @@ class Presenter(QObject):
         msg.setWindowTitle(title)
         msg.exec_()
 
+    def _get_spectro_reference_object(self):
+        if self.current_selected_file is not None:
+            obj = self.model.get(self.current_selected_file, None)
+            if obj is not None and obj.original_data is not None:
+                return obj
+
+        for obj in self.model.values():
+            if obj.original_data is not None:
+                return obj
+
+        return None
+
+    def _validate_spectro_calibration(self, corrected_spectro_x):
+        if corrected_spectro_x is None or len(corrected_spectro_x) == 0:
+            raise RuntimeError("Calibration file is empty or could not be parsed.")
+
+        reference_obj = self._get_spectro_reference_object()
+        if reference_obj is None:
+            return
+
+        reference_x, _ = reference_obj.get_data_to_process()
+        if len(corrected_spectro_x) != len(reference_x):
+            raise RuntimeError(
+                "Calibration file length does not match the loaded spectra "
+                f"({len(corrected_spectro_x)} vs {len(reference_x)} points)."
+            )
+
     def initialize_fit_models_menu(self):
         model_dict = {a.name: a for a in myPGM.fit_models.model_list}
         self.fit_models = model_dict
@@ -438,19 +465,36 @@ class Presenter(QObject):
 
 
     def load_spectro_calibration(self):
+        selected_files = self.view.get_file_via_dialog()
+        if not selected_files:
+            return
+
+        selected_file = selected_files[0]
+        file_info = QFileInfo(selected_file)
+        file_name = file_info.fileName()
+
         try:
-            selected_file = self.view.get_file_via_dialog()[0]
-            file_info = QFileInfo(selected_file)
-            file_name = file_info.fileName()
-        except:
-            raise RuntimeError("File selection dialog failed.")
-        if selected_file is not None:
-            try:
-                self.corrected_spectro_x = spectro_calibration_reader(selected_file)
-                self.view.Spectro_filename_label.setText(file_name)
-            except:
-                RuntimeError("Failed to load spectrometer calibration file.")
-            #print(self.corrected_spectro_x)
+            corrected_spectro_x = spectro_calibration_reader(selected_file)
+            self._validate_spectro_calibration(corrected_spectro_x)
+        except Exception as exc:
+            self.corrected_spectro_x = None
+            self.view.Spectro_filename_label.setText("None")
+            self.view.Spectro_use_button.setChecked(False)
+            self._show_error(
+                f"Failed to load spectrometer calibration file: {exc}",
+                title="Calibration load error",
+            )
+            return
+
+        self.corrected_spectro_x = corrected_spectro_x
+        self.view.Spectro_filename_label.setText(file_name)
+
+        if self.view.Spectro_use_button.isChecked() and self.current_selected_file is not None:
+            obj = self.model.get(self.current_selected_file, None)
+            if obj is not None:
+                obj.spectro_recalib(self.corrected_spectro_x)
+                self.update_data_plots(self.current_selected_file)
+
         return 
     
     def toggle_spectro_calib(self, checked):
