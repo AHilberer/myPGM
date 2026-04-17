@@ -1,3 +1,5 @@
+import csv
+
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -24,6 +26,7 @@ class HPTableWidget(QTableWidget):
         self.data_manager = None
         self.row_object_ids = []
 
+
         self.setStyleSheet(
             "QTableWidget { font-size: 11px; }"
             "QHeaderView::section { padding: 2px; }"
@@ -35,9 +38,21 @@ class HPTableWidget(QTableWidget):
         #self.setRowCount(3)
 
         self.setHorizontalHeaderLabels(column_labels)
-        self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+#        self.resizeColumnsToContents()
+        h_header = self.horizontalHeader()
+        ncols = self.columnCount()
+        
+        for col in range(ncols-2):
+            h_header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        
+        self.setColumnWidth(ncols-2, 70)
+        h_header.setSectionResizeMode(ncols-2, QHeaderView.Interactive)
+        
+        h_header.setSectionResizeMode(ncols-1, QHeaderView.Stretch)
+
         self.verticalHeader().setDefaultSectionSize(18)
-        self.horizontalHeader().setDefaultSectionSize(70)
+#        self.horizontalHeader().setDefaultSectionSize(70)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -115,13 +130,15 @@ class HPTableWidget(QTableWidget):
 
 
 class HPTableWindow(QWidget):
+    table_changed = pyqtSignal()
+
     def __init__(self):  # HPDataTable_, calibrations_):
         super().__init__()
 
         self.data_manager = None
 
         self.setWindowTitle("PvPm table")
-        self.setGeometry(1000, 100, 450, 400)
+        self.setGeometry(1000, 100, 500, 400)
 
         # centerPoint = QDesktopWidget().availableGeometry().center()
         # thePosition = (centerPoint.x() + 200, centerPoint.y() + 50)
@@ -173,7 +190,7 @@ class HPTableWindow(QWidget):
             obj = self.data_manager.get(obj_id, None)
             if obj is not None:
                 obj.include_in_table = False
-            self.table_widget.updatetable()
+            self.table_changed.emit()
             return
 
         self.table_widget.removeRow(index)
@@ -182,7 +199,7 @@ class HPTableWindow(QWidget):
         if self.data_manager is not None:
             for obj in self.data_manager.values():
                 obj.include_in_table = False
-            self.table_widget.updatetable()
+            self.table_changed.emit()
             return
 
         self.table_widget.setRowCount(0)
@@ -192,16 +209,16 @@ class HPTableWindow(QWidget):
         self.table_widget.set_data_manager(data_manager)
 
     def save_data_to_csv(self):
-        
-        file = self.get_save_filename_dialog()
-        if file:
-            with open(file, "w") as file:
+        file_path = self.get_save_filename_dialog()
+        if file_path:
+            with open(file_path, "w", newline="", encoding="utf-8") as file_handle:
+                writer = csv.writer(file_handle)
                 row_count = self.table_widget.rowCount()
                 column_count = self.table_widget.columnCount()
 
                 # Write header row
                 headers = [self.table_widget.horizontalHeaderItem(i).text() for i in range(column_count)]
-                file.write(",".join(headers) + "\n")
+                writer.writerow(headers)
 
                 # Write data rows
                 for row in range(row_count):
@@ -209,7 +226,7 @@ class HPTableWindow(QWidget):
                     for col in range(column_count):
                         item = self.table_widget.item(row, col)
                         row_data.append(item.text() if item else "")
-                    file.write(",".join(row_data) + "\n")
+                    writer.writerow(row_data)
 
 
     def get_save_filename_dialog(self):

@@ -121,7 +121,7 @@ class PressureToolbox(QWidget):
         calibration_form.addRow(QLabel("T correction: "), self.Tcor_Label)
 
 
-        Toolboxlayout.addLayout(calibration_form, stretch=4)
+        Toolboxlayout.addLayout(calibration_form, stretch=2)
         Toolboxlayout.addWidget(MyVSeparator())
 
         Toolboxlayout.addLayout(param_form, stretch=2)
@@ -142,6 +142,7 @@ class PressureToolbox(QWidget):
         self.Pm_spinbox.valueChanged.connect(self.PmChanged.emit)
         self.P_spinbox.valueChanged.connect(self.PChanged.emit)
         self.x_spinbox.valueChanged.connect(self.xChanged.emit)
+        self.T_spinbox.valueChanged.connect(self.update_T_spinbox_style)
         self.T_spinbox.valueChanged.connect(self.TChanged.emit)
         self.x0_spinbox.valueChanged.connect(self.x0Changed.emit)
         self.T0_spinbox.valueChanged.connect(self.T0Changed.emit)
@@ -183,6 +184,7 @@ class PressureToolbox(QWidget):
         self.T_spinbox.blockSignals(True)
         self.T_spinbox.setValue(T)
         self.T_spinbox.blockSignals(False)
+        self.update_T_spinbox_style(T)
 
     def set_x0val(self, x0):
         self.x0_spinbox.blockSignals(True)
@@ -250,6 +252,12 @@ class PressureToolbox(QWidget):
             self.P_spinbox.setStyleSheet(f"background: {PressureToolbox.RED};")
             self.x_spinbox.setStyleSheet(f"background: {PressureToolbox.RED};")
             self._xP_bgcolor = PressureToolbox.RED
+
+    def update_T_spinbox_style(self, T):
+        if T > 298:
+            self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.RED};")
+        else:
+            self.T_spinbox.setStyleSheet("")
 
     def set_dark_mode(self):
         PressureToolbox.GREEN = PressureToolbox.DARKMODEGREEN

@@ -8,7 +8,7 @@ class PvPmPlotWindow(QMainWindow):
 		self.data_manager = None
 		
 		self.setWindowTitle("PvPm Plot")
-		self.setGeometry(1000, 550, 450, 350)
+		self.setGeometry(1000, 550, 500, 400)
 
 		self.plot_graph = pg.PlotWidget()
 		self.setCentralWidget(self.plot_graph)

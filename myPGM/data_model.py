@@ -342,11 +342,15 @@ class PressureGaugeDataObject:
     def spectro_recalib(self, new_x):
         try:
             x, y = self.get_data_to_process()
+            if len(new_x) != len(y):
+                raise ValueError(
+                    f"Calibration length mismatch: expected {len(y)} points, got {len(new_x)}."
+                )
             self.corrected_data = np.column_stack(
                 (new_x, y)
             )
-        except:
-            raise RuntimeError('Failed to recalibrate spectrometer.')
+        except Exception as exc:
+            raise RuntimeError(f'Failed to recalibrate spectrometer: {exc}') from exc
     
     def reset_spectro_recalib(self):
         x, y = self.get_data_to_process()

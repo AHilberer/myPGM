@@ -4,8 +4,9 @@
 <img alt="Demo myPGM UI" src="myPGM/resources/UI_demo.png"> </img>
 </div>
 
+<br>
 
-**myPGM** is a spectroscopic pressure gauge fitting software for pressure determination in high pressure experiments.
+**myPGM** is a desktop application for fitting spectroscopic pressure gauges and estimating pressure in high-pressure experiments.
 
 It currently supports the following pressure scales:
 - Ruby fluorescence
@@ -14,14 +15,32 @@ It currently supports the following pressure scales:
 - Cubic boron nitride Raman
 - Diamond Raman edge.
 
-**myPGM** supports a simple file management system to process multiple spectra and follow pressure evolution during a typical diamond anvil cell experiment (the external pressure control is set to be membrane pressure for membrane DAC experiments, for now).
+**myPGM** also provides a simple workflow to process multiple spectra and track pressure evolution during a typical diamond anvil cell experiment. The external pressure control is currently intended for membrane pressure in membrane DAC setups.
 
-This piece of software is still a work in progress so do not hesitate to open issues on this GitHub page or to contact the authors if you notice any bugs.
+# Main features
 
-New versions may come regularly on this page before a first full release, so come back for more features !
+- Load and organize several spectra in the same session, including quick access to the latest file from a selected acquisition folder.
+- Fit pressure markers with several line-shape models, including single or double peak profiles and Raman edge fitting depending on the selected calibration.
+- Switch between supported calibrations directly from the interface and adjust pressure, reference position and temperature parameters interactively.
+- Apply basic spectrum preprocessing before fitting, including smoothing, automatic background subtraction and manual background definition.
+- Use an optional spectrometer calibration file to recalculate the spectral axis when needed.
+- Switch to a dark mode interface for light-sensitive environments, for example during low-light instrument operation.
+- Store fitted points in a dedicated pressure table, visualize pressure evolution in a P vs Pm plot, and export the table to CSV.
+- Save and reload complete working sessions, including loaded spectra, fit results, table entries and spectrometer calibration state.
 
+**myPGM** is still a work in progress, so please open an issue or contact the authors if you notice a bug or unexpected behavior.
 
-## Installation from source
+# Quick start
+
+Once the application is running, a typical workflow is:
+
+1. Load one or several spectra.
+2. Select the appropriate calibration and fit model.
+3. Apply smoothing or background subtraction if needed.
+4. Run the fit and inspect the extracted pressure.
+5. Add selected results to the table to follow pressure evolution during the experiment.
+
+# Installation from source
 
 ### 1) Get a copy of the code:
 
@@ -41,9 +60,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-Run the code.
-
-To exit the virtual environment use:
+Later, to exit the virtual environment use:
 
 ```bash
 deactivate
@@ -56,20 +73,16 @@ deactivate
 python3 -m pip install -r requirements.txt
 ```
 
-or manually install the required non-native python packages: numpy, pandas, matplotlib, scipy and PyQt5.
-
-### 4) Run as a script:
-
-Start the software using :
+### 4) Run the application:
 
 ```bash
 python3 run.py
 ```
 
-## Executables
+# Executables
 Currently not available (WIP)
 
-## Contributors
+# Contributors
 
 - __Antoine Hilberer__ - antoine.hilberer@cea.fr
-- __Alexis Forestier__
+- __Alexis Forestier__ - alexis.forestier@cea.fr

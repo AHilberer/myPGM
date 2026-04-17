@@ -48,6 +48,7 @@ class Presenter(QObject):
         self.view.PvPmTableWindow.set_data_manager(self.model)
         self.view.PvPmPlotWindow.set_data_manager(self.model)
         self.view.PvPmTableWindow.table_widget.recall_requested.connect(self.recall_from_table)
+        self.view.PvPmTableWindow.table_changed.connect(self.update_PvPm_table)
 
         #? Setup Signal-Slot interactions
         self.view.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
@@ -76,6 +77,7 @@ class Presenter(QObject):
 
         self.view.open_session_signal.connect(self.load_session)
         self.view.save_session_signal.connect(self.save_session)
+        self.view.theme_switched.connect(self.on_theme_switched)
 
         self.view.PToolbox_toTable_button.clicked.connect(self.add_current_PToolbox_to_table)
 
@@ -96,6 +98,33 @@ class Presenter(QObject):
         msg.setText(text)
         msg.setWindowTitle(title)
         msg.exec_()
+
+    def _get_spectro_reference_object(self):
+        if self.current_selected_file is not None:
+            obj = self.model.get(self.current_selected_file, None)
+            if obj is not None and obj.original_data is not None:
+                return obj
+
+        for obj in self.model.values():
+            if obj.original_data is not None:
+                return obj
+
+        return None
+
+    def _validate_spectro_calibration(self, corrected_spectro_x):
+        if corrected_spectro_x is None or len(corrected_spectro_x) == 0:
+            raise RuntimeError("Calibration file is empty or could not be parsed.")
+
+        reference_obj = self._get_spectro_reference_object()
+        if reference_obj is None:
+            return
+
+        reference_x, _ = reference_obj.get_data_to_process()
+        if len(corrected_spectro_x) != len(reference_x):
+            raise RuntimeError(
+                "Calibration file length does not match the loaded spectra "
+                f"({len(corrected_spectro_x)} vs {len(reference_x)} points)."
+            )
 
     def initialize_fit_models_menu(self):
         model_dict = {a.name: a for a in myPGM.fit_models.model_list}
@@ -351,6 +380,10 @@ class Presenter(QObject):
         else:
             print('No data to be plotted.')
 
+    def on_theme_switched(self):
+        if self.current_selected_file is not None:
+            self.update_data_plots(self.current_selected_file, preserve_view=True)
+
     def _centered_nonzero_range(self, x_min, x_max):
         x_span = max(float(x_max) - float(x_min), 1e-9)
         x_mean = (float(x_min) + float(x_max)) / 2.0
@@ -433,19 +466,36 @@ class Presenter(QObject):
 
 
     def load_spectro_calibration(self):
+        selected_files = self.view.get_file_via_dialog()
+        if not selected_files:
+            return
+
+        selected_file = selected_files[0]
+        file_info = QFileInfo(selected_file)
+        file_name = file_info.fileName()
+
         try:
-            selected_file = self.view.get_file_via_dialog()[0]
-            file_info = QFileInfo(selected_file)
-            file_name = file_info.fileName()
-        except:
-            raise RuntimeError("File selection dialog failed.")
-        if selected_file is not None:
-            try:
-                self.corrected_spectro_x = spectro_calibration_reader(selected_file)
-                self.view.Spectro_filename_label.setText(file_name)
-            except:
-                RuntimeError("Failed to load spectrometer calibration file.")
-            #print(self.corrected_spectro_x)
+            corrected_spectro_x = spectro_calibration_reader(selected_file)
+            self._validate_spectro_calibration(corrected_spectro_x)
+        except Exception as exc:
+            self.corrected_spectro_x = None
+            self.view.Spectro_filename_label.setText("None")
+            self.view.Spectro_use_button.setChecked(False)
+            self._show_error(
+                f"Failed to load spectrometer calibration file: {exc}",
+                title="Calibration load error",
+            )
+            return
+
+        self.corrected_spectro_x = corrected_spectro_x
+        self.view.Spectro_filename_label.setText(file_name)
+
+        if self.view.Spectro_use_button.isChecked() and self.current_selected_file is not None:
+            obj = self.model.get(self.current_selected_file, None)
+            if obj is not None:
+                obj.spectro_recalib(self.corrected_spectro_x)
+                self.update_data_plots(self.current_selected_file)
+
         return 
     
     def toggle_spectro_calib(self, checked):
@@ -587,10 +637,16 @@ class Presenter(QObject):
     def fit_error_popup(self):
         self.view.fit_error_popup_window()
 
-    def add_current_fit_to_table(self):
+    def add_current_fit_to_table(self, _=None):
         if self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
             if obj.fit_result is not None:
+                pm_value = self.view.prompt_fit_pm(self.buffer.Pm)
+                if pm_value is None:
+                    return
+                obj.set_Pm(pm_value)
+                self.buffer.set_Pm(pm_value)
+                self.view.ptoolbox.set_Pmval(pm_value)
                 obj.include_in_table = True
                 self.update_PvPm_table()
             else:
