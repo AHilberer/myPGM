@@ -24,6 +24,7 @@ It currently supports the following pressure scales:
 - Switch between supported calibrations directly from the interface and adjust pressure, reference position and temperature parameters interactively.
 - Apply basic spectrum preprocessing before fitting, including smoothing, automatic background subtraction and manual background definition.
 - Use an optional spectrometer calibration file to recalculate the spectral axis when needed.
+- Switch to a dark mode interface for light-sensitive environments, for example during low-light instrument operation.
 - Store fitted points in a dedicated pressure table, visualize pressure evolution in a P vs Pm plot, and export the table to CSV.
 - Save and reload complete working sessions, including loaded spectra, fit results, table entries and spectrometer calibration state.
 
