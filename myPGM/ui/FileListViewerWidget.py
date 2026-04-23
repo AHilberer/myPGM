@@ -23,8 +23,6 @@ class FileListViewerWidget(QWidget):
         self.init_ui()
 
     def init_ui(self):
-        #self.setWindowTitle("Filtered Pressure Gauge Data List")
-        #self.setGeometry(200, 200, 500, 400)
 
         layout = QVBoxLayout()
 

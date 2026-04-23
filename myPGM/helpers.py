@@ -3,6 +3,7 @@ from copy import deepcopy
 from scipy.optimize import minimize
 from PyQt5.QtWidgets import QFrame
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, QAbstractListModel, QModelIndex
+from PyQt5.QtGui import QIcon
 import csv
 from functools import wraps
 # compatibility bridge
@@ -57,6 +58,26 @@ def validate_scalar(value, name="Value"):
 
 def load_style(qssfile):
     return files("myPGM.ui").joinpath(qssfile).read_text(encoding="utf-8")
+
+
+def get_app_icon():
+    """Return the application icon with a safe fallback order."""
+    icon_candidates = [
+        files("myPGM").joinpath("resources/icons/AppIcon512.png"),
+        files("myPGM").joinpath("resources/icons/AppIcon256.png"),
+        files("myPGM").joinpath("resources/icons/AppIcon128.png"),
+    ]
+
+    for icon_path in icon_candidates:
+        try:
+            if icon_path.is_file():
+                icon = QIcon(str(icon_path))
+                if not icon.isNull():
+                    return icon
+        except Exception:
+            continue
+
+    return QIcon()
 
 def customparse_file2data(f):
     with open(f, 'r') as file:

@@ -38,7 +38,7 @@ class Presenter(QObject):
         self.buffer = PressureGaugeDataObject()
         self.additional_buffer = PressureGaugeDataObject()
         self.app_version = get_app_version()
-        self.view.setWindowTitle(f"myPGM - myPressureGaugeMonitor v{self.app_version}")
+        self.view.setWindowTitle(f"myPGM - Pressure Gauge Monitor v{self.app_version}")
 
 
         self.initialize_calibrations_menu()

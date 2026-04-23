@@ -10,4 +10,4 @@ version = "1.0.0"
 where = ["."]
 
 [tool.setuptools.package-data]
-"myPGM.ui" = ["*.qss"]
+"myPGM" = ["ui/*.qss", "resources/*", "resources/icons/*"]
