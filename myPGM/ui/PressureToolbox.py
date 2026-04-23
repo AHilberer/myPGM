@@ -33,10 +33,12 @@ class PressureToolbox(QWidget):
     GREEN = LIGHTMODEGREEN = "#ccffcc"
     RED = LIGHTMODERED = "#ee6b6e"
     BLUE = LIGHTMODEBLUE = "#c1d9ff"
+    ORANGE = LIGHTMODEORANGE = "#ff8a54"
 
     DARKMODEGREEN = "#3b8132"
     DARKMODERED = "#c30010"
     DARKMODEBLUE = "#0077b6"
+    DARKMODEORANGE = "#c23c02"
 
     def __init__(self):
         super().__init__()
@@ -91,6 +93,8 @@ class PressureToolbox(QWidget):
         self.T0_spinbox.setMinimumWidth(80)
 
         self._xP_bgcolor = None
+        self._T_bgcolor = None
+
 
         self.calibration_combo = QComboBox()
         self.calibration_combo.setObjectName("calibration_combo")
@@ -255,19 +259,25 @@ class PressureToolbox(QWidget):
 
     def update_T_spinbox_style(self, T):
         if T > 298:
-            self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.RED};")
+            self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
+            self._T_bgcolor = PressureToolbox.ORANGE
         else:
             self.T_spinbox.setStyleSheet("")
+            self._T_bgcolor = None
 
     def set_dark_mode(self):
         PressureToolbox.GREEN = PressureToolbox.DARKMODEGREEN
         PressureToolbox.RED = PressureToolbox.DARKMODERED
         PressureToolbox.BLUE = PressureToolbox.DARKMODEBLUE
+        PressureToolbox.ORANGE = PressureToolbox.DARKMODEORANGE
+
         
         if self._xP_bgcolor == PressureToolbox.LIGHTMODEGREEN:
             self.set_valid_colors(True)
         elif self._xP_bgcolor == PressureToolbox.LIGHTMODERED:
             self.set_valid_colors(False)
+        if self._T_bgcolor == PressureToolbox.LIGHTMODEORANGE:
+            self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
 
         self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
 
@@ -276,10 +286,14 @@ class PressureToolbox(QWidget):
         PressureToolbox.GREEN = PressureToolbox.LIGHTMODEGREEN
         PressureToolbox.RED = PressureToolbox.LIGHTMODERED
         PressureToolbox.BLUE = PressureToolbox.LIGHTMODEBLUE
+        PressureToolbox.ORANGE = PressureToolbox.LIGHTMODEORANGE
 
         if self._xP_bgcolor == PressureToolbox.DARKMODEGREEN:
             self.set_valid_colors(True)
         elif self._xP_bgcolor == PressureToolbox.DARKMODERED:
             self.set_valid_colors(False)
+        if self._T_bgcolor == PressureToolbox.LIGHTMODEORANGE:
+            self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
 
         self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
+        self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
