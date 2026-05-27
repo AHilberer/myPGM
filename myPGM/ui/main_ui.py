@@ -61,7 +61,7 @@ class MainWindow(QMainWindow):
         x = 100
         y = 100
         width = 800
-        height = 800
+        height = 1000
         self.setGeometry(x, y, width, height)
         # self.setWindowIcon(QIcon('resources/PGMicon.png'))
 
