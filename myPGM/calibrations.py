@@ -38,6 +38,28 @@ def Pruby2020(l, T, l0, T0):
 
     return P
 
+# H. Mao, J. Xu, and P. Bell, J. Geophys. Res. 91, 4673 1986
+def PrubyMao1986(l, T, l0, T0):
+    A = 1904 # GPa
+    B = 7.665 
+    dT = T - T0
+    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    dl = (l - dlcorr) - l0
+    P = (A/B) * ( (1 + dl/l0)**B - 1 )
+
+    return P
+
+# F. Datchi, R. LeToullec, and P. Loubeyre Journal of Applied Physics 81, 3333 (1997)
+# https://doi.org/10.1063/1.365025
+def PrubyMao1986_DatchiF(l, T, l0, T0):
+    dT = T - T0
+    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    lcorr = l - dlcorr
+    # there is a *10 error in eq. 1 of the paper 
+    P = ( 2.74 *  l0 / 7.665 ) * ((lcorr/l0)**7.665 - 1)
+    return P
+
+
 #  F. Datchi, High Pressure Research, 27:4, 447-463, DOI: 10.1080/08957950701659593 
 def PsamDatchi1997(l, T, l0, T0):
     dT = T - T0
@@ -109,10 +131,32 @@ Ruby2020 = HPCalibration(name = 'Ruby2020',
                                  xstep = .01,
                                  color = 'firebrick',
                                  default_fit_model='Double Voigt')
+
+RubyMao1986 = HPCalibration(name = 'Ruby Mao 1986',
+                                 func = PrubyMao1986,
+                                 Tcor_name='Datchi 2007',
+                                 xname = 'lambda',
+                                 xunit = 'nm',
+                                 x0default = 694.28,
+                                 T0default = 298,
+                                 xstep = .01,
+                                 color = 'crimson',
+                                 default_fit_model='Double Voigt')
+
+RubyMao1986_DatchiF = HPCalibration(name = 'Ruby Mao 1986 (Datchi form)',
+                                    func = PrubyMao1986_DatchiF,
+                                    Tcor_name='Datchi 2007',
+                                    xname = 'lambda',
+                                    xunit = 'nm',
+                                    x0default = 694.28,
+                                    T0default = 298,
+                                    xstep = .01,
+                                    color = 'deeppink',
+                                    default_fit_model='Double Voigt')
         
 SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        func = PsamDatchi1997,
-                                       Tcor_name='Datchi J. Appl. Phys. 1997',
+                                       Tcor_name='Datchi J.Appl.Phys. 1997',
                                        xname = 'lambda',
                                        xunit = 'nm',
                                        x0default = 685.41,
@@ -162,7 +206,7 @@ cBNDatchi = HPCalibration(name = 'cBN Raman Datchi 2007',
                                   x0default = 1054,
                                   T0default = 298,
                                   xstep = .1,
-                                  color = 'hotpink',
+                                  color = 'violet',
                                   default_fit_model='Single Voigt')
 
 H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
@@ -173,15 +217,17 @@ H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
                                   x0default = -1,
                                   T0default = 298,
                                   xstep = .1,
-                                  color = 'orangered',
+                                  color = 'tan',
                                   default_fit_model='Single Voigt')
 
 
 calib_list = [Ruby2020, 
+              RubyMao1986,
+              RubyMao1986_DatchiF,
               SamariumDatchi,
               Hilberer2026,
-              Akahama2006,
               Eremets2023,
+              Akahama2006,
               H2Vibron,
               cBNDatchi,
                       ]
@@ -191,11 +237,21 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import numpy as np
 
-    print(H2Vibron)
-    x = np.linspace(4000, 4260, 100)
-    y = H2_Vibron(x, 0, 4150, 0)
+#    print(H2Vibron)
+#    x = np.linspace(4000, 4260, 100)
+#    y = H2_Vibron(x, 0, 4150, 0)
+#
+#    print( H2Vibron.invfunc(10, 0, 4150, 0) )
+#
+#    plt.plot(y,x)
 
-    print( H2Vibron.invfunc(10, 0, 4150, 0) )
 
-    plt.plot(y,x)
+    #plt.figure()
+    xx = np.linspace(694.25, 702, 100)
+    plt.plot(xx, PrubyMao1986(xx, 298, 694.25, 298))
+
+    p1 = ( 2.74*694.25/7.665 ) * ((xx/694.25)**7.665 - 1)
+    plt.plot(xx, p1)
+
+
     plt.show()

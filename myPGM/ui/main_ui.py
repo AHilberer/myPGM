@@ -26,7 +26,7 @@ from PyQt5.QtGui import QColor, QIcon
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
-from myPGM.helpers import load_style, MyHSeparator, MyVSeparator
+from myPGM.helpers import load_style, get_app_icon, MyHSeparator, MyVSeparator
 
 from myPGM.ui.PvPmPlot import PvPmPlotWindow
 from myPGM.ui.PvPmTable import HPTableWindow
@@ -52,12 +52,11 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         # Setup Main window parameters
-        self.setWindowTitle("myPGM - myPressureGaugeMonitor")
-
-        # self.icon_path = os.path.join(os.path.dirname(
-        #                         os.path.abspath(__file__)),
-        #                  'resources/myPGM_logo.png')
-        # self.setWindowIcon(QIcon(self.icon_path))
+        self.setWindowTitle("myPGM - Pressure Gauge Monitor")
+        
+        app_icon = get_app_icon()
+        if not app_icon.isNull():
+            self.setWindowIcon(app_icon)
 
         x = 100
         y = 100

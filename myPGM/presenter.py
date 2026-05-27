@@ -38,7 +38,7 @@ class Presenter(QObject):
         self.buffer = PressureGaugeDataObject()
         self.additional_buffer = PressureGaugeDataObject()
         self.app_version = get_app_version()
-        self.view.setWindowTitle(f"myPGM - myPressureGaugeMonitor v{self.app_version}")
+        self.view.setWindowTitle(f"myPGM - Pressure Gauge Monitor v{self.app_version}")
 
 
         self.initialize_calibrations_menu()
@@ -201,12 +201,12 @@ class Presenter(QObject):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_x0(x0)
 
-        # All those are the same, unique instance:
-        #print(buffer.calib is toolbox.calibrations[buffer.calib.name])
-        #print(buffer.calib is calib_dict[buffer.calib.name])
-
-        # THE NEW x0 for this gauge is now x0 :
+        # THE NEW x0 for this gauge is now x0.
+        # Update both the buffer's calib copy AND the shared instance in the toolbox
+        # so that future files using this calibration start with the updated x0default.
         buffer.calib.x0default = x0
+        if buffer.calib is not None and buffer.calib.name in toolbox.calibrations:
+            toolbox.calibrations[buffer.calib.name].x0default = x0
 
         toolbox.set_state_from_buffer(buffer)
 
@@ -215,8 +215,11 @@ class Presenter(QObject):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_T0(T0)  
 
-        # THE NEW T0 for this gauge is now T0 :
+        # THE NEW T0 for this gauge is now T0.
+        # Update both the buffer's calib copy AND the shared instance in the toolbox.
         buffer.calib.T0default = T0
+        if buffer.calib is not None and buffer.calib.name in toolbox.calibrations:
+            toolbox.calibrations[buffer.calib.name].T0default = T0
         
         toolbox.set_state_from_buffer(buffer)
 
@@ -264,6 +267,13 @@ class Presenter(QObject):
         if obj.fit_result is not None:
             self.buffer = deepcopy(obj)
             self.view.ptoolbox.set_state_from_buffer(self.buffer)
+
+        # fit model combo box is updated.
+        if obj.fit_model is not None and obj.fit_model.name in self.fit_models:
+            ind = self.view.fit_model_combo.findText(obj.fit_model.name, Qt.MatchExactly)
+            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
+                self.view.fit_model_combo.setCurrentIndex(ind)
+
 
     def add_instance_from_path(self, file_path):
         file_info = QFileInfo(file_path)

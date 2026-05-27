@@ -1,6 +1,9 @@
 import pyqtgraph as pg
 
-from PyQt5.QtWidgets import (QMainWindow,)
+from PyQt5.QtWidgets import (QMainWindow,
+							 QWidget,
+							 QVBoxLayout,
+							 QCheckBox,)
 
 class PvPmPlotWindow(QMainWindow):
 	def __init__(self):
@@ -11,20 +14,30 @@ class PvPmPlotWindow(QMainWindow):
 		self.setGeometry(1000, 550, 500, 400)
 
 		self.plot_graph = pg.PlotWidget()
-		self.setCentralWidget(self.plot_graph)
+		self.lines_checkbox = QCheckBox('Display lines')
+		self.lines_checkbox.setChecked(True)
+
+		central_widget = QWidget()
+		layout = QVBoxLayout(central_widget)
+		layout.addWidget(self.plot_graph)
+		layout.addWidget(self.lines_checkbox)
+
+		self.setCentralWidget(central_widget)
 		self.pens = {}
 		self.calib_colors = None
 		#self.plot_graph.setTitle("Temperature vs Time", color="b", size="20pt")
 		self.plot_graph.setBackground("white")
-		styles = {"color": "black", "font-size": "16px"}
+		styles = {"color": "black", "font-size": "18px"}
 		self.plot_graph.setLabel("left", "P (GPa)", **styles)
 		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
-		self.plot_graph.addLegend()
+		self.legend = self.plot_graph.addLegend()
 		self.plot_graph.showGrid(x=True, y=True)
 
 		# self.data = HPDataTable_
 		# self.calibrations = calibrations_
 		self.lines = {}
+		
+		self.lines_checkbox.toggled.connect(self.toggle_lines)
 
 		self.updateplot()
 
@@ -33,14 +46,14 @@ class PvPmPlotWindow(QMainWindow):
 
 
 	def set_dark_mode(self):
-		styles = {"color": 'white', "font-size": "16px"}
+		styles = {"color": 'white', "font-size": "18px"}
 		self.plot_graph.setBackground("#202020")
 		self.plot_graph.setLabel("left", "P (GPa)", **styles)
 		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
    
 
 	def set_light_mode(self):
-		styles = {"color": 'black', "font-size": "16px"}
+		styles = {"color": 'black', "font-size": "18px"}
 		self.plot_graph.setBackground("white")
 		self.plot_graph.setLabel("left", "P (GPa)", **styles)
 		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
@@ -98,6 +111,16 @@ class PvPmPlotWindow(QMainWindow):
 					name=g,
 					pen=self.pens[g],
 					symbol="o",
-					symbolSize=8,
+					symbolSize=14,
 					symbolBrush=color)
 
+		# legend text size:
+		for sample, label in self.legend.items:
+			label.setText(label.text, size="18px")
+
+	def toggle_lines(self, checked):
+	    for g in self.lines:
+	        if checked:
+	            self.lines[g].setPen(self.pens[g])
+	        else:
+	            self.lines[g].setPen(None)

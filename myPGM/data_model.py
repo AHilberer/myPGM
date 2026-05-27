@@ -321,7 +321,15 @@ class PressureGaugeDataObject:
         # self.plot_data()
 
     def reset_bg(self):
-        self.corrected_data = None
+        x, y = self.get_data_to_process()
+
+        if np.array_equal(x, self.normalized_data[:, 0]):
+            self.corrected_data = None            
+        else:
+            # if different, a recalib is used, we only reset y:
+            self.corrected_data = np.column_stack((
+                x, self.normalized_data[:,1]))
+
         self.bg = None
         #self.plot_data()
     
