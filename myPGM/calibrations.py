@@ -42,6 +42,7 @@ def Pruby2020(l, T, l0, T0):
 def PrubyMao1986(l, T, l0, T0):
     A = 1904 # GPa
     B = 7.665 
+    dT = T - T0
     dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
     dl = (l - dlcorr) - l0
     P = (A/B) * ( (1 + dl/l0)**B - 1 )
@@ -51,6 +52,7 @@ def PrubyMao1986(l, T, l0, T0):
 # F. Datchi, R. LeToullec, and P. Loubeyre Journal of Applied Physics 81, 3333 (1997)
 # https://doi.org/10.1063/1.365025
 def PrubyMao1986_DatchiF(l, T, l0, T0):
+    dT = T - T0
     dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
     lcorr = l - dlcorr
     # there is a *10 error in eq. 1 of the paper 
@@ -224,8 +226,8 @@ calib_list = [Ruby2020,
               RubyMao1986_DatchiF,
               SamariumDatchi,
               Hilberer2026,
-              Akahama2006,
               Eremets2023,
+              Akahama2006,
               H2Vibron,
               cBNDatchi,
                       ]
