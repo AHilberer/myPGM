@@ -268,6 +268,13 @@ class Presenter(QObject):
             self.buffer = deepcopy(obj)
             self.view.ptoolbox.set_state_from_buffer(self.buffer)
 
+        # fit model combo box is updated.
+        if obj.fit_model is not None and obj.fit_model.name in self.fit_models:
+            ind = self.view.fit_model_combo.findText(obj.fit_model.name, Qt.MatchExactly)
+            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
+                self.view.fit_model_combo.setCurrentIndex(ind)
+
+
     def add_instance_from_path(self, file_path):
         file_info = QFileInfo(file_path)
         file_name = file_info.fileName()
