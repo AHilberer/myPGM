@@ -28,7 +28,7 @@ class HPTableWidget(QTableWidget):
 
 
         self.setStyleSheet(
-            "QTableWidget { font-size: 11px; }"
+            "QTableWidget { font-size: 18px; }"
             "QHeaderView::section { padding: 2px; }"
             "QTableWidget::item { padding: 2px; }"
         )
