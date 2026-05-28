@@ -176,25 +176,30 @@ class Presenter(QObject):
     def on_Pm_edited(self, Pm):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_Pm(Pm)
-        toolbox.set_state_from_buffer(buffer)
+#        toolbox.set_state_from_buffer(buffer)
+        
+#       Nothing to do
 
     @pressure_valid
     def on_P_edited(self, p):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_P(p)
-        toolbox.set_state_from_buffer(buffer)
+#        toolbox.set_state_from_buffer(buffer)
+        toolbox.set_xval(buffer.x)
     
     @pressure_valid
     def on_x_edited(self, x):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_x(x)        
-        toolbox.set_state_from_buffer(buffer)
+#        toolbox.set_state_from_buffer(buffer)
+        toolbox.set_Pval(buffer.P)
 
     @pressure_valid
     def on_T_edited(self, T):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_T(T)        
-        toolbox.set_state_from_buffer(buffer)
+#        toolbox.set_state_from_buffer(buffer)
+        toolbox.set_Pval(buffer.P)
 
     @pressure_valid
     def on_x0_edited(self, x0):
@@ -208,7 +213,8 @@ class Presenter(QObject):
         if buffer.calib is not None and buffer.calib.name in toolbox.calibrations:
             toolbox.calibrations[buffer.calib.name].x0default = x0
 
-        toolbox.set_state_from_buffer(buffer)
+#        toolbox.set_state_from_buffer(buffer)
+        toolbox.set_Pval(buffer.P)
 
     @pressure_valid
     def on_T0_edited(self, T0):
@@ -221,7 +227,8 @@ class Presenter(QObject):
         if buffer.calib is not None and buffer.calib.name in toolbox.calibrations:
             toolbox.calibrations[buffer.calib.name].T0default = T0
         
-        toolbox.set_state_from_buffer(buffer)
+#        toolbox.set_state_from_buffer(buffer)
+        toolbox.set_Pval(buffer.P)
 
     @pressure_valid
     def on_calib_changed(self, newcalib):
