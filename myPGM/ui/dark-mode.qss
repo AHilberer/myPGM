@@ -10,6 +10,10 @@ QDialog {
   background-color: #202020;
 }
 
+SmartDoubleDialog {
+  background-color: #202020;  
+}
+
 QInputDialog {
   background-color: #202020;
 }
@@ -20,6 +24,10 @@ PressureToolbox {
 
 QLabel {
 color: #ededed;
+}
+
+QCheckBox {
+    color: #ededed;
 }
 
 /*QGroupBox {
