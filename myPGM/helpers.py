@@ -1,9 +1,24 @@
 import numpy as np
 from copy import deepcopy
 from scipy.optimize import minimize
-from PyQt5.QtWidgets import QFrame, QDoubleSpinBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
-from PyQt5.QtCore import Qt, QObject, pyqtSignal, QAbstractListModel, QModelIndex, QLocale
-from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (QFrame, 
+                             QDoubleSpinBox, 
+                             QDialog, 
+                             QVBoxLayout, 
+                             QHBoxLayout, 
+                             QLabel, 
+                             QPushButton, 
+                             QWidget,
+                             QSlider,
+                             QApplication)
+from PyQt5.QtCore import (Qt, 
+                         QObject, 
+                         pyqtSignal, 
+                         QAbstractListModel, 
+                         QModelIndex, 
+                         QLocale)
+
+from PyQt5.QtGui import QIcon, QFont
 import csv
 from functools import wraps
 # compatibility bridge
@@ -11,6 +26,40 @@ try:
     from importlib.resources import files
 except ImportError:
     from importlib_resources import files
+
+class FontSizeWindow(QWidget):
+
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Font size control")
+
+        layout = QVBoxLayout(self)
+
+        self.label = QLabel("Adjust global font size")
+        layout.addWidget(self.label)
+
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMinimum(8)
+        self.slider.setMaximum(30)
+        self.slider.setValue(15)
+        layout.addWidget(self.slider)
+
+        self.value_label = QLabel()
+        layout.addWidget(self.value_label)
+
+        self.set_font_size(self.slider.value())
+
+        self.slider.valueChanged.connect(self.set_font_size)
+
+    def set_font_size(self, size):
+        app = QApplication.instance()
+        app.setStyleSheet(f"""
+            * {{
+                font-size: {size}px;
+            }}
+        """)
+        self.value_label.setText(f"{size}px")
 
 class SmartDoubleSpinBox(QDoubleSpinBox):
     def __init__(self, *args, **kwargs):

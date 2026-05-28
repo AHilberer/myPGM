@@ -26,7 +26,13 @@ from PyQt5.QtGui import QColor, QIcon
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
-from myPGM.helpers import load_style, get_app_icon, MyHSeparator, MyVSeparator, SmartDoubleSpinBox, SmartDoubleDialog
+from myPGM.helpers import (load_style, 
+                          get_app_icon, 
+                          MyHSeparator, 
+                          MyVSeparator, 
+                          SmartDoubleSpinBox, 
+                          SmartDoubleDialog,
+                          FontSizeWindow,)
 
 from myPGM.ui.PvPmPlot import PvPmPlotWindow
 from myPGM.ui.PvPmTable import HPTableWindow
@@ -119,6 +125,14 @@ class MainWindow(QMainWindow):
         additional_toolbox.triggered.connect(self.toggle_additional_ptoolbox)
         ptoolbox_menu.addAction(additional_toolbox)
         #####################################################################################
+        # #? Setup font size menu
+        fontsize_menu = menubar.addMenu("Font size")
+        fontsize_setting = QAction("Set font size", self)
+        fontsize_setting.triggered.connect(self.show_font_size_window)
+        fontsize_menu.addAction(fontsize_setting)
+
+        #####################################################################################
+
         # #? Exit button setup
         exit_menu = menubar.addMenu("Exit")
 
@@ -712,6 +726,11 @@ class MainWindow(QMainWindow):
             self.additional_toolbox_window.hide()
         else:
             self.additional_toolbox_window.show()
+
+
+    def show_font_size_window(self):
+        self.u = FontSizeWindow()
+        self.u.show()
 
     def toggle_ManualBg(self):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:

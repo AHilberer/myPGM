@@ -1,7 +1,3 @@
-* {
-  font-size: 18px;
-}
-
 QMainWindow {
   background: #202020;
 }
