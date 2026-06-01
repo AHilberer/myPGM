@@ -59,6 +59,24 @@ def PrubyMao1986_DatchiF(l, T, l0, T0):
     P = ( 2.74 *  l0 / 7.665 ) * ((lcorr/l0)**7.665 - 1)
     return P
 
+# W.B. Holzapfel, High Press. Res. 25 87 (2005)
+def PrubyHolzapfel2005(l, T, l0, T0):
+    dT = T - T0
+    A = 1845 # GPa
+    B = 14.7
+    C = 7.5
+    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    lcorr = l - dlcorr
+    P = (A/(B+C)) * ( np.exp( ((B+C)/C)*(1-(l0/lcorr)**C) ) - 1 ) 
+    return P
+
+# I. Dorogokupets and A.R. Oganov, Phys. Rev. B 75 024115 (2007)
+def PrubyDO2007(l, T, l0, T0):
+    dT = T - T0
+    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    dl = (l - dlcorr) - l0
+    P = 1884 * (dl/l0) * (1 + 5.5 *(dl/l0))
+    return P
 
 #  F. Datchi, High Pressure Research, 27:4, 447-463, DOI: 10.1080/08957950701659593 
 def PsamDatchi1997(l, T, l0, T0):
@@ -153,7 +171,29 @@ RubyMao1986_DatchiF = HPCalibration(name = 'Ruby Mao 1986 (Datchi form)',
                                     xstep = .01,
                                     color = 'deeppink',
                                     default_fit_model='Double Voigt')
-        
+
+RubyHolzapfel2005 = HPCalibration(name = 'Ruby Holzapfel 2005',
+                                  func = PrubyHolzapfel2005,
+                                  Tcor_name='Datchi 2007',
+                                  xname = 'lambda',
+                                  xunit = 'nm',
+                                  x0default = 694.28,
+                                  T0default = 298,
+                                  xstep = .01,
+                                  color = 'tomato',
+                                  default_fit_model='Double Voigt')
+
+RubyDO2007 = HPCalibration(name = 'Ruby Dorogokupets-Oganov 2007',
+                                  func = PrubyDO2007,
+                                  Tcor_name='Datchi 2007',
+                                  xname = 'lambda',
+                                  xunit = 'nm',
+                                  x0default = 694.28,
+                                  T0default = 298,
+                                  xstep = .01,
+                                  color = 'orangered',
+                                  default_fit_model='Double Voigt')
+
 SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        func = PsamDatchi1997,
                                        Tcor_name='Datchi J.Appl.Phys. 1997',
@@ -224,6 +264,8 @@ H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
 calib_list = [Ruby2020, 
               RubyMao1986,
               RubyMao1986_DatchiF,
+              RubyHolzapfel2005,
+              RubyDO2007,
               SamariumDatchi,
               Hilberer2026,
               Eremets2023,
@@ -237,21 +279,37 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import numpy as np
 
-#    print(H2Vibron)
-#    x = np.linspace(4000, 4260, 100)
-#    y = H2_Vibron(x, 0, 4150, 0)
-#
-#    print( H2Vibron.invfunc(10, 0, 4150, 0) )
-#
-#    plt.plot(y,x)
+    fig, ax = plt.subplots(2, figsize=(7,9), sharex=True)
+    ax[0].set_xlabel('wavelength (nm)')
+    ax[0].set_ylabel('P (GPa)')
+
+    ax[1].set_xlabel('wavelength (nm)')
+    ax[1].set_ylabel('P - Pruby2020 (GPa)')
+
+    ll = np.linspace(694.28, 720, 100)
+    l0 = 694.28
+
+    T1 = 298
+    T0 = 298
+
+    ruby2020 = Pruby2020(ll, T1, l0, T0)
+
+    ax[0].plot(ll, ruby2020, c='k', label='ruby 2020')
+    ax[0].plot(ll, PrubyMao1986(ll, T1, l0, T0), c='r', label='Mao 1986')
+    ax[0].plot(ll, PrubyMao1986_DatchiF(ll, T1, l0, T0), c='pink', linestyle='dashed', label='Mao 1986 Datchi Form')
+    ax[0].plot(ll, PrubyHolzapfel2005(ll, T1, l0, T0), c='green', label='Holzapfel 2005')
+    ax[0].plot(ll, PrubyDO2007(ll, T1, l0, T0), c='gold', label='Dorogokupets-Oganov 2005')
 
 
-    #plt.figure()
-    xx = np.linspace(694.25, 702, 100)
-    plt.plot(xx, PrubyMao1986(xx, 298, 694.25, 298))
+    # differences
+    ax[1].plot(ll, ruby2020-ruby2020, c='k')
+    ax[1].plot(ll, PrubyMao1986(ll, T1, l0, T0) - ruby2020, c='r')
+    ax[1].plot(ll, PrubyMao1986_DatchiF(ll, T1, l0, T0) - ruby2020, c='pink', linestyle='dashed')
+    ax[1].plot(ll, PrubyHolzapfel2005(ll, T1, l0, T0) - ruby2020, c='green')
+    ax[1].plot(ll, PrubyDO2007(ll, T1, l0, T0) - ruby2020, c='gold')
 
-    p1 = ( 2.74*694.25/7.665 ) * ((xx/694.25)**7.665 - 1)
-    plt.plot(xx, p1)
 
+
+    ax[0].legend()
 
     plt.show()
