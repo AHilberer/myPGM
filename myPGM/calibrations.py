@@ -91,6 +91,12 @@ def PsamDatchi1997(l, T, l0, T0):
     P = 4.032 * dl * (1 + 9.29e-3 * dl) / (1 + 2.32e-2 * dl)
     return P
 
+# Rashchenko et al. JOURNAL OF APPLIED PHYSICS 117, 145902 (2015)
+def PsamRashchenko2015(l, T, l0, T0):
+    dl = l - l0
+    P = 4.20 * dl * (1 + 0.020 * dl) / (1 + 0.036 * dl)
+    return P
+
 #  F. Datchi, High Pressure Research, 27:4, 447-463, DOI: 10.1080/08957950701659593 
 def PcBN(nu, T, nu0, T0):
     # find nu(p = 0 GPa, T = 0 K)
@@ -205,6 +211,17 @@ SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        color = 'mediumseagreen',
                                        default_fit_model='Single Voigt')
 
+SamRashchenko2015 = HPCalibration(name = 'Samarium SrB4O7 Rashchenko 2015',
+                                  func = PsamRashchenko2015,
+                                  Tcor_name='NA',
+                                  xname = 'lambda',
+                                  xunit = 'nm',
+                                  x0default = 685.51,
+                                  T0default = 298,
+                                  xstep = .01,
+                                  color = 'springgreen',
+                                  default_fit_model='Single Voigt')
+
 Hilberer2026 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2026',
                                     func = PHilberer2026,
                                     Tcor_name='NA',
@@ -267,6 +284,7 @@ calib_list = [Ruby2020,
               RubyHolzapfel2005,
               RubyDO2007,
               SamariumDatchi,
+              SamRashchenko2015,
               Hilberer2026,
               Eremets2023,
               Akahama2006,
@@ -311,5 +329,26 @@ if __name__ == '__main__':
 
 
     ax[0].legend()
+
+    plt.show()
+
+    fig, ax = plt.subplots()
+    ax.set_title('Samarium Borate')
+    ax.set_xlabel('wavelength (nm)')
+    ax.set_ylabel('P (GPa)')
+
+    ll = np.linspace(685.41, 700, 100)
+    l0 = 685.41
+
+    T1 = 298
+    T0 = 298
+
+
+
+    ax.plot(ll, PsamDatchi1997(ll, T1, l0, T0), c='k', label='Datchi 1997')
+    ax.plot(ll, PsamRashchenko2015(ll, T1, l0, T0), c='r', label='Rashchenko 2015')
+
+
+    ax.legend()
 
     plt.show()
