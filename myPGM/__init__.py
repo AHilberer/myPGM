@@ -2,6 +2,7 @@ import sys
 import os
 import ctypes
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import QLocale
 
 from myPGM.helpers import load_style, get_app_icon
 from myPGM.ui.main_ui import MainWindow
@@ -28,6 +29,9 @@ def main():
     app.setStyle("Fusion")
     app.setApplicationName("myPGM")
     app_icon = get_app_icon()
+    # decimal '.'
+    QLocale.setDefault(QLocale(QLocale.C))
+
     if not app_icon.isNull():
         app.setWindowIcon(app_icon)
 

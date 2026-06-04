@@ -26,7 +26,13 @@ from PyQt5.QtGui import QColor, QIcon
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
-from myPGM.helpers import load_style, get_app_icon, MyHSeparator, MyVSeparator
+from myPGM.helpers import (load_style, 
+                          get_app_icon, 
+                          MyHSeparator, 
+                          MyVSeparator, 
+                          SmartDoubleSpinBox, 
+                          SmartDoubleDialog,
+                          FontSizeWindow,)
 
 from myPGM.ui.PvPmPlot import PvPmPlotWindow
 from myPGM.ui.PvPmTable import HPTableWindow
@@ -61,7 +67,7 @@ class MainWindow(QMainWindow):
         x = 100
         y = 100
         width = 800
-        height = 800
+        height = 1000
         self.setGeometry(x, y, width, height)
         # self.setWindowIcon(QIcon('resources/PGMicon.png'))
 
@@ -119,6 +125,14 @@ class MainWindow(QMainWindow):
         additional_toolbox.triggered.connect(self.toggle_additional_ptoolbox)
         ptoolbox_menu.addAction(additional_toolbox)
         #####################################################################################
+        # #? Setup font size menu
+        fontsize_menu = menubar.addMenu("Font size")
+        fontsize_setting = QAction("Set font size", self)
+        fontsize_setting.triggered.connect(self.show_font_size_window)
+        fontsize_menu.addAction(fontsize_setting)
+
+        #####################################################################################
+
         # #? Exit button setup
         exit_menu = menubar.addMenu("Exit")
 
@@ -265,7 +279,7 @@ class MainWindow(QMainWindow):
         SmoothBox = QHBoxLayout()
         SmoothBox.addWidget(QLabel("Smoothing:", self), stretch=1)
 
-        self.smoothing_factor = QDoubleSpinBox()
+        self.smoothing_factor = SmartDoubleSpinBox()
         self.smoothing_factor.setDecimals(0)
         self.smoothing_factor.setRange(1, +np.inf)
         self.smoothing_factor.setValue(1)
@@ -465,16 +479,20 @@ class MainWindow(QMainWindow):
         self.add_current_fit_signal.emit(None)
 
     def prompt_fit_pm(self, current_pm):
-        dialog = QInputDialog(self)
-        dialog.setInputMode(QInputDialog.DoubleInput)
+
+        dialog = SmartDoubleDialog(valuename='Pm (bar):')
+#        dialog.exec_()
+
+#        dialog = QInputDialog(self)
+#        dialog.setInputMode(QInputDialog.DoubleInput)
         dialog.setWindowTitle("Input Pm")
-        dialog.setLabelText("Pm (bar)")
-        dialog.setDoubleValue(current_pm)
-        dialog.setDoubleRange(-1e12, 1e12)
-        dialog.setDoubleDecimals(2)
-        dialog.setStyleSheet(self.styleSheet())
+#        dialog.setLabelText("Pm (bar)")
+#        dialog.setDoubleValue(current_pm)
+#        dialog.setDoubleRange(-1e12, 1e12)
+#        dialog.setDoubleDecimals(2)
+#        dialog.setStyleSheet(self.styleSheet())
         if dialog.exec_():
-            return dialog.doubleValue()
+            return dialog.value()
         return None
 
     def toggle_derivative(self, checked):
@@ -708,6 +726,11 @@ class MainWindow(QMainWindow):
             self.additional_toolbox_window.hide()
         else:
             self.additional_toolbox_window.show()
+
+
+    def show_font_size_window(self):
+        self.u = FontSizeWindow()
+        self.u.show()
 
     def toggle_ManualBg(self):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:

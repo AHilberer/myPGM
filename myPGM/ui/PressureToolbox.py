@@ -17,7 +17,7 @@ from PyQt5.QtGui import QColor
 from PyQt5.QtCore import pyqtSignal, Qt
 
 from myPGM.calibrations import HPCalibration
-from myPGM.helpers import MyHSeparator, MyVSeparator
+from myPGM.helpers import MyHSeparator, MyVSeparator, SmartDoubleSpinBox
 
 
 class PressureToolbox(QWidget):
@@ -48,49 +48,49 @@ class PressureToolbox(QWidget):
 
         Toolboxlayout = QHBoxLayout()
 
-        self.Pm_spinbox = QDoubleSpinBox()
+        self.Pm_spinbox = SmartDoubleSpinBox()
         self.Pm_spinbox.setObjectName("Pm_spinbox")
         self.Pm_spinbox.setDecimals(2)
         self.Pm_spinbox.setRange(-np.inf, np.inf)
         self.Pm_spinbox.setSingleStep(0.1)
         self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
-        self.Pm_spinbox.setMinimumWidth(80)
+        self.Pm_spinbox.setMinimumWidth(100)
 
-        self.P_spinbox = QDoubleSpinBox()
+        self.P_spinbox = SmartDoubleSpinBox()
         self.P_spinbox.setObjectName("P_spinbox")
         self.P_spinbox.setDecimals(3)
         self.P_spinbox.setRange(-np.inf, np.inf)
         self.P_spinbox.setSingleStep(0.1)
 #        self.P_spinbox.setStyleSheet("background: #ccffcc;")
-        self.P_spinbox.setMinimumWidth(80)
+        self.P_spinbox.setMinimumWidth(100)
 
-        self.x_spinbox = QDoubleSpinBox()
+        self.x_spinbox = SmartDoubleSpinBox()
         self.x_spinbox.setObjectName("x_spinbox")
         self.x_spinbox.setDecimals(3)
         self.x_spinbox.setSingleStep(0.01)
         self.x_spinbox.setRange(-np.inf, +np.inf)
-        self.x_spinbox.setMinimumWidth(80)
+        self.x_spinbox.setMinimumWidth(100)
 
-        self.x0_spinbox = QDoubleSpinBox()
+        self.x0_spinbox = SmartDoubleSpinBox()
         self.x0_spinbox.setObjectName("x0_spinbox")
         self.x0_spinbox.setDecimals(3)
         self.x0_spinbox.setSingleStep(0.01)
         self.x0_spinbox.setRange(-np.inf, +np.inf)
-        self.x0_spinbox.setMinimumWidth(80)
+        self.x0_spinbox.setMinimumWidth(100)
 
-        self.T_spinbox = QDoubleSpinBox()
+        self.T_spinbox = SmartDoubleSpinBox()
         self.T_spinbox.setObjectName("T_spinbox")
-        self.T_spinbox.setDecimals(0)
+        self.T_spinbox.setDecimals(1)
         self.T_spinbox.setRange(-np.inf, +np.inf)
         self.T_spinbox.setSingleStep(1)
-        self.T_spinbox.setMinimumWidth(80)
+        self.T_spinbox.setMinimumWidth(100)
 
-        self.T0_spinbox = QDoubleSpinBox()
+        self.T0_spinbox = SmartDoubleSpinBox()
         self.T0_spinbox.setObjectName("T0_spinbox")
-        self.T0_spinbox.setDecimals(0)
+        self.T0_spinbox.setDecimals(1)
         self.T0_spinbox.setRange(-np.inf, +np.inf)
         self.T0_spinbox.setSingleStep(1)
-        self.T0_spinbox.setMinimumWidth(80)
+        self.T0_spinbox.setMinimumWidth(100)
 
         self._xP_bgcolor = None
         self._T_bgcolor = None

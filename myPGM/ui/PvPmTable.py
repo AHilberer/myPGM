@@ -28,7 +28,7 @@ class HPTableWidget(QTableWidget):
 
 
         self.setStyleSheet(
-            "QTableWidget { font-size: 11px; }"
+            "QTableWidget { font-size: 18px; }"
             "QHeaderView::section { padding: 2px; }"
             "QTableWidget::item { padding: 2px; }"
         )
@@ -138,7 +138,7 @@ class HPTableWindow(QWidget):
         self.data_manager = None
 
         self.setWindowTitle("PvPm table")
-        self.setGeometry(1000, 100, 500, 400)
+        self.setGeometry(1200, 100, 700, 400)
 
         # centerPoint = QDesktopWidget().availableGeometry().center()
         # thePosition = (centerPoint.x() + 200, centerPoint.y() + 50)

@@ -1,9 +1,24 @@
 import numpy as np
 from copy import deepcopy
 from scipy.optimize import minimize
-from PyQt5.QtWidgets import QFrame
-from PyQt5.QtCore import Qt, QObject, pyqtSignal, QAbstractListModel, QModelIndex
-from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (QFrame, 
+                             QDoubleSpinBox, 
+                             QDialog, 
+                             QVBoxLayout, 
+                             QHBoxLayout, 
+                             QLabel, 
+                             QPushButton, 
+                             QWidget,
+                             QSlider,
+                             QApplication)
+from PyQt5.QtCore import (Qt, 
+                         QObject, 
+                         pyqtSignal, 
+                         QAbstractListModel, 
+                         QModelIndex, 
+                         QLocale)
+
+from PyQt5.QtGui import QIcon, QFont
 import csv
 from functools import wraps
 # compatibility bridge
@@ -11,6 +26,85 @@ try:
     from importlib.resources import files
 except ImportError:
     from importlib_resources import files
+
+class FontSizeWindow(QWidget):
+
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Font size control")
+
+        layout = QVBoxLayout(self)
+
+        self.label = QLabel("Adjust global font size")
+        layout.addWidget(self.label)
+
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMinimum(8)
+        self.slider.setMaximum(30)
+        self.slider.setValue(15)
+        layout.addWidget(self.slider)
+
+        self.value_label = QLabel()
+        layout.addWidget(self.value_label)
+
+        self.set_font_size(self.slider.value())
+
+        self.slider.valueChanged.connect(self.set_font_size)
+
+    def set_font_size(self, size):
+        app = QApplication.instance()
+        app.setStyleSheet(f"""
+            * {{
+                font-size: {size}px;
+            }}
+        """)
+        self.value_label.setText(f"{size}px")
+
+class SmartDoubleSpinBox(QDoubleSpinBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setLocale(QLocale.c())
+    def valueFromText(self, text):
+        text = text.replace(",", ".")
+        return float(text)
+    def validate(self, text, pos):
+        text = text.replace(",", ".")
+        return super().validate(text, pos)
+
+class SmartDoubleDialog(QDialog):
+    def __init__(self, valuename='Value:', parent=None):
+        super().__init__(parent)
+        
+        self.setObjectName("SmartDoubleDialog")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setAutoFillBackground(True)
+        
+        self.spinbox = SmartDoubleSpinBox()
+        self.spinbox.setDecimals(2)
+        self.spinbox.setRange(-np.inf, np.inf)
+        self.spinbox.setSingleStep(0.1)
+        
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(valuename))
+        layout.addWidget(self.spinbox)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+
+        ok_btn = QPushButton("OK")
+        cancel_btn = QPushButton("Cancel")
+
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+
+        layout.addLayout(btn_layout)
+
+    def value(self):
+        return self.spinbox.value()
 
 class MyHSeparator(QFrame):
     def __init__(self):

@@ -38,6 +38,46 @@ def Pruby2020(l, T, l0, T0):
 
     return P
 
+# H. Mao, J. Xu, and P. Bell, J. Geophys. Res. 91, 4673 1986
+def PrubyMao1986(l, T, l0, T0):
+    A = 1904 # GPa
+    B = 7.665 
+    dT = T - T0
+    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    dl = (l - dlcorr) - l0
+    P = (A/B) * ( (1 + dl/l0)**B - 1 )
+
+    return P
+
+# F. Datchi, R. LeToullec, and P. Loubeyre Journal of Applied Physics 81, 3333 (1997)
+# https://doi.org/10.1063/1.365025
+def PrubyMao1986_DatchiF(l, T, l0, T0):
+    dT = T - T0
+    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    lcorr = l - dlcorr
+    # there is a *10 error in eq. 1 of the paper 
+    P = ( 2.74 *  l0 / 7.665 ) * ((lcorr/l0)**7.665 - 1)
+    return P
+
+# W.B. Holzapfel, High Press. Res. 25 87 (2005)
+def PrubyHolzapfel2005(l, T, l0, T0):
+    dT = T - T0
+    A = 1845 # GPa
+    B = 14.7
+    C = 7.5
+    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    lcorr = l - dlcorr
+    P = (A/(B+C)) * ( np.exp( ((B+C)/C)*(1-(l0/lcorr)**C) ) - 1 ) 
+    return P
+
+# I. Dorogokupets and A.R. Oganov, Phys. Rev. B 75 024115 (2007)
+def PrubyDO2007(l, T, l0, T0):
+    dT = T - T0
+    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    dl = (l - dlcorr) - l0
+    P = 1884 * (dl/l0) * (1 + 5.5 *(dl/l0))
+    return P
+
 #  F. Datchi, High Pressure Research, 27:4, 447-463, DOI: 10.1080/08957950701659593 
 def PsamDatchi1997(l, T, l0, T0):
     dT = T - T0
@@ -49,6 +89,12 @@ def PsamDatchi1997(l, T, l0, T0):
     #dlcorr=0
     dl = (l-dlcorr) - l0
     P = 4.032 * dl * (1 + 9.29e-3 * dl) / (1 + 2.32e-2 * dl)
+    return P
+
+# Rashchenko et al. JOURNAL OF APPLIED PHYSICS 117, 145902 (2015)
+def PsamRashchenko2015(l, T, l0, T0):
+    dl = l - l0
+    P = 4.20 * dl * (1 + 0.020 * dl) / (1 + 0.036 * dl)
     return P
 
 #  F. Datchi, High Pressure Research, 27:4, 447-463, DOI: 10.1080/08957950701659593 
@@ -109,10 +155,54 @@ Ruby2020 = HPCalibration(name = 'Ruby2020',
                                  xstep = .01,
                                  color = 'firebrick',
                                  default_fit_model='Double Voigt')
-        
+
+RubyMao1986 = HPCalibration(name = 'Ruby Mao 1986',
+                                 func = PrubyMao1986,
+                                 Tcor_name='Datchi 2007',
+                                 xname = 'lambda',
+                                 xunit = 'nm',
+                                 x0default = 694.28,
+                                 T0default = 298,
+                                 xstep = .01,
+                                 color = 'crimson',
+                                 default_fit_model='Double Voigt')
+
+RubyMao1986_DatchiF = HPCalibration(name = 'Ruby Mao 1986 (Datchi form)',
+                                    func = PrubyMao1986_DatchiF,
+                                    Tcor_name='Datchi 2007',
+                                    xname = 'lambda',
+                                    xunit = 'nm',
+                                    x0default = 694.28,
+                                    T0default = 298,
+                                    xstep = .01,
+                                    color = 'deeppink',
+                                    default_fit_model='Double Voigt')
+
+RubyHolzapfel2005 = HPCalibration(name = 'Ruby Holzapfel 2005',
+                                  func = PrubyHolzapfel2005,
+                                  Tcor_name='Datchi 2007',
+                                  xname = 'lambda',
+                                  xunit = 'nm',
+                                  x0default = 694.28,
+                                  T0default = 298,
+                                  xstep = .01,
+                                  color = 'tomato',
+                                  default_fit_model='Double Voigt')
+
+RubyDO2007 = HPCalibration(name = 'Ruby Dorogokupets-Oganov 2007',
+                                  func = PrubyDO2007,
+                                  Tcor_name='Datchi 2007',
+                                  xname = 'lambda',
+                                  xunit = 'nm',
+                                  x0default = 694.28,
+                                  T0default = 298,
+                                  xstep = .01,
+                                  color = 'orangered',
+                                  default_fit_model='Double Voigt')
+
 SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        func = PsamDatchi1997,
-                                       Tcor_name='Datchi J. Appl. Phys. 1997',
+                                       Tcor_name='Datchi J.Appl.Phys. 1997',
                                        xname = 'lambda',
                                        xunit = 'nm',
                                        x0default = 685.41,
@@ -120,6 +210,17 @@ SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        xstep = .01,
                                        color = 'mediumseagreen',
                                        default_fit_model='Single Voigt')
+
+SamRashchenko2015 = HPCalibration(name = 'Samarium SrB4O7 Rashchenko 2015',
+                                  func = PsamRashchenko2015,
+                                  Tcor_name='NA',
+                                  xname = 'lambda',
+                                  xunit = 'nm',
+                                  x0default = 685.51,
+                                  T0default = 298,
+                                  xstep = .01,
+                                  color = 'springgreen',
+                                  default_fit_model='Single Voigt')
 
 Hilberer2026 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2026',
                                     func = PHilberer2026,
@@ -162,7 +263,7 @@ cBNDatchi = HPCalibration(name = 'cBN Raman Datchi 2007',
                                   x0default = 1054,
                                   T0default = 298,
                                   xstep = .1,
-                                  color = 'hotpink',
+                                  color = 'violet',
                                   default_fit_model='Single Voigt')
 
 H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
@@ -173,15 +274,20 @@ H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
                                   x0default = -1,
                                   T0default = 298,
                                   xstep = .1,
-                                  color = 'orangered',
+                                  color = 'tan',
                                   default_fit_model='Single Voigt')
 
 
 calib_list = [Ruby2020, 
+              RubyMao1986,
+              RubyMao1986_DatchiF,
+              RubyHolzapfel2005,
+              RubyDO2007,
               SamariumDatchi,
+              SamRashchenko2015,
               Hilberer2026,
-              Akahama2006,
               Eremets2023,
+              Akahama2006,
               H2Vibron,
               cBNDatchi,
                       ]
@@ -191,11 +297,58 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import numpy as np
 
-    print(H2Vibron)
-    x = np.linspace(4000, 4260, 100)
-    y = H2_Vibron(x, 0, 4150, 0)
+    fig, ax = plt.subplots(2, figsize=(7,9), sharex=True)
+    ax[0].set_xlabel('wavelength (nm)')
+    ax[0].set_ylabel('P (GPa)')
 
-    print( H2Vibron.invfunc(10, 0, 4150, 0) )
+    ax[1].set_xlabel('wavelength (nm)')
+    ax[1].set_ylabel('P - Pruby2020 (GPa)')
 
-    plt.plot(y,x)
+    ll = np.linspace(694.28, 720, 100)
+    l0 = 694.28
+
+    T1 = 298
+    T0 = 298
+
+    ruby2020 = Pruby2020(ll, T1, l0, T0)
+
+    ax[0].plot(ll, ruby2020, c='k', label='ruby 2020')
+    ax[0].plot(ll, PrubyMao1986(ll, T1, l0, T0), c='r', label='Mao 1986')
+    ax[0].plot(ll, PrubyMao1986_DatchiF(ll, T1, l0, T0), c='pink', linestyle='dashed', label='Mao 1986 Datchi Form')
+    ax[0].plot(ll, PrubyHolzapfel2005(ll, T1, l0, T0), c='green', label='Holzapfel 2005')
+    ax[0].plot(ll, PrubyDO2007(ll, T1, l0, T0), c='gold', label='Dorogokupets-Oganov 2005')
+
+
+    # differences
+    ax[1].plot(ll, ruby2020-ruby2020, c='k')
+    ax[1].plot(ll, PrubyMao1986(ll, T1, l0, T0) - ruby2020, c='r')
+    ax[1].plot(ll, PrubyMao1986_DatchiF(ll, T1, l0, T0) - ruby2020, c='pink', linestyle='dashed')
+    ax[1].plot(ll, PrubyHolzapfel2005(ll, T1, l0, T0) - ruby2020, c='green')
+    ax[1].plot(ll, PrubyDO2007(ll, T1, l0, T0) - ruby2020, c='gold')
+
+
+
+    ax[0].legend()
+
+    plt.show()
+
+    fig, ax = plt.subplots()
+    ax.set_title('Samarium Borate')
+    ax.set_xlabel('wavelength (nm)')
+    ax.set_ylabel('P (GPa)')
+
+    ll = np.linspace(685.41, 700, 100)
+    l0 = 685.41
+
+    T1 = 298
+    T0 = 298
+
+
+
+    ax.plot(ll, PsamDatchi1997(ll, T1, l0, T0), c='k', label='Datchi 1997')
+    ax.plot(ll, PsamRashchenko2015(ll, T1, l0, T0), c='r', label='Rashchenko 2015')
+
+
+    ax.legend()
+
     plt.show()
