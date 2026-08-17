@@ -377,33 +377,28 @@ class PressureGaugeDataObject:
             x = x[mask]
             y = y[mask]
         
-        try:
-            
-            self.fit_result = self.fit_procedure(self.fit_model, x, y, guess_peak=guess_peak)
-            if self.fit_model.type == "peak":
-                fitted = [self.fit_model.func(wvl, *self.fit_result["opti"]) for wvl in x]
-                self.fitted_data = np.column_stack((x, fitted))
-                popt = self.fit_result["opti"]
+        self.fit_result = self.fit_procedure(self.fit_model, x, y, guess_peak=guess_peak)
+        if self.fit_model.type == "peak":
+            fitted = [self.fit_model.func(wvl, *self.fit_result["opti"]) for wvl in x]
+            self.fitted_data = np.column_stack((x, fitted))
+            popt = self.fit_result["opti"]
 
-                # for now we use the number of args.... (crappy)
-                if len(popt) < 7:  # Samarium / Hydrogen (?)
-                    best_x = popt[2]
-                elif len(popt) < 8:  # Ruby Gaussian
-                    best_x = np.max([popt[2], popt[5]])
-                else:  # Ruby Voigt
-                    best_x = np.max([popt[2], popt[6]])
+            # for now we use the number of args.... (crappy)
+            if len(popt) < 7:  # Samarium / Hydrogen (?)
+                best_x = popt[2]
+            elif len(popt) < 8:  # Ruby Gaussian
+                best_x = np.max([popt[2], popt[5]])
+            else:  # Ruby Voigt
+                best_x = np.max([popt[2], popt[6]])
 
-                
-            elif self.fit_model.type == "edge":
-                self.fitted_data = self.fit_result["opti"]
-                best_x = self.fitted_data
-            else:
-                raise ValueError("Fit type not implemented")
-            
-            self.set_x(best_x)
-        except:
-            raise RuntimeError("Fit failed to converge.")
-            
+        elif self.fit_model.type == "edge":
+            self.fitted_data = self.fit_result["opti"]
+            best_x = self.fitted_data
+        else:
+            raise ValueError(f"Fit type not implemented: {self.fit_model.type!r}")
+
+        self.set_x(best_x)
+
 
     def fit_procedure(self, model, x, y, guess_peak=None):
         if model.type == "peak":
@@ -415,8 +410,8 @@ class PressureGaugeDataObject:
                     # self.x_spinbox.setValue(best_x)
                 return {"opti": popt, "cov": pcov}
 
-            except:
-                 raise RuntimeError("Fit failed to converge.")
+            except (RuntimeError, ValueError) as exc:
+                raise RuntimeError(f"Fit failed to converge: {exc}") from exc
 
         elif model.type == "edge":
             if guess_peak is not None:

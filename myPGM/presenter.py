@@ -262,8 +262,8 @@ class Presenter(QObject):
             try:
                 if self.corrected_spectro_x is not None:
                     obj.spectro_recalib(self.corrected_spectro_x)
-            except Exception:
-                pass
+            except RuntimeError as exc:
+                print(f"Could not apply spectrometer calibration to {obj.filename}: {exc}")
         else:
             obj.reset_spectro_recalib()
 
@@ -293,8 +293,8 @@ class Presenter(QObject):
     def add_new_file(self):
         try:
             selected_files = self.view.get_file_via_dialog()
-        except:
-            raise RuntimeError("File selection dialog failed.")
+        except Exception as exc:
+            raise RuntimeError(f"File selection dialog failed: {exc}") from exc
         if selected_files is not None:
             for file in selected_files:
                 self.add_instance_from_path(file)

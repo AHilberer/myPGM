@@ -390,12 +390,13 @@ class MainWindow(QMainWindow):
     def switch_to_dark(self):
         try:
             style = load_style('dark-mode.qss')
+        except OSError as exc:
+            print(f"Could not load dark-mode stylesheet: {exc}")
+        else:
             self.setStyleSheet(style)
             self.PvPmTableWindow.setStyleSheet(style)
             self.PvPmPlotWindow.setStyleSheet(style)
             self.additional_toolbox_window.setStyleSheet(style)
-        except:
-            pass
         self.plot_label_color = "white"
 
         # some parameters seem to be unaffected by the style import ...
@@ -422,12 +423,13 @@ class MainWindow(QMainWindow):
     def switch_to_light(self):
         try:
             style = load_style('light-mode.qss')
+        except OSError as exc:
+            print(f"Could not load light-mode stylesheet: {exc}")
+        else:
             self.setStyleSheet(style)
             self.PvPmTableWindow.setStyleSheet(style)
             self.PvPmPlotWindow.setStyleSheet(style)
             self.additional_toolbox_window.setStyleSheet(style)
-        except:
-            pass
         self.plot_label_color = "black"
 
         # some parameters seem to be unaffected by the style import ...
