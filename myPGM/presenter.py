@@ -126,6 +126,11 @@ class Presenter(QObject):
                 f"({len(corrected_spectro_x)} vs {len(reference_x)} points)."
             )
 
+    def _set_spectro_use_checked(self, checked):
+        was_blocked = self.view.Spectro_use_button.blockSignals(True)
+        self.view.Spectro_use_button.setChecked(checked)
+        self.view.Spectro_use_button.blockSignals(was_blocked)
+
     def initialize_fit_models_menu(self):
         model_dict = {a.name: a for a in myPGM.fit_models.model_list}
         self.fit_models = model_dict
@@ -259,11 +264,18 @@ class Presenter(QObject):
             return
 
         if self.view.Spectro_use_button.isChecked():
-            try:
-                if self.corrected_spectro_x is not None:
+            if self.corrected_spectro_x is not None:
+                try:
                     obj.spectro_recalib(self.corrected_spectro_x)
-            except RuntimeError as exc:
-                print(f"Could not apply spectrometer calibration to {obj.filename}: {exc}")
+                except Exception as exc:
+                    obj.reset_spectro_recalib()
+                    self._set_spectro_use_checked(False)
+                    self._show_error(
+                        f"Alternative spectrometer calibration disabled for this file: {exc}",
+                        title="Calibration mismatch",
+                    )
+            else:
+                self._set_spectro_use_checked(False)
         else:
             obj.reset_spectro_recalib()
 
@@ -521,9 +533,21 @@ class Presenter(QObject):
 
         obj = self.model.get(self.current_selected_file, None)
         if checked:
-            if self.corrected_spectro_x is not None:
+            if self.corrected_spectro_x is None:
+                self._set_spectro_use_checked(False)
+                return
+
+            try:
                 obj.spectro_recalib(self.corrected_spectro_x)
-                self.update_data_plots(self.current_selected_file)
+            except Exception as exc:
+                obj.reset_spectro_recalib()
+                self._set_spectro_use_checked(False)
+                self._show_error(
+                    f"Alternative spectrometer calibration disabled for this file: {exc}",
+                    title="Calibration mismatch",
+                )
+
+            self.update_data_plots(self.current_selected_file)
             return
 
         obj.reset_spectro_recalib()

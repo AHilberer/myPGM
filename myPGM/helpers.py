@@ -174,45 +174,58 @@ def get_app_icon():
     return QIcon()
 
 def customparse_file2data(f):
+    def _split_line(line, delimiter):
+        # For whitespace-separated files, collapse repeated spaces/tabs.
+        if delimiter == ' ':
+            return line.strip().split()
+        return line.strip().split(delimiter)
+
+    def _to_float(token):
+        return float(token.strip().replace(',', '.'))
+
     with open(f, 'r') as file:
-        # Skip initial lines to determine the delimiter
-        initial_skip = 100  
-        for _ in range(initial_skip):
-            file.readline()
+        lines = file.readlines()
 
-        # Read a chunk from the middle of the file to determine the delimiter
-        chunk_size = 2000
-        chunk = file.read(chunk_size)
-        file.seek(0)  # Reset file pointer to the beginning
+    # Evaluate candidate delimiters by counting how many lines can be parsed
+    # into at least two numeric columns.
+    candidates = ['\t', ';', ' ', ',']
+    best_delimiter = None
+    best_score = (-1, -1)
 
-#        delimiter = csv.Sniffer().sniff(chunk).delimiter
-        candidates = [',', '\t', ';', ' ']
-        delimiter = max(candidates, key=lambda d: chunk.count(d))
-
-        count = 0
-        data_lines = []
-        # Process the file line by line to determine header
-        # When it will reach footer, it will be exluded too
-        for line in file:
-            sp = line.strip().split(delimiter)
+    for delimiter in candidates:
+        valid_lines = 0
+        total_cols = 0
+        for line in lines:
+            sp = _split_line(line, delimiter)
             if len(sp) < 2:
-                count += 1
-            else:
-                try:
-                    _ = list(map(float, sp))
-                    data_lines.append(line)
-                except ValueError:
-                    count += 1
+                continue
+            try:
+                _ = [_to_float(v) for v in sp]
+                valid_lines += 1
+                total_cols += len(sp)
+            except ValueError:
+                continue
 
-        #print('delimiter : {}'.format(delimiter))
-        #print('count : {}'.format(count))
+        score = (valid_lines, total_cols)
+        if score > best_score:
+            best_score = score
+            best_delimiter = delimiter
 
-        # Convert data_lines to a numpy array
-        data = np.array([line.strip().split(delimiter) for line in data_lines], 
-            dtype=np.float64)
+    data_rows = []
+    for line in lines:
+        sp = _split_line(line, best_delimiter)
+        if len(sp) < 2:
+            continue
+        try:
+            data_rows.append([_to_float(v) for v in sp])
+        except ValueError:
+            continue
 
-        #print('length: {}'.format(len(data)))
-        return data[:, :2] 
+    if not data_rows:
+        raise RuntimeError("No numeric data found in file")
+
+    data = np.array(data_rows, dtype=np.float64)
+    return data[:, :2]
 
 def spectro_calibration_reader(f):
     try:
@@ -220,24 +233,24 @@ def spectro_calibration_reader(f):
         data = customparse_file2data(f)[:, 0]
         return data
 
-    except IndexError:
+    except Exception:
         # single-column file (?)
         with open(f, 'r') as file:
             data_lines = []
             for line in file:
                 try:
                     # in case of header/footer
-                    v = float(line)
+                    v = float(line.strip().replace(',', '.'))
                     data_lines.append(v)
                 except ValueError:
                     #print(line)
                     pass
 
+            if not data_lines:
+                raise RuntimeError("No numeric data found in spectrometer calibration file")
+
             data = np.array(data_lines, dtype=np.float64)
         return data
-
-    except Exception as e:
-        raise RuntimeError(f"Could not read spectrometer calibration file: {e}") from e
 
 
 if __name__ == '__main__':
