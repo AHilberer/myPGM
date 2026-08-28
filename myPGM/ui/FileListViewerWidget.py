@@ -93,10 +93,10 @@ class FileListViewerWidget(QWidget):
             obj_id = item.data(Qt.UserRole)
             #obj = self.data_manager.get(obj_id, None)
 
-            try :
+            try:
                 self.object_selected.emit(obj_id)
-            except:
-                print("Could not retrieve object data.")
+            except AttributeError as exc:
+                print(f"Could not retrieve object data: {exc}")
 
 
 
