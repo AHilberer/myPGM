@@ -77,24 +77,23 @@ class PvPmPlotWindow(QMainWindow):
 		for sample, label in self.legend.items:
 			label.setText(label.text, size=f"{self.font_px}px")
 
-	def updateplot(self, incoming_data=None): 
-		if incoming_data is None:
-			if self.data_manager is None:
-				return
-			incoming_data = []
-			# same order as the table '#': points are joined in the order they were added
-			for obj in self.data_manager.table_entries():
-				if obj.Pm is None or obj.P is None:
-					continue
-				incoming_data.append(
-					{
-						"Pm": float(obj.Pm),
-						"P": float(obj.P),
-						"P_err": getattr(obj, "P_err", None),
-						"calib": obj.calib.name if obj.calib is not None else "unknown",
-						"label": obj.calib.short_name if obj.calib is not None else "unknown",
-					}
-				)
+	def updateplot(self):
+		if self.data_manager is None:
+			return
+		incoming_data = []
+		# same order as the table '#': points are joined in the order they were added
+		for obj in self.data_manager.table_entries():
+			if obj.Pm is None or obj.P is None:
+				continue
+			incoming_data.append(
+				{
+					"Pm": float(obj.Pm),
+					"P": float(obj.P),
+					"P_err": getattr(obj, "P_err", None),
+					"calib": obj.calib.name if obj.calib is not None else "unknown",
+					"label": obj.calib.short_name if obj.calib is not None else "unknown",
+				}
+			)
 		
 		# Group data by 'calib' key
 		groups = {}
