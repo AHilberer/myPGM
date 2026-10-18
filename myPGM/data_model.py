@@ -129,10 +129,12 @@ class PressureGaugeDataObject:
         self.fit_model = fit_model
 
     def normalize_data(self):
+        """Scale the intensity so that its maximum is 1. The baseline is kept on
+        purpose: the fitted offset c absorbs it, and the fit starting values are
+        tuned for it (subtracting the minimum made some H2 fits diverge)."""
         self.normalized_data = np.zeros(self.original_data.shape)
         self.normalized_data[:,0] = self.original_data[:,0]
-        self.normalized_data[:,1] = self.original_data[:,1]-np.min(self.original_data[:,1])
-        self.normalized_data[:,1]=self.original_data[:,1]/max(self.original_data[:,1])
+        self.normalized_data[:,1] = self.original_data[:,1] / max(self.original_data[:,1])
 
     def to_dict(self):
         return {
