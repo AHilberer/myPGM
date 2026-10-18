@@ -14,6 +14,12 @@ from myPGM.helpers import pressure_valid, spectro_calibration_reader, PressureCa
 logger = logging.getLogger(__name__)
 
 
+
+def _fmt_err(value):
+    """Fit uncertainty for log messages (2 significant digits, n/a if none)."""
+    return "n/a" if value is None else f"{value:.2g}"
+
+
 def get_app_version():
     try:
         return version("myPGM")
@@ -22,7 +28,9 @@ def get_app_version():
         return "dev"
 
 class Presenter(QObject):
-    def __init__(self, model, view, test_mode=False):
+    def __init__(self, model, view, test_mode=False, demo=False):
+        """test_mode: load the example spectra (used by the tests).
+        demo: load them as a fitted example session (python run.py --demo)."""
         super().__init__()
         self.model = model
         self.view = view
@@ -36,6 +44,15 @@ class Presenter(QObject):
                 "Example_Ruby_2.asc",
                 "Example_Ruby_3.asc",
                 "Example_H2.txt",
+            ]
+        # demo session: (file, calibration, fit model, Pm in bar), as one membrane
+        # loading run, with the H2 vibron used as a second gauge at the last step
+        self.example_fits = [
+                ("Example_Ruby_1.asc", "Ruby2020", "Double Voigt", 8.0),
+                ("Example_Ruby_2.asc", "Ruby2020", "Double Voigt", 15.0),
+                ("Example_Ruby_3.asc", "Ruby2020", "Double Voigt", 24.0),
+                # Single Voigt, the H2 default, does not converge on this spectrum
+                ("Example_H2.txt", "H2 Vibron <30GPa", "Single Lorentzian", 27.0),
             ]
         self.ordered_files_to_display = []
         self.buffer = PressureGaugeDataObject()
@@ -83,8 +100,10 @@ class Presenter(QObject):
 
         self.view.PToolbox_toTable_button.clicked.connect(self.add_current_PToolbox_to_table)
 
-        if self.test_mode:
+        if self.test_mode or demo:
             self.initialize_example()
+        if demo:
+            self.fit_examples()
 
     ##################################################################################""
         #? Methods 
@@ -372,8 +391,10 @@ class Presenter(QObject):
             x_min = float(np.min(x))
             x_max = float(np.max(x))
 
-            # the buffer is only used here for the axis units in plot_data
-            self.view.plot_data(x, y, self.buffer, preserve_view=preserve_view)
+            # only used for the axis units: the spectrum's own calibration if it has
+            # one (the buffer may still hold the previously selected spectrum)
+            units_source = obj if obj.calib is not None else self.buffer
+            self.view.plot_data(x, y, units_source, preserve_view=preserve_view)
             if obj.fit_result is not None:
                 self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y, P_err=obj.P_err)
 
@@ -675,9 +696,9 @@ class Presenter(QObject):
                 # obj, and editing the buffer from the GUI would modify that obj.
                 # self.buffer.calib is deep-copied as well.
                 self.buffer = deepcopy(obj)
-                logger.debug("Fitted %s with %s, %s: x = %s ± %s, P = %s ± %s GPa",
+                logger.debug("Fitted %s with %s, %s: x = %.4f ± %s, P = %.3f ± %s GPa",
                              obj.filename, obj.fit_model.name, obj.calib.name,
-                             obj.x, obj.x_err, obj.P, obj.P_err)
+                             obj.x, _fmt_err(obj.x_err), obj.P, _fmt_err(obj.P_err))
                 # set ptoolbox state:
                 self.view.ptoolbox.set_state_from_buffer(self.buffer)
                 self.update_data_plots(self.current_selected_file, preserve_view=True)
@@ -716,6 +737,34 @@ class Presenter(QObject):
             self.add_instance_from_path(current_file_path)
 
         self.populate_file_list()
+
+    def fit_examples(self):
+        """Fit the example spectra and add them to the PvPm table (demo session)."""
+        ids = {self.model[i].filename: i for i in self.ordered_files_to_display}
+        for file_name, calib_name, model_name, Pm in self.example_fits:
+            obj_id = ids[file_name]
+            self.select_file_in_list(obj_id)
+            self.file_selected_from_file_list(obj_id)
+            # same state as choosing the calibration and model in the GUI
+            self.buffer.set_calibration(self.view.ptoolbox.calibrations[calib_name])
+            self.view.ptoolbox.set_state_from_buffer(self.buffer)
+            self._select_fit_model(model_name)
+            self.fit_mode = self.fit_models[model_name]
+            self.fit_current_file()
+
+            obj = self.model[obj_id]
+            if obj.fit_result is None:
+                logger.warning("Demo: could not fit %s", file_name)
+                continue
+            obj.set_Pm(Pm)
+            obj.include_in_table = True
+        self.update_PvPm_table()
+
+        # finish on the last ruby spectrum, with the ruby calibration in the toolbox
+        last_ruby = ids[self.example_fits[2][0]]
+        self.select_file_in_list(last_ruby)
+        self.file_selected_from_file_list(last_ruby)
+        logger.debug("Demo session ready")
 
     def add_current_PToolbox_to_table(self):
         # create a new object from buffer and add it to the model, then update table and plot

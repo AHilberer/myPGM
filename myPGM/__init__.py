@@ -61,8 +61,8 @@ def main():
     view = MainWindow()
     if not app_icon.isNull():
         view.setWindowIcon(app_icon)
-    # example spectra are only loaded on request: python run.py --demo
-    presenter = Presenter(model, view, test_mode="--demo" in sys.argv)
+    # example session (fitted spectra in the PvPm table) only on request: --demo
+    presenter = Presenter(model, view, demo="--demo" in sys.argv)
     presenter.view.show()
 
     sys.exit(app.exec_())

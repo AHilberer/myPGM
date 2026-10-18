@@ -306,3 +306,67 @@ def test_windows_open_within_the_screen(gui):
     area = QGuiApplication.primaryScreen().availableGeometry()
     for window in (gui.view, gui.view.PvPmTableWindow, gui.view.PvPmPlotWindow):
         assert area.contains(window.geometry()), (window.windowTitle(), window.geometry(), area)
+
+
+# --- demo session -------------------------------------------------------------------------
+
+@pytest.fixture
+def demo(qapp):
+    from myPGM.helpers import load_style
+    from myPGM.ui.main_ui import MainWindow
+    from myPGM.data_model import PressureGaugeDataManager
+    from myPGM.presenter import Presenter
+    qapp.setStyleSheet(load_style("light-mode.qss"))
+    view = MainWindow()
+    errors = []
+    # record error popups instead of showing them, before the demo is built
+    view.fit_error_popup_window = lambda: errors.append("Fit error")
+    from PyQt5.QtWidgets import QMessageBox
+    original_exec = QMessageBox.exec_
+    QMessageBox.exec_ = lambda self: errors.append(self.windowTitle())
+    try:
+        presenter = Presenter(PressureGaugeDataManager(), view, demo=True)
+    finally:
+        QMessageBox.exec_ = original_exec
+    yield presenter, view, errors
+    view.close()
+    qapp.setStyleSheet("")
+
+
+def test_demo_session_fills_the_table(demo):
+    presenter, view, errors = demo
+    assert errors == []
+    assert view.file_list_widget.list_widget.count() == 5
+    table = view.PvPmTableWindow.table_widget
+    rows = [[table.item(r, c).text() for c in range(table.columnCount())] for r in range(table.rowCount())]
+    by_file = {row[-1]: row for row in rows}
+    assert set(by_file) == {"Example_Ruby_1.asc", "Example_Ruby_2.asc", "Example_Ruby_3.asc", "Example_H2.txt"}
+    assert [by_file[f][0] for f in ("Example_Ruby_1.asc", "Example_Ruby_2.asc",
+                                    "Example_Ruby_3.asc", "Example_H2.txt")] == ["8.00", "15.00", "24.00", "27.00"]
+    assert by_file["Example_H2.txt"][-2] == "H2 Vibron <30GPa"
+    # pressures increase with membrane pressure, like a real loading run
+    P = [float(by_file[f][1]) for f in ("Example_Ruby_1.asc", "Example_Ruby_2.asc",
+                                         "Example_Ruby_3.asc", "Example_H2.txt")]
+    assert P == sorted(P)
+    assert P[0] == pytest.approx(1.699, abs=0.01) and P[3] == pytest.approx(5.895, abs=0.01)
+
+
+def test_demo_session_plot_and_final_state(demo):
+    presenter, view, _ = demo
+    assert set(view.PvPmPlotWindow.lines) == {"Ruby2020", "H2 Vibron <30GPa"}
+    assert presenter.model[presenter.current_selected_file].filename == "Example_Ruby_3.asc"
+    assert view.ptoolbox.calibration_combo.currentText() == "Ruby2020"
+    assert view.ptoolbox.Pm_spinbox.value() == 24.0
+    diamond = next(o for o in presenter.model.values() if o.filename == "Example_diam_Raman.asc")
+    assert diamond.fit_result is None and not diamond.include_in_table
+
+
+def test_axis_units_follow_the_selected_spectrum(gui):
+    # fit H2 (cm-1), then select a ruby spectrum fitted in nm
+    gui.presenter.buffer.calib = C.Ruby2020
+    select_and_fit(gui, "Example_Ruby_1.asc")
+    gui.presenter.buffer.set_calibration(C.H2Vibron)
+    select_and_fit(gui, "Example_H2.txt", F.SingleLorentzian)
+    assert "cm-1" in gui.view.data_widget.getAxis("bottom").labelText
+    gui.presenter.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
+    assert gui.view.data_widget.getAxis("bottom").labelText == "lambda (nm)"
