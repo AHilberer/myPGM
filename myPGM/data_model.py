@@ -498,6 +498,10 @@ class PressureGaugeDataManager(MutableMapping):
     def remove_from_table(self, instance):
         instance.include_in_table = False
         instance.table_id = None
+        # table-only entries (deleted file, point added from the toolbox) are not
+        # shown anywhere else any more
+        if not instance.include_in_filelist:
+            self._items.pop(instance.id, None)
 
     def table_entries(self):
         """Instances shown in the PvPm table, in the order they were added

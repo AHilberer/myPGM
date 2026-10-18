@@ -361,11 +361,22 @@ class Presenter(QObject):
     def delete_current_file(self):
         if self.current_selected_file is not None:
             obj_id = self.current_selected_file
-            self.model.delete_instance(obj_id)
+            obj = self.model[obj_id]
+            message = "No file selected"
+            if obj.include_in_table:
+                # keep the measured point: it becomes a table-only entry (like points
+                # added from the toolbox), deleted once removed from the table
+                obj.include_in_filelist = False
+                number = [o.id for o in self.model.table_entries()].index(obj_id) + 1
+                message = (f"{obj.filename} removed from the file list; "
+                           f"its point #{number} is kept in the table")
+                logger.info(message)
+            else:
+                self.model.delete_instance(obj_id)
             self.current_selected_file = None
             self.populate_file_list()
             self.update_PvPm_table()
-            self.view.current_file_label.setText("No file selected")
+            self.view.current_file_label.setText(message)
         else:
             self._show_error("No file selected to delete.")
 

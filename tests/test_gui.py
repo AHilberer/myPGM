@@ -511,3 +511,36 @@ def test_switching_fit_range_off_fits_the_whole_spectrum(gui):
     x, _ = obj.get_data_to_process()
     assert obj.fitting_range is None
     assert obj.fitted_data[:, 0].min() == x.min() and obj.fitted_data[:, 0].max() == x.max()
+
+
+def test_deleting_a_file_keeps_its_table_point(gui):
+    _add(gui, "Example_Ruby_1.asc", 8.0)
+    obj = _add(gui, "Example_Ruby_2.asc", 15.0)
+    gui.presenter.delete_current_file()            # Ruby_2 is selected
+    assert "Example_Ruby_2.asc" not in [gui.presenter.model[i].filename
+                                        for i in gui.presenter.ordered_files_to_display]
+    rows = table_rows(gui.view.PvPmTableWindow.table_widget)
+    assert [r["file"] for r in rows] == ["Example_Ruby_1.asc", "Example_Ruby_2.asc"]
+    assert "point #2 is kept in the table" in gui.view.current_file_label.text()
+    assert gui.errors == []
+    # once removed from the table too, the spectrum is gone completely
+    table = gui.view.PvPmTableWindow.table_widget
+    row = next(r for r in range(table.rowCount()) if table.object_id_at(r) == obj.id)
+    table.setCurrentCell(row, 0)
+    gui.view.PvPmTableWindow.delete_selected()
+    assert obj.id not in gui.presenter.model
+
+
+def test_deleting_a_file_not_in_the_table_removes_it(gui):
+    fid = gui.file_id("Example_Ruby_3.asc")
+    gui.presenter.file_selected_from_file_list(fid)
+    gui.presenter.delete_current_file()
+    assert fid not in gui.presenter.model
+
+
+def test_removing_a_toolbox_point_from_the_table_deletes_it(gui):
+    gui.presenter.add_current_PToolbox_to_table()
+    table_only = gui.presenter.model.table_entries()[0]
+    gui.view.PvPmTableWindow.clear_table()
+    assert table_only.id not in gui.presenter.model
+    assert len(gui.presenter.model) == 5                   # the loaded files stay
