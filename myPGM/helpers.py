@@ -52,13 +52,15 @@ class FontSizeWindow(QWidget):
 
         self.slider.valueChanged.connect(self.set_font_size)
 
+    FONT_RULE_MARKER = "/* myPGM font size */"
+
     def set_font_size(self, size):
         app = QApplication.instance()
-        app.setStyleSheet(f"""
-            * {{
-                font-size: {size}px;
-            }}
-        """)
+        # keep the current theme: only replace our own font rule, appended at the end
+        base_style = app.styleSheet().split(self.FONT_RULE_MARKER)[0]
+        app.setStyleSheet(
+            f"{base_style}{self.FONT_RULE_MARKER}\n* {{ font-size: {size}px; }}\n"
+        )
         self.value_label.setText(f"{size}px")
 
 class SmartDoubleSpinBox(QDoubleSpinBox):
