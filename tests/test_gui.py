@@ -436,6 +436,26 @@ def test_table_sorts_numbers_as_numbers_and_keeps_row_actions(gui, monkeypatch):
     assert sorted(r["file"] for r in table_rows(table)) == ["Example_Ruby_2.asc", "Example_Ruby_3.asc"]
 
 
+def test_table_sorts_by_every_column_without_errors(demo, monkeypatch):
+    # fitted P and x are numpy floats: sorting by them used to raise a TypeError
+    # in SortableItem.__lt__ for every comparison
+    import sys
+    errors = []
+    monkeypatch.setattr(sys, "excepthook", lambda *exc_info: errors.append(exc_info))
+    _presenter, view, _ = demo
+    table = view.PvPmTableWindow.table_widget
+    headers = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())]
+    for col in range(table.columnCount()):
+        for order in (Qt.AscendingOrder, Qt.DescendingOrder):
+            table.sortByColumn(col, order)
+    assert errors == []
+    table.sortByColumn(headers.index("P (GPa)"), Qt.DescendingOrder)
+    P = [float(r["P (GPa)"].split()[0]) for r in table_rows(table)]
+    assert P == sorted(P, reverse=True)
+    table.sortByColumn(headers.index("x"), Qt.AscendingOrder)
+    assert [r["file"] for r in table_rows(table)][-1] == "Example_H2.txt"   # 4206 cm-1 last
+
+
 def test_table_flags_temperature_and_shows_T(gui):
     obj = _add(gui, "Example_Ruby_1.asc", 8.0)
     table = gui.view.PvPmTableWindow.table_widget

@@ -78,7 +78,8 @@ class SortableItem(QTableWidgetItem):
         a, b = self.data(SORT_ROLE), other.data(SORT_ROLE)
         if a is None or b is None:
             return a is None and b is not None
-        return a < b
+        # Qt requires a Python bool (comparing numpy values gives numpy.bool_)
+        return bool(a < b)
 
 
 class HPTableWidget(QTableWidget):
@@ -159,6 +160,9 @@ class HPTableWidget(QTableWidget):
             for key, (text, sort_value) in self._cells(row + 1, obj).items():
                 col = COLUMN_INDEX[key]
                 item = SortableItem(text)
+                # plain Python values: fitted P and x are numpy floats
+                if sort_value is not None and not isinstance(sort_value, str):
+                    sort_value = float(sort_value)
                 item.setData(SORT_ROLE, sort_value)
                 if COLUMNS[col][2]:
                     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
