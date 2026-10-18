@@ -62,6 +62,7 @@ class PressureGaugeDataObject:
         # Attributes related to spectral measurement data
         self.filename = None
         self.full_path = None
+        self.file_mtime = None          # modification time of the file when it was loaded
         self.original_data = None
         self.normalized_data = None
         self.corrected_data = None      # rebuilt by _recompute_corrected_data

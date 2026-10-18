@@ -350,6 +350,7 @@ class Presenter(QObject):
         a = PressureGaugeDataObject()
         # load first so that an unreadable file does not leave an empty entry
         a.load_spectral_data_file(file_name, file_path)
+        a.file_mtime = os.path.getmtime(file_path)     # to recognise an unchanged file
         self.model.add_instance(a)
         logger.debug("Loaded %s (%d points)", file_path, len(a.original_data))
 
@@ -386,11 +387,23 @@ class Presenter(QObject):
                 )
                 latest_file_name = file_names[-1]
                 file = os.path.join(self.current_directory, latest_file_name)
+                if self._already_loaded(file):
+                    message = f"No new file since {latest_file_name} (already loaded)"
+                    self.view.current_file_label.setText(message)
+                    logger.info(message)
+                    return
                 self._add_files([file])
             else:
                 self._show_error("No files in selected directory.")
         else:
             self._show_error("No directory selected.")
+
+    def _already_loaded(self, file_path):
+        """True if this file is in the file list and unchanged since it was loaded."""
+        mtime = os.path.getmtime(file_path)
+        return any(o.include_in_filelist and o.full_path == file_path
+                   and o.file_mtime == mtime
+                   for o in self.model.values())
 
     def delete_current_file(self):
         if self.current_selected_file is not None:

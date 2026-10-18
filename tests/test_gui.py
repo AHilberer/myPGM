@@ -563,3 +563,25 @@ def test_x0_greyed_out_for_calibrations_without_x0(gui):
     assert toolbox.x0_spinbox.toolTip() == "Not used by this calibration"
     toolbox.set_calib(C.Ruby2020)
     assert toolbox.x0_spinbox.isEnabled() and toolbox.x0_label.isEnabled()
+
+
+def test_load_latest_does_not_load_the_same_file_twice(gui, resources, tmp_path):
+    p = gui.presenter
+    p.model.clear(); p.populate_file_list()
+    shutil.copy(resources / "Example_Ruby_1.asc", tmp_path / "spectrum_001.asc")
+    p.current_directory = str(tmp_path)
+    p.add_latest_file()
+    p.add_latest_file()                                       # nothing new
+    names = lambda: [p.model[i].filename for i in p.ordered_files_to_display]
+    assert names() == ["spectrum_001.asc"]
+    assert "No new file since spectrum_001.asc" in gui.view.current_file_label.text()
+    # a new acquisition is loaded
+    shutil.copy(resources / "Example_Ruby_2.asc", tmp_path / "spectrum_002.asc")
+    os.utime(tmp_path / "spectrum_002.asc", (time.time() + 5, time.time() + 5))
+    p.add_latest_file()
+    assert names() == ["spectrum_001.asc", "spectrum_002.asc"]
+    # the same name overwritten by a new acquisition is loaded again
+    os.utime(tmp_path / "spectrum_002.asc", (time.time() + 10, time.time() + 10))
+    p.add_latest_file()
+    assert names().count("spectrum_002.asc") == 2
+    assert gui.errors == []
