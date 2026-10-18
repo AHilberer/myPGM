@@ -12,47 +12,25 @@ class GaugeFitModel():
         self.color = color  # color printed in calibration combobox
 
     def get_pinit(self, x, y, guess_peak=None):
-        
-        pinit = list()
-        
-        xbin = x[1] - x[0] # nm/px or cm-1/px
-        if guess_peak == None:
-            params = getfullargspec(self.func).args[1:]
-            if (len(params)-1)%3 == 0:
-                peak_number = (len(params)-1)//3
-            else:
-                peak_number = (len(params)-1)//4
+        ''' Initial parameters: offset c, then per peak height, position and
+            width(s): (a, x, sigma) or, for Voigt, (a, x, sigma, gamma). '''
+        n_params = len(getfullargspec(self.func).args) - 2   # minus x and c
+        params_per_peak = 3 if n_params % 3 == 0 else 4
+        peak_number = n_params // params_per_peak
+
+        if guess_peak is None:
+            xbin = x[1] - x[0] # nm/px or cm-1/px
             positions, widths = self._find_peak_guesses(x, y, xbin, peak_number)
-            pinit.append( y[0] )
-            if (len(params)-1)%3 == 0:
-                for i in range(peak_number):
-                    pinit.append( 0.5 )                         # height
-                    pinit.append( positions[i] )                # position
-                    pinit.append( widths[i] )                   # sigma
-            elif (len(params)-1)%4 == 0:
-                for i in range(peak_number):
-                    pinit.append( 0.5 )                         # height
-                    pinit.append( positions[i] )                # position
-                    pinit.append( widths[i]/2 )                 # sigma
-                    pinit.append( widths[i]/2 )                 # gamma
-        else: 
-            pinit.append( y[0] ) 
-            params = getfullargspec(self.func).args[1:]
-            if (len(params)-1)%3 == 0:
-                param_per_peak = 3
-                peak_number = (len(params)-1)//3
-                for i in range(peak_number):
-                    pinit.append( 0.5 )             # height
-                    pinit.append( guess_peak -1.5*i ) # idiot trick for the 2nd peak
-                    pinit.append( 0.5 )    # sigma
-            elif (len(params)-1)%4 == 0:
-                param_per_peak = 4
-                peak_number = (len(params)-1)//4
-                for i in range(peak_number):
-                    pinit.append( 0.5 )             # height
-                    pinit.append( guess_peak -1.5*i ) # idiot trick for the 2nd peak
-                    pinit.append( 0.2 ) # sigma
-                    pinit.append( 0.2 ) # gamma
+            # a Voigt splits the width between its Gaussian and Lorentzian parts
+            widths = widths if params_per_peak == 3 else [w / 2 for w in widths]
+        else:
+            # clicked position; any 2nd peak is started 1.5 x-units below it
+            positions = [guess_peak - 1.5 * i for i in range(peak_number)]
+            widths = [0.5 if params_per_peak == 3 else 0.2] * peak_number
+
+        pinit = [y[0]]
+        for position, width in zip(positions, widths):
+            pinit += [0.5, position] + [width] * (params_per_peak - 2)
         return pinit
 
     @staticmethod

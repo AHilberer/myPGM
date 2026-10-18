@@ -285,3 +285,17 @@ def test_error_bars_removed_with_table_entries(gui):
     gui.presenter.add_current_fit_to_table()
     gui.view.PvPmTableWindow.clear_table()
     assert gui.view.PvPmPlotWindow.error_bars == {}
+
+
+def test_right_click_zoom_out_then_full_view(gui):
+    gui.presenter.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
+    vb = gui.view.data_widget.plotItem.vb
+    vb.setXRange(694, 695, padding=0)
+    gui.view._zoom(gui.view.data_widget, gui.view.data_scatter)
+    (x_min, x_max), _ = vb.viewRange()
+    assert x_max - x_min == pytest.approx(2.0, rel=1e-3)      # zoomed out by 2
+    vb.setXRange(600, 800, padding=0)                          # already wider than the data
+    gui.view._zoom(gui.view.data_widget, gui.view.data_scatter)
+    (x_min, x_max), _ = vb.viewRange()
+    x = gui.view.data_scatter.getData()[0]
+    assert x_min <= x.min() and x_max >= x.max() and x_max - x_min < 200   # back to full spectrum

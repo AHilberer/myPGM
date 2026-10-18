@@ -75,6 +75,18 @@ def test_regression_values(calib, x, expected):
     assert calib.func(x, T0, x0, T0) == pytest.approx(expected, abs=1e-3)
 
 
+@pytest.mark.parametrize("calib, expected", [
+    (C.Ruby2020,            11.8811),
+    (C.RubyMao1986,         11.9349),
+    (C.RubyMao1986_DatchiF, 11.9244),
+    (C.RubyHolzapfel2005,   11.8073),
+    (C.RubyDO2007,          11.9608),
+], ids=lambda v: v.name if isinstance(v, C.HPCalibration) else None)
+def test_ruby_regression_values_at_500K(calib, expected):
+    # same purpose as test_regression_values, with the Datchi 2007 T correction active
+    assert calib.func(700.0, 500, DEFAULTS[calib.name][0], 298) == pytest.approx(expected, abs=1e-3)
+
+
 def test_ruby_temperature_correction_shifts_pressure():
     # at higher T the same wavelength means a lower pressure (Datchi 2007 correction)
     c = C.Ruby2020

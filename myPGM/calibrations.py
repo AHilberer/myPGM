@@ -26,10 +26,15 @@ class HPCalibration():
         
         return res.x[0]
 
+def _ruby_dl_T(dT):
+    """Ruby R1 wavelength shift (nm) with temperature, T - T0 = dT (K).
+    F. Datchi et al., High Pressure Research 27, 447 (2007)."""
+    return 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3
+
 # Shen G., Wang Y., Dewaele A. et al. (2020) High Pres. Res. doi: 10.1080/08957959.2020.1791107
 def Pruby2020(l, T, l0, T0):
     dT = T - T0
-    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    dlcorr = _ruby_dl_T(dT)
     dl = (l - dlcorr) - l0
     P = 1870 * dl/l0 * (1 + 5.63 * dl/l0)
 
@@ -40,7 +45,7 @@ def PrubyMao1986(l, T, l0, T0):
     A = 1904 # GPa
     B = 7.665 
     dT = T - T0
-    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    dlcorr = _ruby_dl_T(dT)
     dl = (l - dlcorr) - l0
     P = (A/B) * ( (1 + dl/l0)**B - 1 )
 
@@ -50,7 +55,7 @@ def PrubyMao1986(l, T, l0, T0):
 # https://doi.org/10.1063/1.365025
 def PrubyMao1986_DatchiF(l, T, l0, T0):
     dT = T - T0
-    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    dlcorr = _ruby_dl_T(dT)
     lcorr = l - dlcorr
     # there is a *10 error in eq. 1 of the paper 
     P = ( 2.74 *  l0 / 7.665 ) * ((lcorr/l0)**7.665 - 1)
@@ -62,7 +67,7 @@ def PrubyHolzapfel2005(l, T, l0, T0):
     A = 1845 # GPa
     B = 14.7
     C = 7.5
-    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    dlcorr = _ruby_dl_T(dT)
     lcorr = l - dlcorr
     P = (A/(B+C)) * ( np.exp( ((B+C)/C)*(1-(l0/lcorr)**C) ) - 1 ) 
     return P
@@ -70,7 +75,7 @@ def PrubyHolzapfel2005(l, T, l0, T0):
 # I. Dorogokupets and A.R. Oganov, Phys. Rev. B 75 024115 (2007)
 def PrubyDO2007(l, T, l0, T0):
     dT = T - T0
-    dlcorr = 0.00746 * dT - 3.01e-6 * dT**2 + 8.76e-9 * dT**3  # Datchi HPR 2007
+    dlcorr = _ruby_dl_T(dT)
     dl = (l - dlcorr) - l0
     P = 1884 * (dl/l0) * (1 + 5.5 *(dl/l0))
     return P

@@ -150,22 +150,23 @@ class Presenter(QObject):
         self.view.ptoolbox.set_state_from_buffer(self.buffer)
         self.view.additional_toolbox_window.set_state_from_buffer(self.additional_buffer)
     
-        # Connects
-        self.view.ptoolbox.calibChanged.connect(self.on_calib_changed)
-        self.view.ptoolbox.PmChanged.connect(self.on_Pm_edited)
-        self.view.ptoolbox.PChanged.connect(self.on_P_edited)
-        self.view.ptoolbox.xChanged.connect(self.on_x_edited)
-        self.view.ptoolbox.TChanged.connect(self.on_T_edited)
-        self.view.ptoolbox.x0Changed.connect(self.on_x0_edited)
-        self.view.ptoolbox.T0Changed.connect(self.on_T0_edited)
+        # Connects (both toolboxes share the slots, see _get_toolbox_context)
+        for toolbox in (self.view.ptoolbox, self.view.additional_toolbox_window):
+            toolbox.calibChanged.connect(self.on_calib_changed)
+            toolbox.PmChanged.connect(self.on_Pm_edited)
+            toolbox.PChanged.connect(self.on_P_edited)
+            toolbox.xChanged.connect(self.on_x_edited)
+            toolbox.TChanged.connect(self.on_T_edited)
+            toolbox.x0Changed.connect(self.on_x0_edited)
+            toolbox.T0Changed.connect(self.on_T0_edited)
 
-        self.view.additional_toolbox_window.calibChanged.connect(self.on_calib_changed)
-        self.view.additional_toolbox_window.PmChanged.connect(self.on_Pm_edited)
-        self.view.additional_toolbox_window.PChanged.connect(self.on_P_edited)
-        self.view.additional_toolbox_window.xChanged.connect(self.on_x_edited)
-        self.view.additional_toolbox_window.TChanged.connect(self.on_T_edited)
-        self.view.additional_toolbox_window.x0Changed.connect(self.on_x0_edited)
-        self.view.additional_toolbox_window.T0Changed.connect(self.on_T0_edited)
+    def _select_fit_model(self, name):
+        """Select a fit model by name in the combo box (no-op if unknown or already selected)."""
+        if name not in self.fit_models:
+            return
+        ind = self.view.fit_model_combo.findText(name, Qt.MatchExactly)
+        if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
+            self.view.fit_model_combo.setCurrentIndex(ind)
 
     def _get_toolbox_context(self, sender=None):
         src = sender or self.sender()
@@ -231,11 +232,7 @@ class Presenter(QObject):
         # data model method!
         buffer.set_calibration(newcalib)
 
-        default_fit_name = getattr(newcalib, "default_fit_model", None)
-        if default_fit_name in self.fit_models:
-            ind = self.view.fit_model_combo.findText(default_fit_name, Qt.MatchExactly)
-            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
-                self.view.fit_model_combo.setCurrentIndex(ind)
+        self._select_fit_model(getattr(newcalib, "default_fit_model", None))
 
         if toolbox == self.view.ptoolbox and buffer.calib is not None:
             xlabel = f"{buffer.calib.xname} ({buffer.calib.xunit})"
@@ -283,10 +280,8 @@ class Presenter(QObject):
             self.view.ptoolbox.set_state_from_buffer(self.buffer)
 
         # fit model combo box is updated.
-        if obj.fit_model is not None and obj.fit_model.name in self.fit_models:
-            ind = self.view.fit_model_combo.findText(obj.fit_model.name, Qt.MatchExactly)
-            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
-                self.view.fit_model_combo.setCurrentIndex(ind)
+        if obj.fit_model is not None:
+            self._select_fit_model(obj.fit_model.name)
 
     def add_instance_from_path(self, file_path):
         file_info = QFileInfo(file_path)
@@ -610,10 +605,8 @@ class Presenter(QObject):
         self.buffer = deepcopy(obj)
         self.view.ptoolbox.set_state_from_buffer(self.buffer)
 
-        if obj.fit_model is not None and obj.fit_model.name in self.fit_models:
-            ind = self.view.fit_model_combo.findText(obj.fit_model.name, Qt.MatchExactly)
-            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
-                self.view.fit_model_combo.setCurrentIndex(ind)
+        if obj.fit_model is not None:
+            self._select_fit_model(obj.fit_model.name)
 
     def move_up(self):
         if self.current_selected_file is not None:

@@ -368,55 +368,33 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
     def switch_to_dark(self):
+        self._apply_theme('dark-mode.qss', label_color="white", plot_background="#202020", dark=True)
+
+    def switch_to_light(self):
+        self._apply_theme('light-mode.qss', label_color="black", plot_background="white", dark=False)
+
+    def _apply_theme(self, qss_file, label_color, plot_background, dark):
         try:
-            style = load_style('dark-mode.qss')
+            style = load_style(qss_file)
         except OSError as exc:
-            print(f"Could not load dark-mode stylesheet: {exc}")
+            print(f"Could not load stylesheet {qss_file}: {exc}")
         else:
             # app-wide, so that every window and dialog follows the theme
             set_app_theme(style)
-        self.plot_label_color = "white"
+        self.plot_label_color = label_color
 
-        # some parameters seem to be unaffected by the style import ...
-        # thus we use the following fix
-
+        # pyqtgraph plots are not styled by the Qt stylesheet
         styles = self._label_styles()
-        self.data_widget.setBackground("#202020")
-        self.data_widget.setLabel("left", **styles)
-        self.data_widget.setLabel("bottom", **styles)
-        self.deriv_widget.setBackground("#202020")
-        self.deriv_widget.setLabel("left", **styles)
-        self.deriv_widget.setLabel("bottom", **styles)
+        for widget in (self.data_widget, self.deriv_widget):
+            widget.setBackground(plot_background)
+            widget.setLabel("left", **styles)
+            widget.setLabel("bottom", **styles)
 
-        self.ptoolbox.set_dark_mode()
-        self.additional_toolbox_window.set_dark_mode()
-        self.PvPmPlotWindow.set_dark_mode()
-
-        self.theme_switched.emit()
-
-    def switch_to_light(self):
-        try:
-            style = load_style('light-mode.qss')
-        except OSError as exc:
-            print(f"Could not load light-mode stylesheet: {exc}")
-        else:
-            set_app_theme(style)
-        self.plot_label_color = "black"
-
-        # some parameters seem to be unaffected by the style import ...
-        # thus we use the following fix
-
-        styles = self._label_styles()
-        self.data_widget.setBackground("white")
-        self.data_widget.setLabel("left", **styles)
-        self.data_widget.setLabel("bottom", **styles)
-        self.deriv_widget.setBackground("white")
-        self.deriv_widget.setLabel("left", **styles)
-        self.deriv_widget.setLabel("bottom", **styles)
-
-        self.ptoolbox.set_light_mode()
-        self.PvPmPlotWindow.set_light_mode()
-        self.additional_toolbox_window.set_light_mode()
+        for themed in (self.ptoolbox, self.additional_toolbox_window, self.PvPmPlotWindow):
+            if dark:
+                themed.set_dark_mode()
+            else:
+                themed.set_light_mode()
 
         self.theme_switched.emit()
 
@@ -566,17 +544,8 @@ class MainWindow(QMainWindow):
         self.click_fit_enabled = not self.click_fit_enabled
 
     def data_plot_click(self, event):
-        if event.button() == Qt.RightButton or (
-            event.button() == Qt.LeftButton
-            and event.modifiers() & Qt.ControlModifier
-        ):
-            view_range = np.array(self.data_widget.plotItem.vb.viewRange()) * 2
-            curve_data = self.data_scatter.getData()
-            x_range = np.max(curve_data[0]) - np.min(curve_data[0])
-            if (view_range[0][1] - view_range[0][0]) > x_range:
-                self.data_widget.autoRange()
-            else:
-                self.data_widget.plotItem.vb.scaleBy((2, 2))
+        if self._is_zoom_click(event):
+            self._zoom(self.data_widget, self.data_scatter)
         elif event.button() == Qt.LeftButton:
             if self.click_fit_enabled:
                 self.click_to_fit(event, 'data')
@@ -584,20 +553,27 @@ class MainWindow(QMainWindow):
                 self.set_ManualBg(event)
 
     def deriv_plot_click(self, event):
-        if event.button() == Qt.RightButton or (
-            event.button() == Qt.LeftButton
-            and event.modifiers() & Qt.ControlModifier
-        ):
-            view_range = np.array(self.deriv_widget.plotItem.vb.viewRange()) * 2
-            curve_data = self.deriv_scatter.getData()
-            x_range = np.max(curve_data[0]) - np.min(curve_data[0])
-            if (view_range[0][1] - view_range[0][0]) > x_range:
-                self.deriv_widget.autoRange()
-            else:
-                self.deriv_widget.plotItem.vb.scaleBy((2, 2))
+        if self._is_zoom_click(event):
+            self._zoom(self.deriv_widget, self.deriv_scatter)
         elif event.button() == Qt.LeftButton:
             if self.click_fit_enabled:
                 self.click_to_fit(event, 'deriv')
+
+    @staticmethod
+    def _is_zoom_click(event):
+        # right click, or ctrl + left click
+        return event.button() == Qt.RightButton or (
+            event.button() == Qt.LeftButton and event.modifiers() & Qt.ControlModifier)
+
+    @staticmethod
+    def _zoom(widget, scatter):
+        """Zoom out by 2, or back to the full spectrum once zoomed out past it."""
+        view_range = np.array(widget.plotItem.vb.viewRange()) * 2
+        curve_x = scatter.getData()[0]
+        if (view_range[0][1] - view_range[0][0]) > np.max(curve_x) - np.min(curve_x):
+            widget.autoRange()
+        else:
+            widget.plotItem.vb.scaleBy((2, 2))
 
     def auto_fit(self):
         self.start_auto_fit_signal.emit(None)
@@ -632,11 +608,9 @@ class MainWindow(QMainWindow):
         self.data_widget.removeItem(self.data_fit_line)
 
         if fit_model.type == "peak":
-            fitted = [
-                fit_model.func(wvl, *fit_result["opti"])
-                for wvl in x
-            ]
-            self.data_fit_line.setData(x, fitted)
+            # drawn over the whole spectrum, not only the fitting range
+            x = np.asarray(x)
+            self.data_fit_line.setData(x, fit_model.func(x, *fit_result["opti"]))
             self.data_widget.addItem(self.data_fit_line)
             self._set_plot_title(self._pressure_title(P, P_err))
 
@@ -644,13 +618,11 @@ class MainWindow(QMainWindow):
             self.data_edge_marker.setValue(fit_result["opti"])
             self.data_widget.addItem(self.data_edge_marker)
             self.deriv_edge_marker.setValue(fit_result["opti"])
-                
             self.deriv_widget.addItem(self.deriv_edge_marker)
-
             self._set_plot_title(self._pressure_title(P, P_err))
-                                
+
         else:
-                print("Plot fit not implemented")
+            print("Plot fit not implemented")
 
     def fit_error_popup_window(self):
         msg = QMessageBox()

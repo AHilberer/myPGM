@@ -394,7 +394,7 @@ class PressureGaugeDataObject:
         
         self.fit_result = self.fit_procedure(self.fit_model, x, y, guess_peak=guess_peak)
         if self.fit_model.type == "peak":
-            fitted = [self.fit_model.func(wvl, *self.fit_result["opti"]) for wvl in x]
+            fitted = self.fit_model.func(x, *self.fit_result["opti"])
             self.fitted_data = np.column_stack((x, fitted))
             popt = self.fit_result["opti"]
             i = self._peak_position_index(popt)
