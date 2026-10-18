@@ -1,7 +1,7 @@
 <h1 align="center"> myPGM - Pressure Gauge Monitor </h1>
 
 <div align="center">
-<img alt="Demo myPGM UI" src="myPGM/resources/UI_demo.png"> </img>
+<img alt="myPGM main window with the PvPm table and plot (mypgm --demo)" src="docs/myPGM_screenshot.png">
 </div>
 
 <br>
@@ -30,7 +30,7 @@ It currently supports the following pressure scales:
 - Show the fit uncertainty on the peak position (σx) and pressure (σP) in the plot title, the table and as error bars. This is the statistical precision of the fit only: it does not include the uncertainty on x0, T, the calibration itself or the choice of fit model. Raman edge positions have no fit uncertainty.
 - Save and reload complete working sessions, including loaded spectra, fit results, table entries and spectrometer calibration state.
 
-**myPGM** is still a work in progress, so please open an issue or contact the authors if you notice a bug or unexpected behavior.
+If you notice a bug or unexpected behavior, please [open an issue](https://github.com/AHilberer/myPGM/issues) (attaching the log file, see below) or contact the authors.
 
 # Quick start
 
@@ -48,7 +48,7 @@ Once the application is running, a typical workflow is:
 
 ```bash
 git clone https://github.com/AHilberer/myPGM.git
-````
+```
 ```bash
 cd myPGM
 ```
@@ -71,7 +71,7 @@ deactivate
 
 ### 3) Install myPGM and its dependencies:
 
-myPGM requires Python 3.10 or newer.
+myPGM requires Python 3.10 or newer. It is used and tested on macOS, and its automated tests run on Linux; Windows is expected to work but has not been tested yet.
 
 ```bash
 python3 -m pip install -e .
@@ -127,7 +127,8 @@ python3 -m pytest
 A test marked `xfail` describes a known bug that is not fixed yet. The tests also run on GitHub for every push and pull request.
 
 # Executables
-Currently not available (WIP)
+
+Standalone executables are not provided yet: install from source as described above.
 
 # Contributors
 
