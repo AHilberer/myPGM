@@ -495,3 +495,19 @@ def test_table_order_survives_session(gui, tmp_path, monkeypatch):
     gui.presenter.load_session()
     rows = table_rows(gui.view.PvPmTableWindow.table_widget)
     assert [r["file"] for r in rows] == ["Example_Ruby_2.asc", "Example_Ruby_1.asc"]
+
+
+def test_switching_fit_range_off_fits_the_whole_spectrum(gui):
+    fid = gui.file_id("Example_Ruby_1.asc")
+    gui.presenter.file_selected_from_file_list(fid)
+    gui.presenter.fit_mode = F.SingleVoigt
+    gui.view.toggle_fit_range()                               # on
+    gui.view.fit_range_selector.setRegion((694.5, 695.5))
+    gui.presenter.fit_current_file()
+    obj = gui.presenter.model[fid]
+    assert obj.fitted_data[:, 0].min() >= 694.5
+    gui.view.toggle_fit_range()                               # off
+    gui.presenter.fit_current_file()
+    x, _ = obj.get_data_to_process()
+    assert obj.fitting_range is None
+    assert obj.fitted_data[:, 0].min() == x.min() and obj.fitted_data[:, 0].max() == x.max()

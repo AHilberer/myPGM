@@ -687,8 +687,11 @@ class Presenter(QObject):
 
                 obj.set_fit_model(self.fit_mode)
 
+                # the range is only used while "Fit range" is on
                 if self.view.fit_range_enabled:
                     obj.fitting_range = self.view.fit_range_selector.getRegion()
+                else:
+                    obj.fitting_range = None
                 obj.fit_data(guess)
 
                 # Copy the fitted obj into the buffer. It must be a deepcopy:
