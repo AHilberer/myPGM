@@ -25,7 +25,8 @@ def fitted(resources, name, calib, model, guess=None):
     ("Example_Ruby_2.asc", C.Ruby2020, F.DoubleVoigt,       695.4771, 3.256),
     ("Example_Ruby_2.asc", C.Ruby2020, F.SingleVoigt,       695.4399, 3.153),
     ("Example_Ruby_3.asc", C.Ruby2020, F.DoubleVoigt,       696.2243, 5.319),
-    ("Example_Ruby_3.asc", C.Ruby2020, F.SingleVoigt,       696.1426, 5.092),
+    # Not pinned: Single Voigt on the whole Ruby_3 doublet is poorly constrained and
+    # gives 696.143 nm on macOS but 696.159 nm on Linux CI (~0.05 GPa apart).
     ("Example_H2.txt",     C.H2Vibron, F.SingleLorentzian, 4206.0321, 5.895),
     ("Example_H2.txt",     C.H2Vibron, F.SingleGaussian,   4206.0494, 5.898),
 ], ids=lambda v: getattr(v, "name", v) if not isinstance(v, float) else None)
