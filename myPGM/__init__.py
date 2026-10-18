@@ -9,6 +9,7 @@ from myPGM.helpers import load_style, get_app_icon
 from myPGM.ui.main_ui import MainWindow
 from myPGM.data_model import PressureGaugeDataManager
 from myPGM.presenter import Presenter
+from myPGM import log_setup
 
 logger = logging.getLogger(__name__)
 
@@ -28,17 +29,22 @@ def _install_excepthook():
     def excepthook(exc_type, exc_value, exc_tb):
         logger.error("Unexpected error", exc_info=(exc_type, exc_value, exc_tb))
         if QApplication.instance() is not None:
-            QMessageBox.critical(None, "Unexpected error",
-                                 f"{exc_type.__name__}: {exc_value}")
+            text = f"{exc_type.__name__}: {exc_value}"
+            if log_setup.log_file_path is not None:
+                text += f"\n\nDetails were saved in the log file:\n{log_setup.log_file_path}"
+            QMessageBox.critical(None, "Unexpected error", text)
     sys.excepthook = excepthook
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     _set_windows_appusermodelid()
-    _install_excepthook()
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setApplicationName("myPGM")
+    # after setApplicationName, which sets the log folder name
+    log_file = log_setup.setup_logging(debug="--debug" in sys.argv)
+    _install_excepthook()
+    logger.info("myPGM started%s, log file: %s",
+                " in debug mode" if "--debug" in sys.argv else "", log_file)
     app_icon = get_app_icon()
     # decimal '.'
     QLocale.setDefault(QLocale(QLocale.C))

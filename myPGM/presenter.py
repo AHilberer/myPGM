@@ -95,6 +95,11 @@ class Presenter(QObject):
         self.view.additional_toolbox_window.initialize(calib_dict)
 
     def _show_error(self, text, title="Error"):
+        # every error shown to the user is also kept in the log
+        logger.warning("%s: %s", title, text.replace("\n", " "))
+        self._error_dialog(text, title)
+
+    def _error_dialog(self, text, title):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Critical)
         msg.setText(text)
@@ -294,6 +299,7 @@ class Presenter(QObject):
         # load first so that an unreadable file does not leave an empty entry
         a.load_spectral_data_file(file_name, file_path)
         self.model.add_instance(a)
+        logger.debug("Loaded %s (%d points)", file_path, len(a.original_data))
 
     def _add_files(self, file_paths):
         failed = []
@@ -523,6 +529,7 @@ class Presenter(QObject):
 
         self.corrected_spectro_x = corrected_spectro_x
         self.view.Spectro_filename_label.setText(file_name)
+        logger.debug("Spectrometer calibration loaded from %s", selected_file)
 
         if self.view.Spectro_use_button.isChecked() and self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
@@ -668,14 +675,18 @@ class Presenter(QObject):
                 # obj, and editing the buffer from the GUI would modify that obj.
                 # self.buffer.calib is deep-copied as well.
                 self.buffer = deepcopy(obj)
+                logger.debug("Fitted %s with %s, %s: x = %s ± %s, P = %s ± %s GPa",
+                             obj.filename, obj.fit_model.name, obj.calib.name,
+                             obj.x, obj.x_err, obj.P, obj.P_err)
                 # set ptoolbox state:
                 self.view.ptoolbox.set_state_from_buffer(self.buffer)
                 self.update_data_plots(self.current_selected_file, preserve_view=True)
 
-            except (RuntimeError, PressureCalculationFailed):
-                self.fit_error_popup()
+            except (RuntimeError, PressureCalculationFailed) as exc:
+                self.fit_error_popup(f"{obj.filename}: {exc}")
 
-    def fit_error_popup(self):
+    def fit_error_popup(self, reason=""):
+        logger.warning("Fit error: %s", reason)
         self.view.fit_error_popup_window()
 
     def add_current_fit_to_table(self, _=None):
@@ -739,6 +750,8 @@ class Presenter(QObject):
                 json.dump(session, file_handle, indent=2)
         except Exception as exc:
             self._show_error(f"Failed to save session: {exc}", title="Save error")
+            return
+        logger.debug("Session saved to %s (%d spectra)", file_path, len(self.model))
 
     def load_session(self):
         file_path = self.view.get_open_session_filename_dialog()
@@ -803,3 +816,4 @@ class Presenter(QObject):
             self.file_selected_from_file_list(selected_id)
 
         self.update_PvPm_table()
+        logger.debug("Session loaded from %s (%d spectra)", file_path, len(self.model))

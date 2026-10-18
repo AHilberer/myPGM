@@ -43,7 +43,8 @@ def gui(qapp):
         pass
     g = Gui()
     g.app, g.view, g.presenter, g.errors = qapp, view, presenter, []
-    presenter._show_error = lambda text, title="Error": g.errors.append(title)
+    # dialogs only: _show_error still logs
+    presenter._error_dialog = lambda text, title="Error": g.errors.append(title)
     view.fit_error_popup_window = lambda: g.errors.append("Fit error")
     g.file_id = lambda name: next(
         i for i in presenter.ordered_files_to_display if presenter.model[i].filename == name

@@ -92,6 +92,22 @@ To start with the bundled example spectra loaded, add `--demo`:
 mypgm --demo
 ```
 
+# Log file
+
+myPGM writes warnings and errors, including every error message shown in the app, to the terminal and to a log file in your user folder (the file is limited to 1 MB, with the last 3 files kept):
+
+- macOS: `~/Library/Application Support/myPGM/mypgm.log`
+- Windows: `%APPDATA%\myPGM\mypgm.log`
+- Linux: `~/.local/share/myPGM/mypgm.log`
+
+The exact path is printed at startup and shown in the dialog that appears if an unexpected error occurs. Please attach this file when reporting a bug.
+
+For more detailed messages (files loaded, fit results, sessions saved and loaded), start the app with `--debug`:
+
+```bash
+mypgm --debug
+```
+
 # Running the tests
 
 The test suite covers the pressure calibrations, the file parser, the fits on the bundled example spectra and the main GUI workflows (run headless, no window opens):
