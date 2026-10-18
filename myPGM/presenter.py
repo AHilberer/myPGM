@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, QFileInfo, QObject
 from myPGM.data_model import PressureGaugeDataObject
 import myPGM.calibrations
 import myPGM.fit_models
-from myPGM.helpers import pressure_valid, spectro_calibration_reader
+from myPGM.helpers import pressure_valid, spectro_calibration_reader, PressureCalculationFailed
 
 
 def get_app_version():
@@ -298,19 +298,25 @@ class Presenter(QObject):
         file_info = QFileInfo(file_path)
         file_name = file_info.fileName()
         a = PressureGaugeDataObject()
-        self.model.add_instance(a)
+        # load first so that an unreadable file does not leave an empty entry
         a.load_spectral_data_file(file_name, file_path)
+        self.model.add_instance(a)
 
+    def _add_files(self, file_paths):
+        failed = []
+        for file in file_paths:
+            try:
+                self.add_instance_from_path(file)
+            except Exception as exc:
+                failed.append(f"{os.path.basename(file)}: {exc}")
+        self.populate_file_list()
+        if failed:
+            self._show_error("Could not load:\n" + "\n".join(failed), title="File load error")
 
     def add_new_file(self):
-        try:
-            selected_files = self.view.get_file_via_dialog()
-        except Exception as exc:
-            raise RuntimeError(f"File selection dialog failed: {exc}") from exc
+        selected_files = self.view.get_file_via_dialog()
         if selected_files is not None:
-            for file in selected_files:
-                self.add_instance_from_path(file)
-            self.populate_file_list()
+            self._add_files(selected_files)
 
     def set_current_directory(self):
         self.current_directory = self.view.select_directory_from_dialog()
@@ -328,8 +334,7 @@ class Presenter(QObject):
                 )
                 latest_file_name = file_names[-1]
                 file = os.path.join(self.current_directory, latest_file_name)
-                self.add_instance_from_path(file)
-                self.populate_file_list()
+                self._add_files([file])
             else:
                 self._show_error("No files in selected directory.")
         else:
@@ -474,7 +479,11 @@ class Presenter(QObject):
             return
 
         obj = self.model.get(self.current_selected_file, None)
-        obj.convexhull_bg()
+        try:
+            obj.convexhull_bg()
+        except Exception as exc:
+            self._show_error(f"Automatic background failed: {exc}", title="Background error")
+            return
         self.update_data_plots(self.current_selected_file)
 
     def subtract_manual_bg(self, bg):
@@ -482,7 +491,11 @@ class Presenter(QObject):
             return
 
         obj = self.model.get(self.current_selected_file, None)
-        obj.subtract_external_bg(bg)
+        try:
+            obj.subtract_external_bg(bg)
+        except Exception as exc:
+            self._show_error(f"Manual background failed: {exc}", title="Background error")
+            return
         self.update_data_plots(self.current_selected_file, preserve_view=True)
     
     def reset_bg(self):
@@ -647,18 +660,18 @@ class Presenter(QObject):
 
             obj = self.model.get(self.current_selected_file, None)
 
-            # Set parameters from buffer :
-            # calibration first, as set_calibration resets x0/T0 to the calib defaults
-            # deepcopy more safe here also:
-            obj.set_calibration( deepcopy(self.buffer.calib) )
-            obj.set_Pm(self.buffer.Pm)
-            obj.set_T(self.buffer.T)
-            obj.set_x0(self.buffer.x0)
-            obj.set_T0(self.buffer.T0)
-
-            obj.set_fit_model(self.fit_mode)
-
             try:
+                # Set parameters from buffer :
+                # calibration first, as set_calibration resets x0/T0 to the calib defaults
+                # deepcopy more safe here also:
+                obj.set_calibration( deepcopy(self.buffer.calib) )
+                obj.set_Pm(self.buffer.Pm)
+                obj.set_T(self.buffer.T)
+                obj.set_x0(self.buffer.x0)
+                obj.set_T0(self.buffer.T0)
+
+                obj.set_fit_model(self.fit_mode)
+
                 if self.view.fit_range_enabled:
                     obj.fitting_range = self.view.fit_range_selector.getRegion()
                 obj.fit_data(guess)
@@ -673,7 +686,7 @@ class Presenter(QObject):
                 self.view.ptoolbox.set_state_from_buffer(self.buffer)
                 self.update_data_plots(self.current_selected_file, preserve_view=True)
 
-            except RuntimeError:
+            except (RuntimeError, PressureCalculationFailed):
                 self.fit_error_popup()
 
     def fit_error_popup(self):
@@ -756,16 +769,25 @@ class Presenter(QObject):
             self._show_error(f"Failed to load session: {exc}", title="Load error")
             return
 
+        calib_dict = self.view.ptoolbox.calibrations
+        model_dict = self.fit_models
+
+        # parse everything before touching the current session
+        try:
+            objects = [
+                PressureGaugeDataObject.from_dict(payload, calib_dict, model_dict)
+                for payload in session.get("files", [])
+            ]
+        except Exception as exc:
+            self._show_error(f"Failed to load session: {exc}", title="Load error")
+            return
+
         self.model.clear()
         self.ordered_files_to_display = []
         self.current_selected_file = None
         self.corrected_spectro_x = None
 
-        calib_dict = self.view.ptoolbox.calibrations
-        model_dict = self.fit_models
-
-        for payload in session.get("files", []):
-            obj = PressureGaugeDataObject.from_dict(payload, calib_dict, model_dict)
+        for obj in objects:
             self.model.add_instance(obj)
 
         self.ordered_files_to_display = session.get(

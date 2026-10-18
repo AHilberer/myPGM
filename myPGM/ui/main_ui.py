@@ -664,14 +664,12 @@ class MainWindow(QMainWindow):
     def click_to_fit(self, mouseClickEvent, window):
         if self.click_fit_enabled:
             scene_coords = mouseClickEvent.scenePos()
-            if window == 'data':
-                vb = self.data_widget.plotItem.vb
-                if self.data_widget.sceneBoundingRect().contains(scene_coords):
-                    click_point = vb.mapSceneToView(scene_coords)
-            elif window == 'deriv':
-                vb = self.deriv_widget.plotItem.vb
-                if self.deriv_widget.sceneBoundingRect().contains(scene_coords):
-                    click_point = vb.mapSceneToView(scene_coords)
+            widget = self.data_widget if window == 'data' else self.deriv_widget
+            vb = widget.plotItem.vb
+            # ignore clicks outside the plot area (axes, margins)
+            if not vb.sceneBoundingRect().contains(scene_coords):
+                return
+            click_point = vb.mapSceneToView(scene_coords)
 
             x_click, y_click = click_point.x(), click_point.y()
             self.fit_from_click_signal.emit(x_click)
@@ -755,9 +753,10 @@ class MainWindow(QMainWindow):
         if self.click_ManualBg_enabled:
             scene_coords = mouseClickEvent.scenePos()
             vb = self.data_widget.plotItem.vb
-            if self.data_widget.sceneBoundingRect().contains(scene_coords):
-                click_point = vb.mapSceneToView(scene_coords)
-                x_click, y_click = click_point.x(), click_point.y()
+            if not vb.sceneBoundingRect().contains(scene_coords):
+                return
+            click_point = vb.mapSceneToView(scene_coords)
+            x_click, y_click = click_point.x(), click_point.y()
             self.ManualBg_points.append([x_click, y_click])
             #current_spectrum.bg = self.plot_ManualBg()
             self.plot_ManualBg()
@@ -772,9 +771,9 @@ class MainWindow(QMainWindow):
         
         self.data_bg_scatter.setData(x_bg,y_bg)
         
-        # sort bg points
-        y_bg = y_bg[np.argsort(x_bg)]
-        x_bg = np.sort(x_bg)
+        # sort bg points, dropping duplicate x (the spline needs strictly increasing x)
+        x_bg, unique_idx = np.unique(x_bg, return_index=True)
+        y_bg = y_bg[unique_idx]
 
         # spline fit:
         if len(x_bg) >= 2:

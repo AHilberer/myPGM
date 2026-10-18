@@ -1,7 +1,8 @@
 import sys
 import os
 import ctypes
-from PyQt5.QtWidgets import QApplication
+import traceback
+from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import QLocale
 
 from myPGM.helpers import load_style, get_app_icon
@@ -22,9 +23,20 @@ def _set_windows_appusermodelid():
         pass
 
 
+def _install_excepthook():
+    """Show unexpected errors in a dialog instead of letting PyQt abort the app."""
+    def excepthook(exc_type, exc_value, exc_tb):
+        traceback.print_exception(exc_type, exc_value, exc_tb)
+        if QApplication.instance() is not None:
+            QMessageBox.critical(None, "Unexpected error",
+                                 f"{exc_type.__name__}: {exc_value}")
+    sys.excepthook = excepthook
+
+
 def main():
 #    os.chdir(os.path.abspath(__file__).replace(os.path.basename(__file__), ""))
     _set_windows_appusermodelid()
+    _install_excepthook()
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setApplicationName("myPGM")
