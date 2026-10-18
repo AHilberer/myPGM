@@ -486,6 +486,25 @@ class PressureGaugeDataManager(MutableMapping):
         else:
             raise TypeError("Only instances of PressureGaugeDataObject can be added.")
 
+    def add_to_table(self, instance):
+        """Show the instance in the PvPm table, numbered after the points already
+        there (table_id records the order points were added: the experiment timeline)."""
+        if not instance.include_in_table or instance.table_id is None:
+            used = [o.table_id for o in self._items.values()
+                    if o.include_in_table and o.table_id is not None]
+            instance.table_id = max(used, default=0) + 1
+        instance.include_in_table = True
+
+    def remove_from_table(self, instance):
+        instance.include_in_table = False
+        instance.table_id = None
+
+    def table_entries(self):
+        """Instances shown in the PvPm table, in the order they were added
+        (older sessions without table_id: after the others, in loading order)."""
+        entries = [o for o in self._items.values() if o.include_in_table]
+        return sorted(entries, key=lambda o: (o.table_id is None, o.table_id or 0))
+
     def delete_instance(self, instance_id):
         """
         Delete a PressureGaugeDataObject instance from the manager by its ID.

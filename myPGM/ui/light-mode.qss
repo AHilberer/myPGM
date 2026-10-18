@@ -93,6 +93,7 @@ background-color: #ececec;
 QTableWidget {
 background-color: #ececec;
 color: black; 
+alternate-background-color: #e2e2e2;
 }
 
 QHeaderView::section {

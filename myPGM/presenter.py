@@ -435,6 +435,7 @@ class Presenter(QObject):
             logger.info('No data to be plotted.')
 
     def on_theme_switched(self):
+        self.view.PvPmTableWindow.table_widget.updatetable()
         if self.current_selected_file is not None:
             self.update_data_plots(self.current_selected_file, preserve_view=True)
 
@@ -719,7 +720,7 @@ class Presenter(QObject):
                 obj.set_Pm(pm_value)
                 self.buffer.set_Pm(pm_value)
                 self.view.ptoolbox.set_Pmval(pm_value)
-                obj.include_in_table = True
+                self.model.add_to_table(obj)
                 self.update_PvPm_table()
             else:
                 self._show_error("No fit result to add to table.")
@@ -756,7 +757,7 @@ class Presenter(QObject):
                 logger.warning("Demo: could not fit %s", file_name)
                 continue
             obj.set_Pm(Pm)
-            obj.include_in_table = True
+            self.model.add_to_table(obj)
         self.update_PvPm_table()
 
         # finish on the last ruby spectrum, with the ruby calibration in the toolbox
@@ -772,8 +773,11 @@ class Presenter(QObject):
         new_obj.filename = None
         new_obj.full_path = None
         new_obj.include_in_filelist = False
-        new_obj.include_in_table = True
+        # the buffer may be a copy of a table entry: this is a new table point
+        new_obj.include_in_table = False
+        new_obj.table_id = None
         self.model.add_instance(new_obj)
+        self.model.add_to_table(new_obj)
         self.update_PvPm_table()
 
     def save_session(self):

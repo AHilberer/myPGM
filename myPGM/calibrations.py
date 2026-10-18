@@ -5,7 +5,7 @@ class HPCalibration():
     ''' A general HP calibration object '''
     def __init__(self, name, func, Tcor_name, 
                     xname, xunit, x0default, T0default, xstep, color,
-                    default_fit_model=None, uses_x0=True):
+                    default_fit_model=None, uses_x0=True, short_name=None):
         self.name = name
         self.func = func
         self.Tcor_name = Tcor_name
@@ -17,6 +17,7 @@ class HPCalibration():
         self.color = color  # color printed in calibration combobox
         self.default_fit_model = default_fit_model
         self.uses_x0 = uses_x0  # False when P(x) does not depend on x0 (x0 is then not shown)
+        self.short_name = short_name or name  # for the PvPm table
 
     def __repr__(self):
         return 'HPCalibration : ' + str( self.__dict__ )
@@ -167,6 +168,7 @@ RubyMao1986 = HPCalibration(name = 'Ruby Mao 1986',
                                  default_fit_model='Double Voigt')
 
 RubyMao1986_DatchiF = HPCalibration(name = 'Ruby Mao 1986 (Datchi form)',
+                                    short_name = 'Ruby Mao 1986 (Datchi)',
                                     func = PrubyMao1986_DatchiF,
                                     Tcor_name='Datchi 2007',
                                     xname = 'lambda',
@@ -189,6 +191,7 @@ RubyHolzapfel2005 = HPCalibration(name = 'Ruby Holzapfel 2005',
                                   default_fit_model='Double Voigt')
 
 RubyDO2007 = HPCalibration(name = 'Ruby Dorogokupets-Oganov 2007',
+                                  short_name = 'Ruby DO 2007',
                                   func = PrubyDO2007,
                                   Tcor_name='Datchi 2007',
                                   xname = 'lambda',
@@ -200,6 +203,7 @@ RubyDO2007 = HPCalibration(name = 'Ruby Dorogokupets-Oganov 2007',
                                   default_fit_model='Double Voigt')
 
 SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
+                                       short_name = 'Sm Datchi 1997',
                                        func = PsamDatchi1997,
                                        Tcor_name='Datchi J.Appl.Phys. 1997',
                                        xname = 'lambda',
@@ -211,6 +215,7 @@ SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        default_fit_model='Single Voigt')
 
 SamRashchenko2015 = HPCalibration(name = 'Samarium SrB4O7 Rashchenko 2015',
+                                  short_name = 'Sm Rashchenko 2015',
                                   func = PsamRashchenko2015,
                                   Tcor_name='NA',
                                   xname = 'lambda',
@@ -222,6 +227,7 @@ SamRashchenko2015 = HPCalibration(name = 'Samarium SrB4O7 Rashchenko 2015',
                                   default_fit_model='Single Voigt')
 
 Hilberer2026 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2026',
+                                    short_name = 'Diamond Hilberer 2026',
                                     func = PHilberer2026,
                                     Tcor_name='NA',
                                     xname = 'nu',
@@ -233,6 +239,7 @@ Hilberer2026 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2026',
                                     default_fit_model='Raman Edge')
 
 Akahama2006 = HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
+                                    short_name = 'Diamond Akahama 2006',
                                     func = PAkahama2006,
                                     Tcor_name='NA',
                                     xname = 'nu',
@@ -244,6 +251,7 @@ Akahama2006 = HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
                                     default_fit_model='Raman Edge')
 
 Eremets2023 = HPCalibration(name = 'Diamond Raman Edge Eremets 2023',
+                                    short_name = 'Diamond Eremets 2023',
                                     func = PEremets2023,
                                     Tcor_name='NA',
                                     xname = 'nu',
@@ -255,6 +263,7 @@ Eremets2023 = HPCalibration(name = 'Diamond Raman Edge Eremets 2023',
                                     default_fit_model='Raman Edge')
         
 cBNDatchi = HPCalibration(name = 'cBN Raman Datchi 2007',
+                                  short_name = 'cBN Datchi 2007',
                                   func = PcBN,
                                   Tcor_name='Datchi 2007',
                                   xname = 'nu',
@@ -266,6 +275,7 @@ cBNDatchi = HPCalibration(name = 'cBN Raman Datchi 2007',
                                   default_fit_model='Single Voigt')
 
 H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
+                                  short_name = 'H2 vibron',
                                   func = H2_Vibron,
                                   Tcor_name='NA',
                                   xname = 'nu',

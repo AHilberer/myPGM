@@ -4,7 +4,8 @@ import shutil
 import time
 
 import pytest
-from PyQt5.QtCore import QPointF
+from PyQt5.QtCore import QPointF, Qt
+from PyQt5.QtGui import QColor
 
 from myPGM import calibrations as C, fit_models as F
 
@@ -12,6 +13,13 @@ from myPGM import calibrations as C, fit_models as F
 class OutsideClick:
     def scenePos(self):
         return QPointF(-5000, -5000)
+
+
+def table_rows(table):
+    """Table content as a list of {header: text} dicts, in displayed order."""
+    headers = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())]
+    return [{h: table.item(r, c).text() for c, h in enumerate(headers)}
+            for r in range(table.rowCount())]
 
 
 def select_and_fit(gui, name, model=F.DoubleVoigt):
@@ -72,9 +80,9 @@ def test_add_fit_to_table(gui):
     select_and_fit(gui, "Example_Ruby_1.asc")
     gui.view.prompt_fit_pm = lambda current: 12.0
     gui.presenter.add_current_fit_to_table()
-    table = gui.view.PvPmTableWindow.table_widget
-    assert table.rowCount() == 1
-    assert table.item(0, 0).text() == "12.00"
+    rows = table_rows(gui.view.PvPmTableWindow.table_widget)
+    assert len(rows) == 1
+    assert rows[0]["#"] == "1" and rows[0]["Pm (bar)"] == "12.00"
 
 
 # --- files --------------------------------------------------------------------------
@@ -261,11 +269,9 @@ def test_table_plot_and_csv_show_uncertainty(gui, tmp_path, monkeypatch):
     gui.view.prompt_fit_pm = lambda current: 12.0
     gui.presenter.add_current_fit_to_table()
 
-    table = gui.view.PvPmTableWindow.table_widget
-    headers = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())]
-    assert headers[:5] == ["Pm", "P", "σP (fit)", "x", "σx (fit)"]
-    assert table.item(0, 2).text() == f"{obj.P_err:.4f}"
-    assert table.item(0, 4).text() == f"{obj.x_err:.4f}"
+    row = table_rows(gui.view.PvPmTableWindow.table_widget)[0]
+    assert row["P (GPa)"] == f"{obj.P:.3f} \u00b1 {obj.P_err:.3f}"
+    assert row["\u03c3x (fit)"] == f"{obj.x_err:.4f} nm"
 
     bars = gui.view.PvPmPlotWindow.error_bars["Ruby2020"]
     assert list(bars.opts["top"]) == pytest.approx([obj.P_err])
@@ -274,9 +280,13 @@ def test_table_plot_and_csv_show_uncertainty(gui, tmp_path, monkeypatch):
     csv_file = tmp_path / "table.csv"
     monkeypatch.setattr(gui.view.PvPmTableWindow, "get_save_filename_dialog", lambda: str(csv_file))
     gui.view.PvPmTableWindow.save_data_to_csv()
-    lines = csv_file.read_text(encoding="utf-8").splitlines()
-    assert lines[0].startswith("Pm,P,σP (fit),x,σx (fit)")
-    assert f"{obj.P_err:.4f}" in lines[1]
+    import csv
+    with open(csv_file, encoding="utf-8", newline="") as f:
+        exported = list(csv.DictReader(f))
+    # full precision, independent of the display
+    assert float(exported[0]["sigma_P_fit (GPa)"]) == obj.P_err
+    assert float(exported[0]["P (GPa)"]) == obj.P
+    assert exported[0]["x unit"] == "nm" and exported[0]["fit model"] == "Double Voigt"
 
 
 def test_error_bars_removed_with_table_entries(gui):
@@ -337,21 +347,20 @@ def test_demo_session_fills_the_table(demo):
     presenter, view, errors = demo
     assert errors == []
     assert view.file_list_widget.list_widget.count() == 5
-    table = view.PvPmTableWindow.table_widget
-    rows = [[table.item(r, c).text() for c in range(table.columnCount())] for r in range(table.rowCount())]
-    by_file = {row[-1]: row for row in rows}
-    assert set(by_file) == {"Example_Ruby_1.asc", "Example_Ruby_2.asc", "Example_Ruby_3.asc", "Example_H2.txt"}
-    assert [by_file[f][0] for f in ("Example_Ruby_1.asc", "Example_Ruby_2.asc",
-                                    "Example_Ruby_3.asc", "Example_H2.txt")] == ["8.00", "15.00", "24.00", "27.00"]
-    assert by_file["Example_H2.txt"][-2] == "H2 Vibron <30GPa"
-    x0_col = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())].index("x0")
-    assert by_file["Example_H2.txt"][x0_col] == ""              # H2 does not use x0
-    assert by_file["Example_Ruby_1.asc"][x0_col] == "694.280"
+    rows = table_rows(view.PvPmTableWindow.table_widget)
+    assert [r["file"] for r in rows] == ["Example_Ruby_1.asc", "Example_Ruby_2.asc",
+                                         "Example_Ruby_3.asc", "Example_H2.txt"]   # order added
+    assert [r["#"] for r in rows] == ["1", "2", "3", "4"]
+    assert [r["Pm (bar)"] for r in rows] == ["8.00", "15.00", "24.00", "27.00"]
+    by_file = {r["file"]: r for r in rows}
+    assert by_file["Example_H2.txt"]["calibration"] == "H2 vibron"
+    assert by_file["Example_H2.txt"]["x"] == "4206.035 cm\u207b\u00b9"
+    assert by_file["Example_H2.txt"]["x0"] == ""                # H2 does not use x0
+    assert by_file["Example_Ruby_1.asc"]["x0"] == "694.280 nm"
     assert presenter.model[next(i for i in presenter.model
                                 if presenter.model[i].filename == "Example_H2.txt")].fit_model.name == "Single Voigt"
     # pressures increase with membrane pressure, like a real loading run
-    P = [float(by_file[f][1]) for f in ("Example_Ruby_1.asc", "Example_Ruby_2.asc",
-                                         "Example_Ruby_3.asc", "Example_H2.txt")]
+    P = [float(r["P (GPa)"].split()[0]) for r in rows]
     assert P == sorted(P)
     assert P[0] == pytest.approx(1.699, abs=0.01) and P[3] == pytest.approx(5.895, abs=0.01)
 
@@ -375,3 +384,94 @@ def test_axis_units_follow_the_selected_spectrum(gui):
     assert "cm-1" in gui.view.data_widget.getAxis("bottom").labelText
     gui.presenter.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
     assert gui.view.data_widget.getAxis("bottom").labelText == "lambda (nm)"
+
+
+# --- PvPm table layout --------------------------------------------------------------------
+
+def _add(gui, name, Pm, model=F.DoubleVoigt):
+    obj = select_and_fit(gui, name, model)
+    gui.view.prompt_fit_pm = lambda current: Pm
+    gui.presenter.add_current_fit_to_table()
+    return obj
+
+
+def _visible_headers(table):
+    return [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())
+            if not table.isColumnHidden(c)]
+
+
+def test_table_default_columns(gui):
+    _add(gui, "Example_Ruby_1.asc", 8.0)
+    table = gui.view.PvPmTableWindow.table_widget
+    assert _visible_headers(table) == ["#", "Pm (bar)", "P (GPa)", "x", "calibration", "file"]
+
+
+def test_table_numbers_follow_the_order_points_are_added(gui):
+    _add(gui, "Example_Ruby_2.asc", 15.0)
+    _add(gui, "Example_Ruby_1.asc", 8.0)
+    rows = table_rows(gui.view.PvPmTableWindow.table_widget)
+    assert [(r["#"], r["file"]) for r in rows] == [("1", "Example_Ruby_2.asc"), ("2", "Example_Ruby_1.asc")]
+    # a point added from the toolbox (a copy of the buffer) gets its own number
+    gui.presenter.add_current_PToolbox_to_table()
+    assert [r["#"] for r in table_rows(gui.view.PvPmTableWindow.table_widget)] == ["1", "2", "3"]
+
+
+def test_table_sorts_numbers_as_numbers_and_keeps_row_actions(gui, monkeypatch):
+    for name, Pm in [("Example_Ruby_1.asc", 8.0), ("Example_Ruby_2.asc", 15.0), ("Example_Ruby_3.asc", 24.0)]:
+        _add(gui, name, Pm)
+    table = gui.view.PvPmTableWindow.table_widget
+    pm_col = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())].index("Pm (bar)")
+    table.sortByColumn(pm_col, Qt.DescendingOrder)
+    assert [r["Pm (bar)"] for r in table_rows(table)] == ["24.00", "15.00", "8.00"]   # not "8.00" first
+
+    recalled = []
+    monkeypatch.setattr(gui.presenter, "recall_from_table", lambda obj_id: recalled.append(obj_id))
+    table.recall_requested.disconnect()
+    table.recall_requested.connect(gui.presenter.recall_from_table)
+    table.cellDoubleClicked.emit(0, 0)                       # top row is now Ruby_3
+    assert gui.presenter.model[recalled[0]].filename == "Example_Ruby_3.asc"
+
+    table.setCurrentCell(2, 0)                               # bottom row is now Ruby_1
+    gui.view.PvPmTableWindow.delete_selected()
+    assert sorted(r["file"] for r in table_rows(table)) == ["Example_Ruby_2.asc", "Example_Ruby_3.asc"]
+
+
+def test_table_flags_temperature_and_shows_T(gui):
+    obj = _add(gui, "Example_Ruby_1.asc", 8.0)
+    table = gui.view.PvPmTableWindow.table_widget
+    assert "T (K)" not in _visible_headers(table)
+    obj.set_T(350.0)
+    gui.presenter.update_PvPm_table()
+    assert "T (K)" in _visible_headers(table)
+    t_col = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())].index("T (K)")
+    assert table.item(0, t_col).text() == "350.0"
+    from myPGM.ui.PressureToolbox import PressureToolbox
+    assert table.item(0, t_col).background().color().name() == QColor(PressureToolbox.ORANGE).name()
+    # the user's choice from the header menu wins
+    table.set_column_visible("T", False)
+    gui.presenter.update_PvPm_table()
+    assert "T (K)" not in _visible_headers(table)
+
+
+def test_table_calibration_swatch_tooltips_and_alignment(gui):
+    obj = _add(gui, "Example_Ruby_1.asc", 8.0)
+    table = gui.view.PvPmTableWindow.table_widget
+    headers = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())]
+    calib_item = table.item(0, headers.index("calibration"))
+    assert calib_item.text() == "Ruby2020" and not calib_item.icon().isNull()
+    assert calib_item.toolTip() == "Ruby2020"
+    assert table.item(0, headers.index("file")).toolTip() == obj.full_path
+    assert table.item(0, headers.index("Pm (bar)")).textAlignment() & Qt.AlignRight
+    assert table.alternatingRowColors()
+
+
+def test_table_order_survives_session(gui, tmp_path, monkeypatch):
+    _add(gui, "Example_Ruby_2.asc", 15.0)
+    _add(gui, "Example_Ruby_1.asc", 8.0)
+    session = tmp_path / "s.json"
+    monkeypatch.setattr(gui.view, "get_save_session_filename_dialog", lambda: str(session))
+    monkeypatch.setattr(gui.view, "get_open_session_filename_dialog", lambda: str(session))
+    gui.presenter.save_session()
+    gui.presenter.load_session()
+    rows = table_rows(gui.view.PvPmTableWindow.table_widget)
+    assert [r["file"] for r in rows] == ["Example_Ruby_2.asc", "Example_Ruby_1.asc"]
