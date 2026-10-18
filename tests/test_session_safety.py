@@ -28,7 +28,7 @@ def app(qapp, tmp_path, monkeypatch):
         pass
     a = App()
     a.view, a.presenter, a.asked, a.answers = view, presenter, [], []
-    a.backup = backup_dir / "autosave_session.json"
+    a.backup_dir = backup_dir
     a.session_file = tmp_path / "saved.json"
     monkeypatch.setattr(view, "ask_save_changes",
                         lambda: a.asked.append("save?") or (a.answers.pop(0) if a.answers else "discard"))
@@ -128,11 +128,11 @@ def test_backup_written_only_when_there_are_unsaved_changes(app):
     assert app.presenter.autosave_timer.interval() == 30_000
     app.presenter.autosave()
     app.presenter.flush_backup()
-    assert not app.backup.exists()
+    assert not os.path.exists(app.presenter.backup_path)
     app.fit()
     app.presenter.autosave()
     app.presenter.flush_backup()
-    backup = json.loads(app.backup.read_text(encoding="utf-8"))
+    backup = json.loads(open(app.presenter.backup_path, encoding="utf-8").read())
     assert any(f["fit_result"] is not None for f in backup["files"])
 
 
@@ -140,15 +140,15 @@ def test_backup_removed_after_save_and_after_normal_close(app):
     app.fit()
     app.presenter.autosave()
     app.presenter.flush_backup()
-    assert app.backup.exists()
+    assert os.path.exists(app.presenter.backup_path)
     app.presenter.save_session()
-    assert not app.backup.exists()
+    assert not os.path.exists(app.presenter.backup_path)
     app.fit("Example_Ruby_2.asc")
     app.presenter.autosave()
     app.presenter.flush_backup()
     app.answers = ["discard"]
     assert app.presenter.confirm_close()
-    assert not app.backup.exists()
+    assert not os.path.exists(app.presenter.backup_path)
 
 
 def test_no_backup_folder_means_no_backup(gui):
@@ -159,40 +159,89 @@ def test_no_backup_folder_means_no_backup(gui):
 # --- recovery ---------------------------------------------------------------------------------
 
 def _crashed_session(app):
-    """Unsaved work backed up, then the app 'crashes' (no normal close)."""
+    """Unsaved work backed up, then the window 'crashes': no normal close, so the
+    backup stays on disk and its lock is no longer held."""
     app.fit()
     app.presenter.autosave()
     app.presenter.flush_backup()
+    app.presenter._backup_lock.unlock()
     return app.presenter.model[app.presenter.current_selected_file].P
 
 
-def _new_app(app, qapp, answer):
+def _new_app(app, answer):
     from myPGM.ui.main_ui import MainWindow
     from myPGM.data_model import PressureGaugeDataManager
     from myPGM.presenter import Presenter
     view = MainWindow()
-    view.ask_recover_session = lambda when: answer
-    presenter = Presenter(PressureGaugeDataManager(), view, backup_dir=str(app.backup.parent))
+    asked = []
+    view.ask_recover_session = lambda when: asked.append(when) or answer
+    presenter = Presenter(PressureGaugeDataManager(), view, backup_dir=str(app.backup_dir))
     presenter._error_dialog = lambda *args: None
-    return view, presenter
+    return view, presenter, asked
 
 
-def test_recover_backup_at_next_start(app, qapp):
+def test_each_window_has_its_own_locked_backup(app):
+    path = app.presenter.backup_path
+    assert os.path.basename(path).startswith("autosave_session_") and path.endswith(".json")
+    assert os.path.exists(os.path.splitext(path)[0] + ".lock")
+
+
+def test_recover_backup_at_next_start(app):
     P = _crashed_session(app)
-    view, presenter = _new_app(app, qapp, answer=True)
-    assert presenter.offer_recovery()
+    crashed_backup = app.presenter.backup_path
+    view, presenter, asked = _new_app(app, answer=True)
+    assert presenter.offer_recovery() and len(asked) == 1
     fitted = [o for o in presenter.model.values() if o.fit_result is not None]
     assert len(presenter.model) == 5 and fitted[0].P == pytest.approx(P)
     assert presenter.has_unsaved_changes()          # recovered work still has to be saved
+    assert not os.path.exists(crashed_backup)       # now backed up by the new window
     dispose(view)
 
 
-def test_declined_backup_is_kept_aside(app, qapp):
+def test_declined_backup_is_kept_aside(app):
     _crashed_session(app)
-    view, presenter = _new_app(app, qapp, answer=False)
+    crashed_backup = app.presenter.backup_path
+    view, presenter, _ = _new_app(app, answer=False)
     assert not presenter.offer_recovery()
     assert len(presenter.model) == 0
-    assert not app.backup.exists()
-    assert (app.backup.parent / "autosave_session.discarded.json").exists()
+    assert not os.path.exists(crashed_backup)
+    assert os.path.exists(os.path.splitext(crashed_backup)[0] + ".discarded.json")
     assert not presenter.offer_recovery()           # not offered twice
+    dispose(view)
+
+
+def test_backup_of_a_window_still_open_is_left_alone(app):
+    # first window: unsaved work backed up, and still open (lock held)
+    app.fit()
+    app.presenter.autosave()
+    app.presenter.flush_backup()
+    view, presenter, asked = _new_app(app, answer=True)
+    assert not presenter.offer_recovery() and asked == []
+    assert os.path.exists(app.presenter.backup_path)
+    # closing the second window does not touch the first window's backup
+    assert presenter.confirm_close()
+    assert os.path.exists(app.presenter.backup_path)
+    dispose(view)
+
+
+def test_stale_lock_of_a_crashed_process_is_detected(app):
+    # a backup and a lock file left by a process that no longer exists
+    base = os.path.join(str(app.backup_dir), "autosave_session_999999_1")
+    with open(base + ".json", "w", encoding="utf-8") as f:
+        json.dump({"files": []}, f)
+    import socket
+    with open(base + ".lock", "w") as f:
+        f.write(f"999999\npython3\n{socket.gethostname()}\n")
+    view, presenter, asked = _new_app(app, answer=False)
+    assert presenter._orphan_backups() == [base + ".json"]
+    dispose(view)
+
+
+def test_backup_from_the_previous_version_is_offered(app):
+    legacy = os.path.join(str(app.backup_dir), "autosave_session.json")   # no lock file
+    with open(legacy, "w", encoding="utf-8") as f:
+        json.dump({"files": []}, f)
+    view, presenter, asked = _new_app(app, answer=False)
+    assert presenter.offer_recovery() is False and len(asked) == 1
+    assert os.path.exists(os.path.join(str(app.backup_dir), "autosave_session.discarded.json"))
     dispose(view)

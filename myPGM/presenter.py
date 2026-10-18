@@ -1,14 +1,16 @@
 import os
+import glob
 import json
 import hashlib
 import logging
 import threading
 import time
+import uuid
 import numpy as np
 from copy import deepcopy
 from importlib.metadata import PackageNotFoundError, version
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
-from PyQt5.QtCore import Qt, QFileInfo, QObject, QTimer
+from PyQt5.QtCore import Qt, QFileInfo, QObject, QTimer, QLockFile
 from myPGM.data_model import PressureGaugeDataObject
 import myPGM.calibrations
 import myPGM.fit_models
@@ -32,7 +34,7 @@ def get_app_version():
 
 class Presenter(QObject):
     AUTOSAVE_INTERVAL_MS = 30_000
-    BACKUP_FILE_NAME = "autosave_session.json"
+    BACKUP_PREFIX = "autosave_session"     # + _<pid>_<start time>_<random>.json, one per window
 
     def __init__(self, model, view, test_mode=False, demo=False, backup_dir=None):
         """test_mode: load the example spectra (used by the tests).
@@ -116,12 +118,22 @@ class Presenter(QObject):
         self.view.close_guard = self.confirm_close
 
         # automatic backup of the session, recovered after a crash (offer_recovery)
+        self.backup_dir = backup_dir
         self.backup_path = None
+        self._backup_lock = None
         self._backup_fingerprint = None
         self._backup_thread = None
         self.autosave_timer = None
         if backup_dir is not None:
-            self.backup_path = os.path.join(backup_dir, self.BACKUP_FILE_NAME)
+            # each window has its own backup, locked while the window is open, so that
+            # several myPGM windows never recover or delete each other's backups
+            base = os.path.join(backup_dir, f"{self.BACKUP_PREFIX}_{os.getpid()}_"
+                                            f"{int(time.time())}_{uuid.uuid4().hex[:6]}")
+            self.backup_path = base + ".json"
+            self._backup_lock = QLockFile(base + ".lock")
+            self._backup_lock.setStaleLockTime(0)       # only the owner process being gone matters
+            if not self._backup_lock.tryLock(0):
+                logger.warning("Could not lock the session backup %s", base + ".lock")
             self.autosave_timer = QTimer(self)
             self.autosave_timer.timeout.connect(self.autosave)
             self.autosave_timer.start(self.AUTOSAVE_INTERVAL_MS)
@@ -949,6 +961,8 @@ class Presenter(QObject):
             if choice == "save" and not self.save_session():
                 return False            # save dialog cancelled or failed: keep the app open
         self._remove_backup()           # closed normally: no recovery needed next time
+        if self._backup_lock is not None:
+            self._backup_lock.unlock()
         return True
 
     def autosave(self):
@@ -989,19 +1003,39 @@ class Presenter(QObject):
         if self.backup_path is not None and os.path.exists(self.backup_path):
             os.remove(self.backup_path)
 
+    def _orphan_backups(self):
+        """Backups left by windows that did not close normally (their lock is not
+        held any more), newest first. Backups of windows still open are skipped."""
+        if self.backup_dir is None:
+            return []
+        orphans = []
+        for path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.json")):
+            if path == self.backup_path or path.endswith(".discarded.json"):
+                continue
+            lock = QLockFile(os.path.splitext(path)[0] + ".lock")
+            lock.setStaleLockTime(0)
+            if not lock.tryLock(0):
+                continue                # another myPGM window is still using it
+            lock.unlock()               # stale lock of a crashed window: cleaned up
+            orphans.append(path)
+        return sorted(orphans, key=os.path.getmtime, reverse=True)
+
     def offer_recovery(self):
-        """At startup: offer to recover the backup left by a session that did not
-        close normally. Declined backups are kept as *.discarded.json."""
-        if self.backup_path is None or not os.path.exists(self.backup_path):
+        """At startup: offer to recover the newest backup left by a window that did
+        not close normally. Declined backups are kept as *.discarded.json."""
+        orphans = self._orphan_backups()
+        if not orphans:
             return False
-        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(self.backup_path)))
+        path = orphans[0]
+        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(path)))
         if self.view.ask_recover_session(when):
-            if self.load_session(self.backup_path):
+            if self.load_session(path):
                 self._saved_fingerprint = None      # recovered work is not saved yet
-                logger.info("Session recovered from %s", self.backup_path)
+                os.remove(path)                     # now backed up by this window
+                logger.info("Session recovered from %s", path)
                 return True
             return False
-        discarded = os.path.splitext(self.backup_path)[0] + ".discarded.json"
-        os.replace(self.backup_path, discarded)
+        discarded = os.path.splitext(path)[0] + ".discarded.json"
+        os.replace(path, discarded)
         logger.info("Session backup declined, kept as %s", discarded)
         return False

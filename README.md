@@ -97,7 +97,7 @@ It loads the bundled example spectra, fits the three ruby spectra and the H2 vib
 
 # Unsaved work and automatic backup
 
-When closing myPGM with unsaved changes (spectra, fits, processing or table points), it asks whether to save the session first. While you work, the session is also backed up automatically every 30 seconds in your user folder (next to the log file below). If myPGM closes unexpectedly, it offers to recover that backup at the next start; a declined backup is kept as `autosave_session.discarded.json`.
+When closing myPGM with unsaved changes (spectra, fits, processing or table points), it asks whether to save the session first. While you work, the session is also backed up automatically every 30 seconds in your user folder (next to the log file below). Each myPGM window has its own backup, so several windows can be open at the same time. If myPGM closes unexpectedly, it offers to recover that backup at the next start; a declined backup is kept aside with a `.discarded.json` extension.
 
 # Log file
 
