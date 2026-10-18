@@ -30,8 +30,21 @@ class GaugeFitModel():
 
         pinit = [y[0]]
         for position, width in zip(positions, widths):
-            pinit += [0.5, position] + [width] * (params_per_peak - 2)
+            if params_per_peak == 4:
+                amplitude = self._voigt_amplitude(x, y, position, width, offset=y[0])
+            else:
+                amplitude = 0.5
+            pinit += [amplitude, position] + [width] * (params_per_peak - 2)
         return pinit
+
+    @staticmethod
+    def _voigt_amplitude(x, y, position, width, offset):
+        ''' The Voigt amplitude is the peak area: start from the one giving the
+            measured peak height, whatever the units and peak width (a fixed 0.5
+            gave a starting peak 36x too low for the ~10 cm-1 wide H2 vibron). '''
+        height = y[np.argmin(np.abs(x - position))] - offset
+        height = max(height, 0.1 * np.ptp(y))      # keep a positive, sensible start
+        return height / voigt(0, width, width)
 
     @staticmethod
     def _find_peak_guesses(x, y, xbin, peak_number):

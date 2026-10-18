@@ -51,8 +51,7 @@ class Presenter(QObject):
                 ("Example_Ruby_1.asc", "Ruby2020", "Double Voigt", 8.0),
                 ("Example_Ruby_2.asc", "Ruby2020", "Double Voigt", 15.0),
                 ("Example_Ruby_3.asc", "Ruby2020", "Double Voigt", 24.0),
-                # Single Voigt, the H2 default, does not converge on this spectrum
-                ("Example_H2.txt", "H2 Vibron <30GPa", "Single Lorentzian", 27.0),
+                ("Example_H2.txt", "H2 Vibron <30GPa", "Single Voigt", 27.0),
             ]
         self.ordered_files_to_display = []
         self.buffer = PressureGaugeDataObject()

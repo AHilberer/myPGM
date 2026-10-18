@@ -92,7 +92,7 @@ To try the application on an example session, add `--demo`:
 mypgm --demo
 ```
 
-It loads the bundled example spectra, fits the three ruby spectra and the H2 vibron spectrum, and adds them to the pressure table with membrane pressures (8, 15, 24 and 27 bar) as in a typical loading run, so the table and the P vs Pm plot are filled in.
+It loads the bundled example spectra, fits the three ruby spectra and the H2 vibron spectrum with their default models, and adds them to the pressure table with membrane pressures (8, 15, 24 and 27 bar) as in a typical loading run, so the table and the P vs Pm plot are filled in.
 
 # Log file
 

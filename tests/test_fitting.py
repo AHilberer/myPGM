@@ -29,6 +29,7 @@ def fitted(resources, name, calib, model, guess=None):
     # gives 696.143 nm on macOS but 696.159 nm on Linux CI (~0.05 GPa apart).
     ("Example_H2.txt",     C.H2Vibron, F.SingleLorentzian, 4206.0321, 5.895),
     ("Example_H2.txt",     C.H2Vibron, F.SingleGaussian,   4206.0494, 5.898),
+    ("Example_H2.txt",     C.H2Vibron, F.SingleVoigt,      4206.0350, 5.896),
 ], ids=lambda v: getattr(v, "name", v) if not isinstance(v, float) else None)
 def test_example_fits(resources, name, calib, model, x, P):
     obj = fitted(resources, name, calib, model)
@@ -101,6 +102,25 @@ def test_initial_guess_with_fewer_peaks_than_model():
     pinit = F.DoubleVoigt.get_pinit(x, y)
     assert len(pinit) == 9
     assert np.all(np.isfinite(pinit))
+
+
+def test_voigt_start_matches_measured_peak_height():
+    # the Voigt amplitude is an area: the starting peak must still have the data's
+    # height, for narrow ruby lines (nm) as for the ~10 cm-1 wide H2 vibron
+    for width in (0.15, 9.0):
+        x = np.linspace(-60 * width, 60 * width, 2000)
+        y = 0.2 + F.Single_Voigt(x, 0, 1.0, 0.0, width, width) / F.Single_Voigt(0, 0, 1.0, 0.0, width, width)
+        p = F.SingleVoigt.get_pinit(x, y)
+        start_height = F.Single_Voigt(p[2], p[0], *p[1:]) - p[0]
+        assert start_height == pytest.approx(y.max() - p[0], rel=0.05)
+
+
+def test_every_calibration_default_model_fits_its_example(resources):
+    # the default model of each calibration used by an example spectrum converges
+    models = {m.name: m for m in F.model_list}
+    for name, calib in [("Example_Ruby_1.asc", C.Ruby2020), ("Example_H2.txt", C.H2Vibron)]:
+        obj = fitted(resources, name, calib, models[calib.default_fit_model])
+        assert obj.P_err is not None
 
 
 def test_initial_guess_from_click():
