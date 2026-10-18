@@ -6,7 +6,7 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (QMainWindow,
 							 QWidget,
 							 QVBoxLayout,
-							 QCheckBox,)
+							 QAction,)
 
 class PvPmPlotWindow(QMainWindow):
 	def __init__(self):
@@ -17,13 +17,10 @@ class PvPmPlotWindow(QMainWindow):
 		self.resize(700, 500)   # placed by MainWindow._arrange_windows
 
 		self.plot_graph = pg.PlotWidget()
-		self.lines_checkbox = QCheckBox('Display lines')
-		self.lines_checkbox.setChecked(True)
 
 		central_widget = QWidget()
 		layout = QVBoxLayout(central_widget)
 		layout.addWidget(self.plot_graph)
-		layout.addWidget(self.lines_checkbox)
 
 		self.setCentralWidget(central_widget)
 		self.pens = {}
@@ -38,7 +35,14 @@ class PvPmPlotWindow(QMainWindow):
 		self.lines = {}
 		self.error_bars = {}
 		
-		self.lines_checkbox.toggled.connect(self.toggle_lines)
+		# 'Display lines' in the plot's right-click menu
+		self.lines_action = QAction('Display lines', self)
+		self.lines_action.setCheckable(True)
+		self.lines_action.setChecked(True)
+		self.lines_action.toggled.connect(self.toggle_lines)
+		menu = self.plot_graph.plotItem.vb.menu
+		menu.addSeparator()
+		menu.addAction(self.lines_action)
 
 		self.updateplot()
 
@@ -126,7 +130,8 @@ class PvPmPlotWindow(QMainWindow):
 					pm_values,
 					p_values,
 					name=subdata[0].get("label", g),   # short name, as in the table
-					pen=self.pens[g],
+					# a series added while lines are hidden starts hidden too
+					pen=self.pens[g] if self.lines_action.isChecked() else None,
 					symbol="o",
 					symbolSize=14,
 					symbolBrush=color)

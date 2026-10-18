@@ -601,3 +601,29 @@ def test_pm_dialog_starts_from_the_last_pm(gui, monkeypatch):
     select_and_fit(gui, "Example_Ruby_2.asc")
     gui.presenter.add_current_fit_to_table()
     assert shown[-1] == 8.0
+
+
+def _line_drawn(line):
+    # pyqtgraph stores "no line" as None or as a QPen with Qt.NoPen style
+    pen = line.opts["pen"]
+    return pen is not None and pen.style() != Qt.NoPen
+
+
+def test_display_lines_is_in_the_plot_right_click_menu(demo):
+    _presenter, view, _ = demo
+    plot = view.PvPmPlotWindow
+    menu_entries = [a.text() for a in plot.plot_graph.plotItem.vb.menu.actions()]
+    assert "Display lines" in menu_entries
+    assert not hasattr(plot, "lines_checkbox")              # no checkbox under the plot any more
+    assert plot.lines_action.isCheckable() and plot.lines_action.isChecked()
+    plot.lines_action.setChecked(False)
+    assert not any(_line_drawn(line) for line in plot.lines.values())
+    plot.lines_action.setChecked(True)
+    assert all(_line_drawn(line) for line in plot.lines.values())
+
+
+def test_series_added_while_lines_hidden_has_no_line(gui):
+    plot = gui.view.PvPmPlotWindow
+    plot.lines_action.setChecked(False)
+    _add(gui, "Example_Ruby_1.asc", 8.0)
+    assert not _line_drawn(plot.lines["Ruby2020"])
