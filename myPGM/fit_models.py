@@ -17,27 +17,24 @@ class GaugeFitModel():
         
         xbin = x[1] - x[0] # nm/px or cm-1/px
         if guess_peak == None:
-            pk, prop = find_peaks(y - np.min(y), height = np.ptp(y)/2, width=0.1/xbin)
-            pk = pk[np.argsort(prop['peak_heights'])]
-            prop['peak_heights'].sort()
-            pinit.append( y[0] )
             params = getfullargspec(self.func).args[1:]
             if (len(params)-1)%3 == 0:
-                param_per_peak = 3
                 peak_number = (len(params)-1)//3
-                for i in range(peak_number):
-                    pinit.append( 0.5 )                         # height
-                    pinit.append( x[pk[i]]  )                   # position
-                    pinit.append( prop['widths'][i] * xbin )    # sigma
-                   #print(prop['widths'][i] * xbin)
-            elif (len(params)-1)%4 == 0:
-                param_per_peak = 4
+            else:
                 peak_number = (len(params)-1)//4
+            positions, widths = self._find_peak_guesses(x, y, xbin, peak_number)
+            pinit.append( y[0] )
+            if (len(params)-1)%3 == 0:
                 for i in range(peak_number):
                     pinit.append( 0.5 )                         # height
-                    pinit.append( x[pk[i]]  )                   # position
-                    pinit.append( prop['widths'][i] * xbin/2 ) # sigma
-                    pinit.append( prop['widths'][i] * xbin/2 ) # gamma
+                    pinit.append( positions[i] )                # position
+                    pinit.append( widths[i] )                   # sigma
+            elif (len(params)-1)%4 == 0:
+                for i in range(peak_number):
+                    pinit.append( 0.5 )                         # height
+                    pinit.append( positions[i] )                # position
+                    pinit.append( widths[i]/2 )                 # sigma
+                    pinit.append( widths[i]/2 )                 # gamma
         else: 
             pinit.append( y[0] ) 
             params = getfullargspec(self.func).args[1:]
@@ -57,6 +54,24 @@ class GaugeFitModel():
                     pinit.append( 0.2 ) # sigma
                     pinit.append( 0.2 ) # gamma
         return pinit
+
+    @staticmethod
+    def _find_peak_guesses(x, y, xbin, peak_number):
+        ''' Positions and widths (x units) of the peak_number tallest peaks,
+            tallest first. Missing peaks are guessed next to the tallest one. '''
+        pk, prop = find_peaks(y - np.min(y), height = np.ptp(y)/2, width=0.1/abs(xbin))
+        order = np.argsort(prop['peak_heights'])[::-1]
+        positions = list(x[pk[order]])
+        widths = list(prop['widths'][order] * abs(xbin))
+
+        if not positions:
+            positions = [x[np.argmax(y)]]
+            widths = [10 * abs(xbin)]
+        while len(positions) < peak_number:
+            # e.g. unresolved doublet: start the extra peak just beside the main one
+            positions.append(positions[0] - widths[0])
+            widths.append(widths[0])
+        return positions[:peak_number], widths[:peak_number]
 
 
     def __repr__(self):
