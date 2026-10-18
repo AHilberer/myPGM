@@ -292,8 +292,6 @@ class PressureToolbox(QWidget):
             self.set_valid_colors(True)
         elif self._xP_bgcolor == PressureToolbox.DARKMODERED:
             self.set_valid_colors(False)
-        if self._T_bgcolor == PressureToolbox.LIGHTMODEORANGE:
-            self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
+        self.update_T_spinbox_style(self.T_spinbox.value())
 
         self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
-        self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
