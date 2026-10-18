@@ -245,3 +245,17 @@ def test_backup_from_the_previous_version_is_offered(app):
     assert presenter.offer_recovery() is False and len(asked) == 1
     assert os.path.exists(os.path.join(str(app.backup_dir), "autosave_session.discarded.json"))
     dispose(view)
+
+
+def test_stale_lock_without_backup_is_cleaned_up(app):
+    import socket
+    stale = os.path.join(str(app.backup_dir), "autosave_session_999999_1_abcdef.lock")
+    with open(stale, "w") as f:
+        f.write(f"999999\npython3\n{socket.gethostname()}\n")
+    view, presenter, asked = _new_app(app, answer=False)
+    assert not presenter.offer_recovery() and asked == []
+    assert not os.path.exists(stale)
+    # the locks of open windows are kept
+    assert os.path.exists(os.path.splitext(app.presenter.backup_path)[0] + ".lock")
+    assert os.path.exists(os.path.splitext(presenter.backup_path)[0] + ".lock")
+    dispose(view)

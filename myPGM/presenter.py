@@ -1031,6 +1031,14 @@ class Presenter(QObject):
                 continue                # another myPGM window is still using it
             lock.unlock()               # stale lock of a crashed window: cleaned up
             orphans.append(path)
+        # locks left by windows that crashed with nothing to back up
+        for lock_path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.lock")):
+            if os.path.exists(os.path.splitext(lock_path)[0] + ".json"):
+                continue
+            lock = QLockFile(lock_path)
+            lock.setStaleLockTime(0)
+            if lock.tryLock(0):
+                lock.unlock()           # removes the stale lock file
         return sorted(orphans, key=os.path.getmtime, reverse=True)
 
     def offer_recovery(self):
