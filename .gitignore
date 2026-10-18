@@ -15,3 +15,5 @@ venv/
 # OS-specific
 .DS_Store
 Thumbs.db
+# Test caches
+.pytest_cache/

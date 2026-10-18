@@ -85,6 +85,17 @@ To start with the bundled example spectra loaded, use:
 python3 run.py --demo
 ```
 
+# Running the tests
+
+The test suite covers the pressure calibrations, the file parser, the fits on the bundled example spectra and the main GUI workflows (run headless, no window opens):
+
+```bash
+python3 -m pip install pytest
+python3 -m pytest
+```
+
+Tests marked `xfail` describe known bugs that are not fixed yet. The tests also run on GitHub for every push and pull request.
+
 # Executables
 Currently not available (WIP)
 

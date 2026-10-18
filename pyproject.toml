@@ -6,8 +6,16 @@ build-backend = "setuptools.build_meta"
 name = "myPGM"
 version = "1.0.0"
 
+[project.optional-dependencies]
+test = ["pytest"]
+
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["myPGM*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.setuptools.package-data]
 "myPGM" = ["ui/*.qss", "resources/*", "resources/icons/*"]
