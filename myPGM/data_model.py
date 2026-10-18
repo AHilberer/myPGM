@@ -72,9 +72,10 @@ class PressureGaugeDataObject:
         self.full_path = None
         self.original_data = None
         self.normalized_data = None
-        self.corrected_data = None
+        self.corrected_data = None      # rebuilt by _recompute_corrected_data
+        self.x_calibration = None
         self.bg = None
-        self.current_smoothing = None
+        self.current_smoothing = 1
         self.fit_model = None
         self.fit_result = None
         self.fitted_data = None
@@ -148,6 +149,7 @@ class PressureGaugeDataObject:
             "original_data": _array_to_list(self.original_data),
             "normalized_data": _array_to_list(self.normalized_data),
             "corrected_data": _array_to_list(self.corrected_data),
+            "x_calibration": _array_to_list(self.x_calibration),
             "bg": _array_to_list(self.bg),
             "current_smoothing": _json_scalar(self.current_smoothing),
             "fit_model": self.fit_model.name if self.fit_model else None,
@@ -177,7 +179,13 @@ class PressureGaugeDataObject:
         obj.normalized_data = _list_to_array(payload.get("normalized_data"))
         obj.corrected_data = _list_to_array(payload.get("corrected_data"))
         obj.bg = _list_to_array(payload.get("bg"))
-        obj.current_smoothing = payload.get("current_smoothing")
+        obj.current_smoothing = payload.get("current_smoothing") or 1
+        if "x_calibration" in payload:
+            obj.x_calibration = _list_to_array(payload["x_calibration"])
+        elif obj.corrected_data is not None and obj.normalized_data is not None and not np.array_equal(
+                obj.corrected_data[:, 0], obj.normalized_data[:, 0]):
+            # sessions saved before x_calibration existed: recover it from corrected_data
+            obj.x_calibration = obj.corrected_data[:, 0].copy()
 
         calib_name = payload.get("calib")
         if calib_dict is not None and calib_name in calib_dict:
@@ -294,83 +302,87 @@ class PressureGaugeDataObject:
         else:
             return self.normalized_data[:, 0], self.normalized_data[:, 1]
     
-    def smoothen(self,smooth_window):
+    # Processing chain
+    # ---------------
+    # The processing steps only change their own parameter:
+    #   x_calibration      alternative spectrometer x axis (None = original axis)
+    #   current_smoothing  smoothing window (1 = none)
+    #   bg                 total background subtracted (None = none)
+    # and corrected_data is then rebuilt from normalized_data, always in the same
+    # order: recalibrated x -> smoothing -> background subtraction.
+    # Steps therefore never undo each other, whatever the order they are used in.
+
+    def _recompute_corrected_data(self):
+        if self.normalized_data is None:
+            raise ValueError("No data to process.")
+        smoothing = int(self.current_smoothing or 1)
+        if self.x_calibration is None and smoothing <= 1 and self.bg is None:
+            self.corrected_data = None
+            return
+
+        x = self.x_calibration if self.x_calibration is not None else self.normalized_data[:, 0]
+        y = self.normalized_data[:, 1]
+        if smoothing > 1:
+            y = uniform_filter1d(y, size=smoothing)
+        if self.bg is not None:
+            y = y - self.bg
+        self.corrected_data = np.column_stack((x, y))
+
+    def smoothen(self, smooth_window):
         """
         Smooth the spectrum using a uniform filter.
-        :param smooth_window: int, size of the smoothing window
+        :param smooth_window: int, size of the smoothing window (1 = no smoothing)
         """
-        if self.original_data is not None:
-            if self.bg is not None:
-                filtered = uniform_filter1d(self.normalized_data[:, 1], size=smooth_window)-self.bg
-            else:
-                filtered = uniform_filter1d(self.normalized_data[:, 1], size=smooth_window)
-            self.corrected_data = np.column_stack(
-                (self.normalized_data[:, 0], filtered)
-            )
-            #self.plot_data()
-        else:
+        if self.original_data is None:
             raise ValueError("No original data to smooth.")
-        
+        self.current_smoothing = int(smooth_window)
+        self._recompute_corrected_data()
+
     def convexhull_bg(self):
         """
         Calculate a spectrum background using the convex hull method.
+        It is computed on the spectrum as currently displayed, so using it again
+        removes what is left and adds it to the total background.
         """
-
         x, y = self.get_data_to_process()
         v = ConvexHull(np.column_stack((x, y))).vertices
         v = np.roll(v, -v.argmin())
         anchors = v[: v.argmax()]
-        self.bg = np.interp(x, x[anchors], y[anchors])
-        corrected = y - self.bg
-
-        self.corrected_data = np.column_stack((x, corrected))
-        # self.plot_data()
+        self._add_bg(np.interp(x, x[anchors], y[anchors]))
 
     def reset_bg(self):
-        x, y = self.get_data_to_process()
-
-        if np.array_equal(x, self.normalized_data[:, 0]):
-            self.corrected_data = None            
-        else:
-            # if different, a recalib is used, we only reset y:
-            self.corrected_data = np.column_stack((
-                x, self.normalized_data[:,1]))
-
+        """Remove the background, keeping smoothing and spectrometer recalibration."""
         self.bg = None
-        #self.plot_data()
-    
+        self._recompute_corrected_data()
+
     def subtract_external_bg(self, bg):
         """
-        Subtract an external background from the spectrum.
+        Subtract an external background (e.g. drawn by hand on the displayed spectrum).
         """
-        x, y = self.get_data_to_process()
+        x, _ = self.get_data_to_process()
         if len(bg) != len(x):
             raise ValueError("Background and data arrays must have the same length.")
-        else:
-            corrected = y - bg
-            self.corrected_data = np.column_stack((x, corrected))
-            self.bg = bg
-        #self.plot_data()
+        self._add_bg(np.asarray(bg, dtype=float))
 
+    def _add_bg(self, extra_bg):
+        self.bg = extra_bg if self.bg is None else self.bg + extra_bg
+        self._recompute_corrected_data()
 
     def spectro_recalib(self, new_x):
         try:
-            x, y = self.get_data_to_process()
-            if len(new_x) != len(y):
+            n_points = len(self.normalized_data)
+            if len(new_x) != n_points:
                 raise ValueError(
-                    f"Calibration length mismatch: expected {len(y)} points, got {len(new_x)}."
+                    f"Calibration length mismatch: expected {n_points} points, got {len(new_x)}."
                 )
-            self.corrected_data = np.column_stack(
-                (new_x, y)
-            )
+            self.x_calibration = np.asarray(new_x, dtype=float)
+            self._recompute_corrected_data()
         except Exception as exc:
             raise RuntimeError(f'Failed to recalibrate spectrometer: {exc}') from exc
-    
+
     def reset_spectro_recalib(self):
-        x, y = self.get_data_to_process()
-        self.corrected_data = np.column_stack(
-                (self.normalized_data[:, 0], y)
-            )
+        self.x_calibration = None
+        self._recompute_corrected_data()
 
     def fit_data(self, guess_peak=None):
         """

@@ -115,9 +115,8 @@ def test_spectro_recalibration_length_mismatch(ruby):
         ruby.spectro_recalib(np.arange(10.0))
 
 
-# Known bugs, roadmap item 11 (processing chain). strict=True: once fixed, these
-# start passing and pytest reports it, so the xfail marker can be removed.
-@pytest.mark.xfail(strict=True, reason="smoothing rebuilds x from normalized_data (item 11)")
+# Processing chain: steps must not undo each other, whatever their order.
+
 def test_smoothing_keeps_spectro_recalibration(ruby, resources):
     from myPGM.helpers import spectro_calibration_reader
     new_x = spectro_calibration_reader(resources / "alternate_spectro_calib.asc")
@@ -127,7 +126,6 @@ def test_smoothing_keeps_spectro_recalibration(ruby, resources):
     np.testing.assert_array_equal(x, new_x)
 
 
-@pytest.mark.xfail(strict=True, reason="second Auto Bg overwrites bg with the increment (item 11)")
 def test_repeated_auto_background_then_smoothing(ruby):
     ruby.convexhull_bg()
     ruby.convexhull_bg()
@@ -135,6 +133,92 @@ def test_repeated_auto_background_then_smoothing(ruby):
     ruby.smoothen(1)          # window 1 = no smoothing: spectrum must not change
     _, y = ruby.get_data_to_process()
     np.testing.assert_allclose(y, y_bg, atol=1e-9)
+
+
+def _calib_x(resources):
+    from myPGM.helpers import spectro_calibration_reader
+    return spectro_calibration_reader(resources / "alternate_spectro_calib.asc")
+
+
+def test_processing_order_does_not_matter(resources):
+    def processed(steps):
+        obj = PressureGaugeDataObject()
+        obj.load_spectral_data_file("Example_Ruby_1.asc", str(resources / "Example_Ruby_1.asc"))
+        for step in steps:
+            step(obj)
+        return obj.get_data_to_process()
+
+    recalib = lambda o: o.spectro_recalib(_calib_x(resources))
+    smooth = lambda o: o.smoothen(7)
+    bg = lambda o: o.subtract_external_bg(np.full(1024, 0.05))
+    reference = processed([recalib, smooth, bg])
+    for order in ([bg, smooth, recalib], [smooth, recalib, bg], [bg, recalib, smooth]):
+        x, y = processed(order)
+        np.testing.assert_array_equal(x, reference[0])
+        np.testing.assert_allclose(y, reference[1])
+
+
+def test_reset_background_keeps_smoothing_and_recalibration(ruby, resources):
+    ruby.spectro_recalib(_calib_x(resources))
+    ruby.smoothen(7)
+    _, y_smoothed = ruby.get_data_to_process()
+    ruby.convexhull_bg()
+    ruby.reset_bg()
+    x, y = ruby.get_data_to_process()
+    np.testing.assert_array_equal(x, _calib_x(resources))
+    np.testing.assert_allclose(y, y_smoothed)
+
+
+def test_reset_recalibration_keeps_smoothing_and_background(ruby, resources):
+    ruby.smoothen(7)
+    ruby.convexhull_bg()
+    _, y_processed = ruby.get_data_to_process()
+    ruby.spectro_recalib(_calib_x(resources))
+    ruby.reset_spectro_recalib()
+    x, y = ruby.get_data_to_process()
+    np.testing.assert_array_equal(x, ruby.normalized_data[:, 0])
+    np.testing.assert_allclose(y, y_processed)
+
+
+def test_backgrounds_add_up(ruby):
+    ruby.subtract_external_bg(np.full(1024, 0.02))
+    ruby.subtract_external_bg(np.full(1024, 0.03))
+    np.testing.assert_allclose(ruby.bg, 0.05)
+    _, y = ruby.get_data_to_process()
+    np.testing.assert_allclose(y, ruby.normalized_data[:, 1] - 0.05)
+
+
+def test_no_processing_means_raw_normalized_data(ruby, resources):
+    ruby.spectro_recalib(_calib_x(resources))
+    ruby.smoothen(5)
+    ruby.convexhull_bg()
+    ruby.reset_spectro_recalib()
+    ruby.smoothen(1)
+    ruby.reset_bg()
+    assert ruby.corrected_data is None
+    x, y = ruby.get_data_to_process()
+    np.testing.assert_array_equal(y, ruby.normalized_data[:, 1])
+
+
+def test_processing_settings_survive_session_round_trip(ruby, resources):
+    ruby.spectro_recalib(_calib_x(resources))
+    ruby.smoothen(7)
+    ruby.convexhull_bg()
+    payload = json.loads(json.dumps(ruby.to_dict()))
+    restored = PressureGaugeDataObject.from_dict(payload)
+    assert restored.current_smoothing == 7
+    np.testing.assert_array_equal(restored.x_calibration, _calib_x(resources))
+    restored.smoothen(7)       # rebuilding from the restored settings gives the same spectrum
+    np.testing.assert_allclose(restored.get_data_to_process()[1], ruby.get_data_to_process()[1])
+
+
+def test_old_session_recalibration_is_recovered(ruby, resources):
+    # sessions saved before this change had no x_calibration entry
+    ruby.spectro_recalib(_calib_x(resources))
+    payload = json.loads(json.dumps(ruby.to_dict()))
+    del payload["x_calibration"]
+    restored = PressureGaugeDataObject.from_dict(payload)
+    np.testing.assert_array_equal(restored.x_calibration, _calib_x(resources))
 
 
 # --- session serialisation ----------------------------------------------------------

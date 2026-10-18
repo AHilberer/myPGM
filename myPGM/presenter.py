@@ -265,6 +265,11 @@ class Presenter(QObject):
         self.current_selected_file = obj_id
         self.view.current_file_label.setText(f"{obj.filename}")
 
+        # show this file's own smoothing, without re-applying it
+        was_blocked = self.view.smoothing_factor.blockSignals(True)
+        self.view.smoothing_factor.setValue(obj.current_smoothing or 1)
+        self.view.smoothing_factor.blockSignals(was_blocked)
+
         if self.view.Spectro_use_button.isChecked():
             if self.corrected_spectro_x is not None:
                 try:

@@ -106,6 +106,36 @@ def test_selecting_unknown_file_is_ignored(gui):
     assert gui.presenter.current_selected_file is None
 
 
+def test_smoothing_box_follows_selected_file(gui):
+    p = gui.presenter
+    p.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
+    gui.view.smoothing_factor.setValue(9)          # applies smoothing to Ruby_1
+    assert p.model[gui.file_id("Example_Ruby_1.asc")].current_smoothing == 9
+
+    p.file_selected_from_file_list(gui.file_id("Example_Ruby_2.asc"))
+    assert gui.view.smoothing_factor.value() == 1
+    assert p.model[gui.file_id("Example_Ruby_2.asc")].current_smoothing == 1   # not re-applied
+
+    p.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
+    assert gui.view.smoothing_factor.value() == 9
+
+
+def test_smoothing_keeps_spectrometer_recalibration_in_app(gui, resources, monkeypatch):
+    p = gui.presenter
+    p.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
+    calib_file = str(resources / "alternate_spectro_calib.asc")
+    monkeypatch.setattr(gui.view, "get_file_via_dialog", lambda: [calib_file])
+    p.load_spectro_calibration()
+    gui.view.Spectro_use_button.setChecked(True)
+    x_recalibrated = p.model[gui.file_id("Example_Ruby_1.asc")].get_data_to_process()[0].copy()
+
+    gui.view.smoothing_factor.setValue(5)
+    x_after = p.model[gui.file_id("Example_Ruby_1.asc")].get_data_to_process()[0]
+    assert x_recalibrated[0] != p.model[gui.file_id("Example_Ruby_1.asc")].normalized_data[0, 0]
+    assert (x_after == x_recalibrated).all()
+    assert gui.errors == []
+
+
 # --- clicks and manual background ------------------------------------------------------
 
 def test_clicks_outside_plot_are_ignored(gui):
