@@ -84,7 +84,9 @@ class HPTableWidget(QTableWidget):
                         "x": self._format_float(obj.x, 3),
                         "\u03c3x (fit)": self._format_float(getattr(obj, "x_err", None), 4),
                         "T": self._format_float(obj.T, 3),
-                        "x0": self._format_float(obj.x0, 3),
+                        # blank for calibrations that do not use x0 (H2 vibron)
+                        "x0": self._format_float(obj.x0, 3)
+                              if obj.calib is None or getattr(obj.calib, "uses_x0", True) else "",
                         "T0": self._format_float(obj.T0, 3),
                         "calib": obj.calib.name if obj.calib is not None else "",
                         "file": obj.filename if obj.filename is not None else "",

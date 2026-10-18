@@ -344,6 +344,11 @@ def test_demo_session_fills_the_table(demo):
     assert [by_file[f][0] for f in ("Example_Ruby_1.asc", "Example_Ruby_2.asc",
                                     "Example_Ruby_3.asc", "Example_H2.txt")] == ["8.00", "15.00", "24.00", "27.00"]
     assert by_file["Example_H2.txt"][-2] == "H2 Vibron <30GPa"
+    x0_col = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())].index("x0")
+    assert by_file["Example_H2.txt"][x0_col] == ""              # H2 does not use x0
+    assert by_file["Example_Ruby_1.asc"][x0_col] == "694.280"
+    assert presenter.model[next(i for i in presenter.model
+                                if presenter.model[i].filename == "Example_H2.txt")].fit_model.name == "Single Voigt"
     # pressures increase with membrane pressure, like a real loading run
     P = [float(by_file[f][1]) for f in ("Example_Ruby_1.asc", "Example_Ruby_2.asc",
                                          "Example_Ruby_3.asc", "Example_H2.txt")]

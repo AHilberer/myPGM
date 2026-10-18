@@ -94,6 +94,14 @@ def test_ruby_temperature_correction_shifts_pressure():
     assert c.func(700.0, 400, x0, 298) < c.func(700.0, 298, x0, 298)
 
 
+@pytest.mark.parametrize("calib", C.calib_list, ids=_ids(C.calib_list))
+def test_uses_x0_matches_the_formula(calib):
+    x0, T0 = DEFAULTS[calib.name]
+    x = 4206.0 if calib is C.H2Vibron else x0 * 1.01
+    depends_on_x0 = calib.func(x, T0, x0, T0) != calib.func(x, T0, x0 * 1.001, T0)
+    assert calib.uses_x0 == depends_on_x0
+
+
 def test_default_fit_models_exist():
     from myPGM.fit_models import model_list
     names = {m.name for m in model_list}

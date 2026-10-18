@@ -5,7 +5,7 @@ class HPCalibration():
     ''' A general HP calibration object '''
     def __init__(self, name, func, Tcor_name, 
                     xname, xunit, x0default, T0default, xstep, color,
-                    default_fit_model=None):
+                    default_fit_model=None, uses_x0=True):
         self.name = name
         self.func = func
         self.Tcor_name = Tcor_name
@@ -16,6 +16,7 @@ class HPCalibration():
         self.xstep = xstep  # x step in spinboxes using mousewheel
         self.color = color  # color printed in calibration combobox
         self.default_fit_model = default_fit_model
+        self.uses_x0 = uses_x0  # False when P(x) does not depend on x0 (x0 is then not shown)
 
     def __repr__(self):
         return 'HPCalibration : ' + str( self.__dict__ )
@@ -273,7 +274,8 @@ H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
                                   T0default = 298,
                                   xstep = .1,
                                   color = 'tan',
-                                  default_fit_model='Single Voigt')
+                                  default_fit_model='Single Voigt',
+                                  uses_x0=False)
 
 calib_list = [Ruby2020, 
               RubyMao1986,
