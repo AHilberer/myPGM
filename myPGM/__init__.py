@@ -2,6 +2,7 @@ import sys
 import os
 import ctypes
 import logging
+import time
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import QLocale
 
@@ -24,15 +25,37 @@ def _set_windows_appusermodelid():
     except Exception:
         pass
 
+REPEATED_ERROR_WINDOW_S = 10
+
+
 def _install_excepthook():
-    """Show unexpected errors in a dialog instead of letting PyQt abort the app."""
+    """Show unexpected errors in a dialog instead of letting PyQt abort the app.
+    An error identical to one shown less than REPEATED_ERROR_WINDOW_S ago (after
+    its dialog was closed), or raised while an error dialog is open, is only
+    logged with a repeat count: a repeated error does not flood the screen."""
+    state = {"dialog_open": False, "closed_at": {}, "repeats": {}}
+
     def excepthook(exc_type, exc_value, exc_tb):
+        key = (exc_type.__name__, str(exc_value))
+        closed_at = state["closed_at"].get(key)
+        recent = closed_at is not None and time.monotonic() - closed_at < REPEATED_ERROR_WINDOW_S
+        if state["dialog_open"] or recent:
+            state["repeats"][key] = state["repeats"].get(key, 0) + 1
+            logger.error("Unexpected error repeated (%d times, not shown again): %s: %s",
+                         state["repeats"][key], *key)
+            return
+        state["repeats"][key] = 0
         logger.error("Unexpected error", exc_info=(exc_type, exc_value, exc_tb))
         if QApplication.instance() is not None:
             text = f"{exc_type.__name__}: {exc_value}"
             if log_setup.log_file_path is not None:
                 text += f"\n\nDetails were saved in the log file:\n{log_setup.log_file_path}"
-            QMessageBox.critical(None, "Unexpected error", text)
+            state["dialog_open"] = True
+            try:
+                QMessageBox.critical(None, "Unexpected error", text)
+            finally:
+                state["dialog_open"] = False
+                state["closed_at"][key] = time.monotonic()
     sys.excepthook = excepthook
 
 def main():

@@ -132,3 +132,54 @@ def test_unexpected_error_dialog_points_to_log_file(qapp, clean_logger, tmp_path
         sys.excepthook(*sys.exc_info())
     assert "ValueError: boom" in shown[0] and str(tmp_path / "mypgm.log") in shown[0]
     assert "Traceback" in _read(tmp_path / "mypgm.log")
+
+
+def test_repeated_error_shows_one_dialog(qapp, clean_logger, tmp_path, monkeypatch, caplog):
+    import myPGM
+    from PyQt5.QtWidgets import QMessageBox
+    shown = []
+    monkeypatch.setattr(QMessageBox, "critical", lambda parent, title, text: shown.append(text))
+    monkeypatch.setattr(sys, "excepthook", sys.excepthook)   # restored after the test
+    clock = [1000.0]
+    monkeypatch.setattr(myPGM.time, "monotonic", lambda: clock[0])
+    myPGM._install_excepthook()
+
+    def raise_(exc):
+        try:
+            raise exc
+        except Exception:
+            sys.excepthook(*sys.exc_info())
+
+    with caplog.at_level(logging.ERROR, logger="myPGM"):
+        for _ in range(6):
+            raise_(TypeError("same error"))
+        assert len(shown) == 1                                   # not 6 dialogs
+        assert "repeated (5 times" in caplog.records[-1].getMessage()
+        raise_(ValueError("another error"))                      # a different error is shown
+        assert len(shown) == 2
+        clock[0] += myPGM.REPEATED_ERROR_WINDOW_S + 1            # much later: shown again
+        raise_(TypeError("same error"))
+        assert len(shown) == 3
+
+
+def test_errors_raised_while_the_dialog_is_open_are_only_logged(qapp, clean_logger, monkeypatch):
+    import myPGM
+    from PyQt5.QtWidgets import QMessageBox
+    shown = []
+
+    def critical(parent, title, text):
+        shown.append(text)
+        if len(shown) == 1:                                       # error while the dialog is open
+            try:
+                raise KeyError("during dialog")
+            except KeyError:
+                sys.excepthook(*sys.exc_info())
+
+    monkeypatch.setattr(QMessageBox, "critical", critical)
+    monkeypatch.setattr(sys, "excepthook", sys.excepthook)
+    myPGM._install_excepthook()
+    try:
+        raise TypeError("first")
+    except TypeError:
+        sys.excepthook(*sys.exc_info())
+    assert len(shown) == 1
