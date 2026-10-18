@@ -259,3 +259,34 @@ def test_stale_lock_without_backup_is_cleaned_up(app):
     assert os.path.exists(os.path.splitext(app.presenter.backup_path)[0] + ".lock")
     assert os.path.exists(os.path.splitext(presenter.backup_path)[0] + ".lock")
     dispose(view)
+
+
+def test_half_written_backup_of_a_crashed_window_is_removed(app):
+    crashed_tmp = os.path.join(str(app.backup_dir), "autosave_session_999999_1_abcdef.json.tmp")
+    with open(crashed_tmp, "w") as f:
+        f.write('{"files": [')                          # interrupted in the middle
+    own_tmp = app.presenter.backup_path + ".tmp"       # a live window may be writing its own
+    with open(own_tmp, "w") as f:
+        f.write("{")
+    view, presenter, asked = _new_app(app, answer=False)
+    assert not presenter.offer_recovery() and asked == []
+    assert not os.path.exists(crashed_tmp)
+    assert os.path.exists(own_tmp)
+    os.remove(own_tmp)
+    dispose(view)
+
+
+def test_unwritable_backup_folder_warns_once(app, caplog, monkeypatch):
+    import logging
+    def fail(*args, **kwargs):
+        raise PermissionError("read-only folder")
+    monkeypatch.setattr(app.presenter, "_write_json", fail)
+    with caplog.at_level(logging.DEBUG, logger="myPGM"):
+        for window in (3, 5, 7):                       # three changes, three backup attempts
+            app.fit()
+            app.presenter.file_selected_from_file_list(app.presenter.current_selected_file)
+            app.presenter.smoothen(window)
+            app.presenter.autosave()
+            app.presenter.flush_backup()
+    failures = [r for r in caplog.records if "Could not write the session backup" in r.getMessage()]
+    assert [r.levelname for r in failures] == ["WARNING", "DEBUG", "DEBUG"]

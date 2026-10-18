@@ -123,6 +123,7 @@ class Presenter(QObject):
         self._backup_lock = None
         self._backup_fingerprint = None
         self._backup_thread = None
+        self._backup_failed = False     # warned once, then only debug messages
         self.autosave_timer = None
         if backup_dir is not None:
             # each window has its own backup, locked while the window is open, so that
@@ -398,10 +399,18 @@ class Presenter(QObject):
         else:
             self._show_error("No directory selected.")
 
+    @staticmethod
+    def _canonical_path(path):
+        # the same file can be reached as /tmp/x or /private/tmp/x (links), or with
+        # slashes or backslashes and different letter case on Windows
+        return os.path.normcase(os.path.realpath(path))
+
     def _already_loaded(self, file_path):
         """True if this file is in the file list and unchanged since it was loaded."""
         mtime = os.path.getmtime(file_path)
-        return any(o.include_in_filelist and o.full_path == file_path
+        target = self._canonical_path(file_path)
+        return any(o.include_in_filelist and o.full_path is not None
+                   and self._canonical_path(o.full_path) == target
                    and o.file_mtime == mtime
                    for o in self.model.values())
 
@@ -793,7 +802,7 @@ class Presenter(QObject):
         self.view.PvPmPlotWindow.updateplot()
 
     def initialize_example(self):
-        for i, current_file in enumerate(self.example_files):
+        for current_file in self.example_files:
             current_file_path = os.path.dirname(__file__) + "/resources/" + current_file
             self.add_instance_from_path(current_file_path)
 
@@ -1000,7 +1009,12 @@ class Presenter(QObject):
                 self._write_json(session, self.backup_path, indent=None)
                 logger.debug("Session backup written to %s", self.backup_path)
             except OSError as exc:
-                logger.warning("Could not write the session backup: %s", exc)
+                if not self._backup_failed:
+                    self._backup_failed = True
+                    logger.warning("Could not write the session backup (no automatic backup "
+                                   "until this is fixed): %s", exc)
+                else:
+                    logger.debug("Could not write the session backup: %s", exc)
 
         self._backup_thread = threading.Thread(target=write, name="session-backup", daemon=True)
         self._backup_thread.start()
@@ -1031,6 +1045,13 @@ class Presenter(QObject):
                 continue                # another myPGM window is still using it
             lock.unlock()               # stale lock of a crashed window: cleaned up
             orphans.append(path)
+        # half-written backups of windows that crashed while writing one
+        for tmp_path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.json.tmp")):
+            lock = QLockFile(tmp_path[:-len(".json.tmp")] + ".lock")
+            lock.setStaleLockTime(0)
+            if lock.tryLock(0):         # its window is gone (a live one may be writing it)
+                lock.unlock()
+                os.remove(tmp_path)
         # locks left by windows that crashed with nothing to back up
         for lock_path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.lock")):
             if os.path.exists(os.path.splitext(lock_path)[0] + ".json"):

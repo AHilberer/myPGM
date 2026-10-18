@@ -627,3 +627,16 @@ def test_series_added_while_lines_hidden_has_no_line(gui):
     plot.lines_action.setChecked(False)
     _add(gui, "Example_Ruby_1.asc", 8.0)
     assert not _line_drawn(plot.lines["Ruby2020"])
+
+
+def test_load_latest_recognises_a_file_loaded_through_another_path(gui, resources, tmp_path):
+    p = gui.presenter
+    p.model.clear(); p.populate_file_list()
+    real_dir = tmp_path / "data"; real_dir.mkdir()
+    shutil.copy(resources / "Example_Ruby_1.asc", real_dir / "spectrum.asc")
+    link_dir = tmp_path / "link"; link_dir.symlink_to(real_dir)      # like /tmp -> /private/tmp
+    p._add_files([str(real_dir / "spectrum.asc")])                   # e.g. from the file dialog
+    p.current_directory = str(link_dir)
+    p.add_latest_file()
+    assert [p.model[i].filename for i in p.ordered_files_to_display] == ["spectrum.asc"]
+    assert "No new file since spectrum.asc" in gui.view.current_file_label.text()
