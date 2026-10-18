@@ -1,11 +1,14 @@
 import os
 import json
+import hashlib
 import logging
+import threading
+import time
 import numpy as np
 from copy import deepcopy
 from importlib.metadata import PackageNotFoundError, version
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
-from PyQt5.QtCore import Qt, QFileInfo, QObject
+from PyQt5.QtCore import Qt, QFileInfo, QObject, QTimer
 from myPGM.data_model import PressureGaugeDataObject
 import myPGM.calibrations
 import myPGM.fit_models
@@ -28,9 +31,13 @@ def get_app_version():
         return "dev"
 
 class Presenter(QObject):
-    def __init__(self, model, view, test_mode=False, demo=False):
+    AUTOSAVE_INTERVAL_MS = 30_000
+    BACKUP_FILE_NAME = "autosave_session.json"
+
+    def __init__(self, model, view, test_mode=False, demo=False, backup_dir=None):
         """test_mode: load the example spectra (used by the tests).
-        demo: load them as a fitted example session (python run.py --demo)."""
+        demo: load them as a fitted example session (python run.py --demo).
+        backup_dir: folder for the automatic session backup (None: no backup)."""
         super().__init__()
         self.model = model
         self.view = view
@@ -103,6 +110,21 @@ class Presenter(QObject):
             self.initialize_example()
         if demo:
             self.fit_examples()
+
+        # unsaved changes: compared with the content at start / last save or load
+        self._saved_fingerprint = self._content_fingerprint()
+        self.view.close_guard = self.confirm_close
+
+        # automatic backup of the session, recovered after a crash (offer_recovery)
+        self.backup_path = None
+        self._backup_fingerprint = None
+        self._backup_thread = None
+        self.autosave_timer = None
+        if backup_dir is not None:
+            self.backup_path = os.path.join(backup_dir, self.BACKUP_FILE_NAME)
+            self.autosave_timer = QTimer(self)
+            self.autosave_timer.timeout.connect(self.autosave)
+            self.autosave_timer.start(self.AUTOSAVE_INTERVAL_MS)
 
     ##################################################################################""
         #? Methods 
@@ -794,12 +816,10 @@ class Presenter(QObject):
         self.model.add_to_table(new_obj)
         self.update_PvPm_table()
 
-    def save_session(self):
-        file_path = self.view.get_save_session_filename_dialog()
-        if not file_path:
-            return
+    # --- sessions ------------------------------------------------------------------------
 
-        session = {
+    def _session_dict(self):
+        return {
             "app_version": self.app_version,
             "ordered_files": self.ordered_files_to_display,
             "current_selected_file": self.current_selected_file,
@@ -811,25 +831,42 @@ class Presenter(QObject):
             "files": [obj.to_dict() for obj in self.model.values()],
         }
 
+    @staticmethod
+    def _write_json(session, file_path, indent=2):
+        # write to a temporary file first, so a crash never leaves a half-written file
+        tmp_path = file_path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as file_handle:
+            json.dump(session, file_handle, indent=indent)
+        os.replace(tmp_path, file_path)
+
+    def save_session(self):
+        """Ask for a file and save the session. Returns True if it was saved."""
+        file_path = self.view.get_save_session_filename_dialog()
+        if not file_path:
+            return False
         try:
-            with open(file_path, "w", encoding="utf-8") as file_handle:
-                json.dump(session, file_handle, indent=2)
+            self._write_json(self._session_dict(), file_path)
         except Exception as exc:
             self._show_error(f"Failed to save session: {exc}", title="Save error")
-            return
+            return False
+        self._saved_fingerprint = self._content_fingerprint()
+        self._remove_backup()
         logger.debug("Session saved to %s (%d spectra)", file_path, len(self.model))
+        return True
 
-    def load_session(self):
-        file_path = self.view.get_open_session_filename_dialog()
+    def load_session(self, file_path=None):
+        """Load a session file (asked for if not given). Returns True if loaded."""
+        if file_path is None:
+            file_path = self.view.get_open_session_filename_dialog()
         if not file_path:
-            return
+            return False
 
         try:
             with open(file_path, "r", encoding="utf-8") as file_handle:
                 session = json.load(file_handle)
         except Exception as exc:
             self._show_error(f"Failed to load session: {exc}", title="Load error")
-            return
+            return False
 
         calib_dict = self.view.ptoolbox.calibrations
         model_dict = self.fit_models
@@ -882,4 +919,89 @@ class Presenter(QObject):
             self.file_selected_from_file_list(selected_id)
 
         self.update_PvPm_table()
+        self._saved_fingerprint = self._content_fingerprint()
         logger.debug("Session loaded from %s (%d spectra)", file_path, len(self.model))
+        return True
+
+    # --- unsaved changes, automatic backup and recovery ----------------------------------------
+
+    def _content_fingerprint(self):
+        """Hash of the session content that matters (spectra, processing, fits, table,
+        file order). Values typed in the pressure toolbox alone do not count."""
+        hasher = hashlib.sha1()
+        hasher.update(repr((self.ordered_files_to_display,
+                            self.view.Spectro_use_button.isChecked())).encode("utf-8"))
+        hasher.update(b"-" if self.corrected_spectro_x is None
+                      else np.ascontiguousarray(self.corrected_spectro_x, dtype=float).tobytes())
+        for obj in self.model.values():
+            obj.update_fingerprint(hasher)
+        return hasher.hexdigest()
+
+    def has_unsaved_changes(self):
+        return self._content_fingerprint() != self._saved_fingerprint
+
+    def confirm_close(self):
+        """Called when the main window is closed: True to let it close."""
+        if self.has_unsaved_changes():
+            choice = self.view.ask_save_changes()
+            if choice == "cancel":
+                return False
+            if choice == "save" and not self.save_session():
+                return False            # save dialog cancelled or failed: keep the app open
+        self._remove_backup()           # closed normally: no recovery needed next time
+        return True
+
+    def autosave(self):
+        """Write the backup if there are unsaved changes not backed up yet.
+        The session is collected here, then encoded and written in a background
+        thread (compact JSON), so that large sessions do not freeze the app."""
+        if self.backup_path is None:
+            return
+        if not self.has_unsaved_changes():
+            self._remove_backup()
+            return
+        fingerprint = self._content_fingerprint()
+        if fingerprint == self._backup_fingerprint:
+            return
+        if self._backup_thread is not None and self._backup_thread.is_alive():
+            return                      # previous backup still being written: next time
+        session = self._session_dict()
+        self._backup_fingerprint = fingerprint
+
+        def write():
+            try:
+                self._write_json(session, self.backup_path, indent=None)
+                logger.debug("Session backup written to %s", self.backup_path)
+            except OSError as exc:
+                logger.warning("Could not write the session backup: %s", exc)
+
+        self._backup_thread = threading.Thread(target=write, name="session-backup", daemon=True)
+        self._backup_thread.start()
+
+    def flush_backup(self):
+        """Wait for a backup being written, if any."""
+        if self._backup_thread is not None:
+            self._backup_thread.join(timeout=30)
+
+    def _remove_backup(self):
+        self.flush_backup()             # so that a write in progress cannot re-create it
+        self._backup_fingerprint = None
+        if self.backup_path is not None and os.path.exists(self.backup_path):
+            os.remove(self.backup_path)
+
+    def offer_recovery(self):
+        """At startup: offer to recover the backup left by a session that did not
+        close normally. Declined backups are kept as *.discarded.json."""
+        if self.backup_path is None or not os.path.exists(self.backup_path):
+            return False
+        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(self.backup_path)))
+        if self.view.ask_recover_session(when):
+            if self.load_session(self.backup_path):
+                self._saved_fingerprint = None      # recovered work is not saved yet
+                logger.info("Session recovered from %s", self.backup_path)
+                return True
+            return False
+        discarded = os.path.splitext(self.backup_path)[0] + ".discarded.json"
+        os.replace(self.backup_path, discarded)
+        logger.info("Session backup declined, kept as %s", discarded)
+        return False

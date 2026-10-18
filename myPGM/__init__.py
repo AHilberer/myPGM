@@ -62,8 +62,13 @@ def main():
     if not app_icon.isNull():
         view.setWindowIcon(app_icon)
     # example session (fitted spectra in the PvPm table) only on request: --demo
-    presenter = Presenter(model, view, demo="--demo" in sys.argv)
+    demo = "--demo" in sys.argv
+    backup_dir = log_setup.default_log_dir()
+    presenter = Presenter(model, view, demo=demo,
+                          backup_dir=str(backup_dir) if backup_dir is not None else None)
     presenter.view.show()
+    if not demo:
+        presenter.offer_recovery()
 
     sys.exit(app.exec_())
 

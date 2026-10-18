@@ -10,6 +10,7 @@ from PyQt5.QtCore import QPointF, Qt
 from PyQt5.QtGui import QColor
 
 from myPGM import calibrations as C, fit_models as F
+from conftest import dispose
 
 
 class OutsideClick:
@@ -45,7 +46,7 @@ def test_normal_start_loads_nothing(qapp):
     view = MainWindow()
     Presenter(PressureGaugeDataManager(), view)
     assert view.file_list_widget.list_widget.count() == 0
-    view.close()
+    dispose(view)
 
 
 # --- fitting ------------------------------------------------------------------------
@@ -321,29 +322,6 @@ def test_windows_open_within_the_screen(gui):
 
 
 # --- demo session -------------------------------------------------------------------------
-
-@pytest.fixture
-def demo(qapp):
-    from myPGM.helpers import load_style
-    from myPGM.ui.main_ui import MainWindow
-    from myPGM.data_model import PressureGaugeDataManager
-    from myPGM.presenter import Presenter
-    qapp.setStyleSheet(load_style("light-mode.qss"))
-    view = MainWindow()
-    errors = []
-    # record error popups instead of showing them, before the demo is built
-    view.fit_error_popup_window = lambda: errors.append("Fit error")
-    from PyQt5.QtWidgets import QMessageBox
-    original_exec = QMessageBox.exec_
-    QMessageBox.exec_ = lambda self: errors.append(self.windowTitle())
-    try:
-        presenter = Presenter(PressureGaugeDataManager(), view, demo=True)
-    finally:
-        QMessageBox.exec_ = original_exec
-    yield presenter, view, errors
-    view.close()
-    qapp.setStyleSheet("")
-
 
 def test_demo_session_fills_the_table(demo):
     presenter, view, errors = demo

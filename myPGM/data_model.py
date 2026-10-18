@@ -162,6 +162,21 @@ class PressureGaugeDataObject:
             "table_id": _json_scalar(self.table_id),
         }
 
+    def update_fingerprint(self, hasher):
+        """Feed everything that would be saved in a session to a hashlib hasher.
+        Arrays are hashed as raw bytes: much faster than going through to_dict."""
+        for array in (self.original_data, self.corrected_data, self.x_calibration, self.bg,
+                      self.fitted_data, self.fitting_range,
+                      None if self.fit_result is None else self.fit_result.get("opti"),
+                      None if self.fit_result is None else self.fit_result.get("cov")):
+            hasher.update(b"-" if array is None else np.ascontiguousarray(array, dtype=float).tobytes())
+        scalars = (self.id, self.filename, self.full_path, self.current_smoothing,
+                   self.fit_model.name if self.fit_model else None,
+                   self.calib.name if self.calib else None,
+                   self.Pm, self.P, self.x, self.x_err, self.P_err, self.T, self.x0, self.T0,
+                   self.include_in_filelist, self.include_in_table, self.table_id)
+        hasher.update(repr(scalars).encode("utf-8"))
+
     @classmethod
     def from_dict(cls, payload, calib_dict=None, model_dict=None):
         obj = cls()

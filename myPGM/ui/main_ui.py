@@ -354,6 +354,9 @@ class MainWindow(QMainWindow):
 
         self.additional_toolbox_window = PressureToolbox()
 
+        # set by the presenter: called on close, returns False to keep the window open
+        self.close_guard = None
+
     #####################################################################################
     # ? Main window methods
 
@@ -379,6 +382,9 @@ class MainWindow(QMainWindow):
         fit(self.PvPmPlotWindow, side_x, self.PvPmTableWindow.geometry().bottom() + gap)
 
     def closeEvent(self, event):
+        if self.close_guard is not None and not self.close_guard():
+            event.ignore()
+            return
         # close the side windows owned by this main window (not every app window,
         # which recursed between main windows)
         for window in (self.PvPmTableWindow, self.PvPmPlotWindow,
@@ -643,6 +649,25 @@ class MainWindow(QMainWindow):
 
         else:
             logger.warning("Plot of fit type %r not implemented", fit_model.type)
+
+    def ask_save_changes(self):
+        """'save', 'discard' or 'cancel'."""
+        answer = QMessageBox.question(
+            self, "Unsaved changes",
+            "The session has unsaved changes (spectra, fits or table points).\n"
+            "Save them before closing?",
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Save)
+        return {QMessageBox.Save: "save", QMessageBox.Discard: "discard"}.get(answer, "cancel")
+
+    def ask_recover_session(self, when):
+        answer = QMessageBox.question(
+            self, "Recover session",
+            f"myPGM did not close normally last time.\n"
+            f"A backup of the unsaved session from {when} was found.\n\n"
+            "Recover it?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        return answer == QMessageBox.Yes
 
     def fit_error_popup_window(self):
         msg = QMessageBox()
