@@ -585,3 +585,19 @@ def test_load_latest_does_not_load_the_same_file_twice(gui, resources, tmp_path)
     p.add_latest_file()
     assert names().count("spectrum_002.asc") == 2
     assert gui.errors == []
+
+
+def test_pm_dialog_starts_from_the_last_pm(gui, monkeypatch):
+    from myPGM.helpers import SmartDoubleDialog
+    shown = []
+    monkeypatch.setattr(SmartDoubleDialog, "exec_",
+                        lambda self: shown.append(self.spinbox.value()) or True)
+    assert gui.view.prompt_fit_pm(15.0) == 15.0 and shown == [15.0]
+    # in the app: the Pm entered for a point is proposed for the next one
+    select_and_fit(gui, "Example_Ruby_1.asc")
+    monkeypatch.setattr(SmartDoubleDialog, "exec_",
+                        lambda self: shown.append(self.spinbox.value()) or self.spinbox.setValue(8.0) or True)
+    gui.presenter.add_current_fit_to_table()
+    select_and_fit(gui, "Example_Ruby_2.asc")
+    gui.presenter.add_current_fit_to_table()
+    assert shown[-1] == 8.0

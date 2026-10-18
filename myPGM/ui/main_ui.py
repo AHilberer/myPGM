@@ -451,8 +451,12 @@ class MainWindow(QMainWindow):
     def prompt_fit_pm(self, current_pm):
 
         dialog = SmartDoubleDialog(valuename='Pm (bar):')
-
         dialog.setWindowTitle("Input Pm")
+        # start from the last Pm, selected: typing replaces it, Enter keeps it
+        if current_pm is not None:
+            dialog.spinbox.setValue(float(current_pm))
+        dialog.spinbox.selectAll()
+        dialog.spinbox.setFocus()
         if dialog.exec_():
             return dialog.value()
         return None
