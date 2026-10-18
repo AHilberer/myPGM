@@ -13,7 +13,6 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import pyqtSignal
 
-
 class HPTableWidget(QTableWidget):
     """Qt widget class for HPDataTable objects"""
 
@@ -26,16 +25,13 @@ class HPTableWidget(QTableWidget):
         self.data_manager = None
         self.row_object_ids = []
 
-
         self.set_font_size(18)
 
         column_labels = ["Pm", "P", "\u03c3P (fit)", "x", "\u03c3x (fit)", "T", "x0", "T0", "calib", "file"]
         self.setColumnCount(len(column_labels))
-        #self.setRowCount(3)
 
         self.setHorizontalHeaderLabels(column_labels)
 
-#        self.resizeColumnsToContents()
         h_header = self.horizontalHeader()
         ncols = self.columnCount()
         
@@ -47,18 +43,10 @@ class HPTableWidget(QTableWidget):
         
         h_header.setSectionResizeMode(ncols-1, QHeaderView.Stretch)
 
-#        self.horizontalHeader().setDefaultSectionSize(70)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setSelectionMode(QAbstractItemView.SingleSelection)
         self.cellDoubleClicked.connect(self._on_cell_double_clicked)
-
-        
-
-        #self.cellChanged[int, int].connect(self.get_from_entry)
-
-        # delete_line_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
-        # delete_line_shortcut.activated.connect(self.remove_line)
 
     def set_data_manager(self, data_manager):
         self.data_manager = data_manager
@@ -130,13 +118,6 @@ class HPTableWidget(QTableWidget):
         if 0 <= row < len(self.row_object_ids):
             self.recall_requested.emit(self.row_object_ids[row])
 
-
-#    def remove_line(self):
-#        index = self.currentRow()
-#        if index >= 0:
-#            self.data.removespecific(index)
-
-
 class HPTableWindow(QWidget):
     table_changed = pyqtSignal()
 
@@ -147,10 +128,6 @@ class HPTableWindow(QWidget):
 
         self.setWindowTitle("PvPm table")
         self.setGeometry(1200, 100, 700, 400)
-
-        # centerPoint = QDesktopWidget().availableGeometry().center()
-        # thePosition = (centerPoint.x() + 200, centerPoint.y() + 50)
-        # self.move(*thePosition)
 
         layout = QVBoxLayout()
 
@@ -163,11 +140,9 @@ class HPTableWindow(QWidget):
         self.clear_table_button = QPushButton("Clear table")
 
         self.table_save_csv_button = QPushButton("Export table to csv")
-        # self.table_load_csv_button = QPushButton("Load data from csv")
         table_actions_layout.addWidget(self.remove_selected_button)        
         table_actions_layout.addWidget(self.clear_table_button)        
         table_actions_layout.addWidget(self.table_save_csv_button)
-        # table_actions_layout.addWidget(self.table_load_csv_button)
 
         layout.addLayout(table_actions_layout)
 
@@ -176,16 +151,6 @@ class HPTableWindow(QWidget):
         self.table_save_csv_button.clicked.connect(self.save_data_to_csv)
         self.remove_selected_button.clicked.connect(self.delete_selected)
         self.clear_table_button.clicked.connect(self.clear_table)
-        
-
-
-
-        # self.table_load_csv_button.clicked.connect(self.load_data_from_csv)
-
-        # save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
-        # load_shortcut = QShortcut(QKeySequence("Ctrl+O"), self)
-        # save_shortcut.activated.connect(self.save_data_to_csv)
-        # load_shortcut.activated.connect(self.load_data_from_csv)
 
     def delete_selected(self):
         
@@ -236,7 +201,6 @@ class HPTableWindow(QWidget):
                         row_data.append(item.text() if item else "")
                     writer.writerow(row_data)
 
-
     def get_save_filename_dialog(self):
         options = QFileDialog.Options()
         # options = QFileDialog.DontUseNativeDialog
@@ -261,22 +225,4 @@ class HPTableWindow(QWidget):
             return fileName
         else:
             return None
-
-    # def get_load_filename_dialog(self):
-    #     options = QFileDialog.Options()
-    #     # options = QFileDialog.DontUseNativeDialog
-    #     # seems to bring an warning on Linux 5.10.0-19-amd64 #1 SMP Debian 5.10.149-2 (2022-10-21) x86_64 GNU/Linux
-    #     # if I choose to not use Native Dialog - Hope it works with native on other platform
-
-    #     fileName, _ = QFileDialog.getOpenFileName(
-    #         self,
-    #         "myPGM: Load data from csv",
-    #         "",
-    #         "CSV Files (*.csv);;All Files (*)",
-    #         options=options,
-    #     )
-    #     if fileName:
-    #         return fileName
-    #     else:
-    #         return None
 

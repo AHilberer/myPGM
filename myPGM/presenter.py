@@ -10,7 +10,6 @@ import myPGM.calibrations
 import myPGM.fit_models
 from myPGM.helpers import pressure_valid, spectro_calibration_reader, PressureCalculationFailed
 
-
 def get_app_version():
     try:
         return version("myPGM")
@@ -39,7 +38,6 @@ class Presenter(QObject):
         self.additional_buffer = PressureGaugeDataObject()
         self.app_version = get_app_version()
         self.view.setWindowTitle(f"myPGM - Pressure Gauge Monitor v{self.app_version}")
-
 
         self.initialize_calibrations_menu()
         self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
@@ -137,7 +135,6 @@ class Presenter(QObject):
         self.view.populate_fit_models_combo(model_dict)
         self.fit_mode = model_dict[self.view.fit_model_combo.currentText()]
 
-
     def initialize_buffer(self):
         # Default state at opening 
         calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
@@ -170,7 +167,6 @@ class Presenter(QObject):
         self.view.additional_toolbox_window.x0Changed.connect(self.on_x0_edited)
         self.view.additional_toolbox_window.T0Changed.connect(self.on_T0_edited)
 
-    
     def _get_toolbox_context(self, sender=None):
         src = sender or self.sender()
         if src == self.view.additional_toolbox_window:
@@ -181,29 +177,23 @@ class Presenter(QObject):
     def on_Pm_edited(self, Pm):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_Pm(Pm)
-#        toolbox.set_state_from_buffer(buffer)
-        
-#       Nothing to do
 
     @pressure_valid
     def on_P_edited(self, p):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_P(p)
-#        toolbox.set_state_from_buffer(buffer)
         toolbox.set_xval(buffer.x)
     
     @pressure_valid
     def on_x_edited(self, x):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_x(x)        
-#        toolbox.set_state_from_buffer(buffer)
         toolbox.set_Pval(buffer.P)
 
     @pressure_valid
     def on_T_edited(self, T):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_T(T)        
-#        toolbox.set_state_from_buffer(buffer)
         toolbox.set_Pval(buffer.P)
 
     @pressure_valid
@@ -219,7 +209,6 @@ class Presenter(QObject):
             if buffer.calib.name in toolbox.calibrations:
                 toolbox.calibrations[buffer.calib.name].x0default = x0
 
-#        toolbox.set_state_from_buffer(buffer)
         toolbox.set_Pval(buffer.P)
 
     @pressure_valid
@@ -234,7 +223,6 @@ class Presenter(QObject):
             if buffer.calib.name in toolbox.calibrations:
                 toolbox.calibrations[buffer.calib.name].T0default = T0
         
-#        toolbox.set_state_from_buffer(buffer)
         toolbox.set_Pval(buffer.P)
 
     @pressure_valid
@@ -299,7 +287,6 @@ class Presenter(QObject):
             ind = self.view.fit_model_combo.findText(obj.fit_model.name, Qt.MatchExactly)
             if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
                 self.view.fit_model_combo.setCurrentIndex(ind)
-
 
     def add_instance_from_path(self, file_path):
         file_info = QFileInfo(file_path)
@@ -380,7 +367,7 @@ class Presenter(QObject):
             x_min = float(np.min(x))
             x_max = float(np.max(x))
 
-            # on utilise buffer (juste pour afficher les unités des axes dans plot_data)
+            # the buffer is only used here for the axis units in plot_data
             self.view.plot_data(x, y, self.buffer, preserve_view=preserve_view)
             if obj.fit_result is not None:
                 self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y, P_err=obj.P_err)
@@ -473,7 +460,6 @@ class Presenter(QObject):
 
         return (abs(cur_low - low) > 1e-12) or (abs(cur_high - high) > 1e-12)
 
-
     def smoothen(self, smoothing_factor):
         if self.current_selected_file is None:
             return
@@ -513,7 +499,6 @@ class Presenter(QObject):
         obj = self.model.get(self.current_selected_file, None)
         obj.reset_bg()
         self.update_data_plots(self.current_selected_file)
-
 
     def load_spectro_calibration(self):
         selected_files = self.view.get_file_via_dialog()
@@ -630,7 +615,6 @@ class Presenter(QObject):
             if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
                 self.view.fit_model_combo.setCurrentIndex(ind)
 
-
     def move_up(self):
         if self.current_selected_file is not None:
             index = self.ordered_files_to_display.index(self.current_selected_file)
@@ -652,7 +636,6 @@ class Presenter(QObject):
                     self.ordered_files_to_display[index],
                 )
                 self.populate_file_list()
-
 
     def update_fit_model(self, newind):
         self.fit_mode = self.fit_models[self.view.fit_model_combo.currentText()]
@@ -684,11 +667,10 @@ class Presenter(QObject):
                     obj.fitting_range = self.view.fit_range_selector.getRegion()
                 obj.fit_data(guess)
 
-                # On récupère obj dans buffer après fit
-                # deepcopy, autrement self.buffer est une ref au dernier 
-                # obj fité et une modif de self.buffer via la GUI 
-                # modifie ce dernier obj !
-                # ici self.buffer.calib est également copié (deepcopy) 
+                # Copy the fitted obj into the buffer. It must be a deepcopy:
+                # otherwise self.buffer would be a reference to the last fitted
+                # obj, and editing the buffer from the GUI would modify that obj.
+                # self.buffer.calib is deep-copied as well.
                 self.buffer = deepcopy(obj)
                 # set ptoolbox state:
                 self.view.ptoolbox.set_state_from_buffer(self.buffer)
@@ -717,7 +699,6 @@ class Presenter(QObject):
         else:
             self._show_error("No file selected.")
 
-
     def update_PvPm_table(self):
         self.view.PvPmTableWindow.table_widget.updatetable()
         self.view.PvPmPlotWindow.updateplot()
@@ -726,10 +707,8 @@ class Presenter(QObject):
         for i, current_file in enumerate(self.example_files):
             current_file_path = os.path.dirname(__file__) + "/resources/" + current_file
             self.add_instance_from_path(current_file_path)
-        
 
         self.populate_file_list()
-
 
     def add_current_PToolbox_to_table(self):
         # create a new object from buffer and add it to the model, then update table and plot

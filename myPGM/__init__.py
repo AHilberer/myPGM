@@ -10,7 +10,6 @@ from myPGM.ui.main_ui import MainWindow
 from myPGM.data_model import PressureGaugeDataManager
 from myPGM.presenter import Presenter
 
-
 def _set_windows_appusermodelid():
     """Improve Windows taskbar icon association for non-frozen launches."""
     if os.name != "nt":
@@ -22,7 +21,6 @@ def _set_windows_appusermodelid():
     except Exception:
         pass
 
-
 def _install_excepthook():
     """Show unexpected errors in a dialog instead of letting PyQt abort the app."""
     def excepthook(exc_type, exc_value, exc_tb):
@@ -32,9 +30,7 @@ def _install_excepthook():
                                  f"{exc_type.__name__}: {exc_value}")
     sys.excepthook = excepthook
 
-
 def main():
-#    os.chdir(os.path.abspath(__file__).replace(os.path.basename(__file__), ""))
     _set_windows_appusermodelid()
     _install_excepthook()
     app = QApplication(sys.argv)
@@ -60,7 +56,6 @@ def main():
     # example spectra are only loaded on request: python run.py --demo
     presenter = Presenter(model, view, test_mode="--demo" in sys.argv)
     presenter.view.show()
-    #presenter.initialize_example()
 
     sys.exit(app.exec_())
 

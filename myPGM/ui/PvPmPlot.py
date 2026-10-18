@@ -30,14 +30,11 @@ class PvPmPlotWindow(QMainWindow):
 		self.calib_colors = None
 		self.font_px = 18
 		self.label_color = "black"
-		#self.plot_graph.setTitle("Temperature vs Time", color="b", size="20pt")
 		self.plot_graph.setBackground("white")
 		self._update_labels()
 		self.legend = self.plot_graph.addLegend()
 		self.plot_graph.showGrid(x=True, y=True)
 
-		# self.data = HPDataTable_
-		# self.calibrations = calibrations_
 		self.lines = {}
 		self.error_bars = {}
 		
@@ -48,12 +45,10 @@ class PvPmPlotWindow(QMainWindow):
 	def set_data_manager(self, data_manager):
 		self.data_manager = data_manager
 
-
 	def set_dark_mode(self):
 		self.label_color = "white"
 		self.plot_graph.setBackground("#202020")
 		self._update_labels()
-   
 
 	def set_light_mode(self):
 		self.label_color = "black"
@@ -117,7 +112,6 @@ class PvPmPlotWindow(QMainWindow):
 		for g, subdata in groups.items():
 			pm_values = [float(item['Pm']) for item in subdata]
 			p_values = [float(item['P']) for item in subdata]
-			#print(f"Group: {g}, Pm: {pm_values}, P: {p_values}")
 
 			if g in list(self.lines.keys()):
 				self.lines[g].setData(pm_values, p_values)

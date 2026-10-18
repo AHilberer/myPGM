@@ -1,25 +1,16 @@
 import numpy as np
-from copy import deepcopy
-from scipy.optimize import minimize
-from PyQt5.QtWidgets import (QFrame, 
-                             QDoubleSpinBox, 
-                             QDialog, 
-                             QVBoxLayout, 
-                             QHBoxLayout, 
-                             QLabel, 
-                             QPushButton, 
+from PyQt5.QtWidgets import (QFrame,
+                             QDoubleSpinBox,
+                             QDialog,
+                             QVBoxLayout,
+                             QHBoxLayout,
+                             QLabel,
+                             QPushButton,
                              QWidget,
                              QSlider,
                              QApplication)
-from PyQt5.QtCore import (Qt, 
-                         QObject, 
-                         pyqtSignal, 
-                         QAbstractListModel, 
-                         QModelIndex, 
-                         QLocale)
-
-from PyQt5.QtGui import QIcon, QFont, QFontInfo
-import csv
+from PyQt5.QtCore import Qt, pyqtSignal, QLocale
+from PyQt5.QtGui import QIcon, QFontInfo
 from functools import wraps
 from importlib.resources import files
 
@@ -40,7 +31,6 @@ def set_app_font_size(size):
     app = QApplication.instance()
     base_style = app.styleSheet().split(FONT_RULE_MARKER)[0]
     app.setStyleSheet(f"{base_style}{FONT_RULE_MARKER}\n* {{ font-size: {size}px; }}\n")
-
 
 class FontSizeWindow(QWidget):
 
@@ -133,7 +123,6 @@ class MyVSeparator(QFrame):
         self.setFrameShape(QFrame.VLine)
         self.setFrameShadow(QFrame.Sunken)
 
-
 class PressureCalculationFailed(Exception):
     pass
 
@@ -167,7 +156,6 @@ def validate_scalar(value, name="Value"):
 
 def load_style(qssfile):
     return files("myPGM.ui").joinpath(qssfile).read_text(encoding="utf-8")
-
 
 def get_app_icon():
     """Return the application icon with a safe fallback order."""
@@ -258,7 +246,6 @@ def spectro_calibration_reader(f):
                     v = float(line.strip().replace(',', '.'))
                     data_lines.append(v)
                 except ValueError:
-                    #print(line)
                     pass
 
             if not data_lines:
@@ -266,21 +253,3 @@ def spectro_calibration_reader(f):
 
             data = np.array(data_lines, dtype=np.float64)
         return data
-
-
-if __name__ == '__main__':
-    
-    import os
-
-    f1 = os.path.dirname(__file__)+'/resources/'+'Example_Ruby_1.asc'
-    f2 = os.path.dirname(__file__)+'/resources/'+'alternate_spectro_calib_2cols.asc'
-    f3 = os.path.dirname(__file__)+'/resources/'+'alternate_spectro_calib_1col_header.asc'    
-
-
-    print(customparse_file2data(f1))
-
-    print(spectro_calibration_reader(f2))
-    print(spectro_calibration_reader(f3))
-
-
-    print(all(spectro_calibration_reader(f2) == spectro_calibration_reader(f3)))

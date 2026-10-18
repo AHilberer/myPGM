@@ -1,4 +1,3 @@
-import os
 import time
 import numpy as np
 
@@ -10,27 +9,22 @@ from scipy.optimize import curve_fit
 from collections.abc import MutableMapping
 from itertools import count
 
-
 _id_counter = count(int(time.time() * 1000))
-
 
 def _array_to_list(value):
     if value is None:
         return None
     return np.asarray(value).tolist()
 
-
 def _list_to_array(value):
     if value is None:
         return None
     return np.asarray(value)
 
-
 def _json_scalar(value):
     if isinstance(value, np.generic):
         return value.item()
     return value
-
 
 def _fit_result_to_dict(fit_result):
     if fit_result is None:
@@ -44,7 +38,6 @@ def _fit_result_to_dict(fit_result):
         "cov": _array_to_list(cov),
     }
 
-
 def _fit_result_from_dict(payload):
     if payload is None:
         return None
@@ -55,7 +48,6 @@ def _fit_result_from_dict(payload):
     if isinstance(cov, list):
         cov = np.asarray(cov)
     return {"opti": opti, "cov": cov}
-
 
 class PressureGaugeDataObject:
     """
@@ -79,7 +71,6 @@ class PressureGaugeDataObject:
         self.fit_model = None
         self.fit_result = None
         self.fitted_data = None
-        self.fit_toolbox_config = None
         self.fitting_range = None
 
         # Attributes related to pressure determination from a calibration
@@ -120,7 +111,6 @@ class PressureGaugeDataObject:
         :return: int
         """
         return next(_id_counter)
-    
 
     def load_spectral_data_file(self, file_name, file_path):
         self.filename = file_name
@@ -157,7 +147,6 @@ class PressureGaugeDataObject:
             "fit_model": self.fit_model.name if self.fit_model else None,
             "fit_result": _fit_result_to_dict(self.fit_result),
             "fitted_data": _array_to_list(self.fitted_data),
-            "fit_toolbox_config": self.fit_toolbox_config,
             "fitting_range": list(self.fitting_range) if self.fitting_range is not None else None,
             "calib": self.calib.name if self.calib else None,
             "Pm": _json_scalar(self.Pm),
@@ -205,7 +194,6 @@ class PressureGaugeDataObject:
 
         obj.fit_result = _fit_result_from_dict(payload.get("fit_result"))
         obj.fitted_data = _list_to_array(payload.get("fitted_data"))
-        obj.fit_toolbox_config = payload.get("fit_toolbox_config")
         obj.fitting_range = payload.get("fitting_range")
 
         obj.Pm = payload.get("Pm")
@@ -221,22 +209,6 @@ class PressureGaugeDataObject:
         obj.include_in_table = payload.get("include_in_table", False)
         obj.table_id = payload.get("table_id")
         return obj
-
-
-#    We may choose to use such read-only properties to avoid problems?
-#    @property
-#    def P(self):
-#        return self._P
-
-#   or even, extreme but very safe : 
-#   @property
-#   def P(self):
-#       return self._P
-#  
-#   @P.setter
-#   def P(self, value):
-#       self._P = value
-#       self.compute_x_from_P()
 
     def set_calibration(self, calib):
         """
@@ -455,7 +427,6 @@ class PressureGaugeDataObject:
             return None
         return float(np.sqrt(variance))
 
-
     def fit_procedure(self, model, x, y, guess_peak=None):
         if model.type == "peak":
             try:
@@ -463,7 +434,6 @@ class PressureGaugeDataObject:
                     model.func, x, y, p0=model.get_pinit(x, y, guess_peak=guess_peak)
                     )
 
-                    # self.x_spinbox.setValue(best_x)
                 return {"opti": popt, "cov": pcov}
 
             except (RuntimeError, ValueError) as exc:
@@ -475,11 +445,7 @@ class PressureGaugeDataObject:
             else:
                 grad = np.gradient(y)
                 best_x = x[np.argmin(grad)]
-            # self.x_spinbox.setValue(best_x)
             return {"opti": best_x, "cov": None}
-
-
-
 
 class PressureGaugeDataManager(MutableMapping):
     def __init__(self, *args, **kwargs):
@@ -530,46 +496,3 @@ class PressureGaugeDataManager(MutableMapping):
             del self.__dict__[instance_id]
         else:
             raise KeyError(f"No instance with ID {instance_id} found.")
-        
-
-if __name__ == '__main__':
-
-    from myPGM import calibrations, fit_models
-    
-    data_manager = PressureGaugeDataManager()
-    a = PressureGaugeDataObject()
-    data_manager.add_instance(a)
-    
-    test_file = 'Example_Ruby_3.asc'
-    test_path = os.path.dirname(__file__) + "/resources/" + test_file
-    
-    a.load_spectral_data_file(test_file, test_path)
-
-    # plt.figure()
-    # plt.plot(test_obj.original_data[:,0], test_obj.original_data[:,1])
-    # plt.show()
-    a.set_calibration(calibrations.Ruby2020)
-    a.set_fit_model(fit_models.DoubleVoigt)
-    a.fit_data()
-    print(f'Fitted ruby wavelength: {a.x} nm')
-    print(f'Fitted pressure: {a.P} GPa')
-    print('##################################################################')
-    print([k for k in data_manager.values()])
-
-    print('##################################################################')
-    # test reverse
-    a.set_P(6)
-    print(f' pressure: {a.P} GPa')
-    print(f' ruby wavelength: {a.x} nm')
-
-    print('##################################################################')
-    a.set_calibration(calibrations.cBNDatchi)
-    
-    # force error
-    a.set_x(1045)
-    a.set_x0(0)
-    a.set_T0(0)
-    #a.set_P(0)
-
-    print(a.P)
-    print(a.x, a.x0, a.T, a.T0)

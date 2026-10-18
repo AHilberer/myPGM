@@ -1,24 +1,14 @@
 import numpy as np
-from PyQt5.QtWidgets import (QApplication, 
-                             QWidget, 
-                             QPushButton, 
-                             QComboBox, 
+from PyQt5.QtWidgets import (QWidget,
+                             QComboBox,
                              QLabel,
-                             QLineEdit,
-                             QVBoxLayout,
                              QHBoxLayout,
-                             QFormLayout,
-                             QGridLayout,
-                             QFrame,
-                             QGroupBox,
-                             QSpinBox,
-                             QDoubleSpinBox,)
+                             QFormLayout,)
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import pyqtSignal, Qt
 
 from myPGM.calibrations import HPCalibration
-from myPGM.helpers import MyHSeparator, MyVSeparator, SmartDoubleSpinBox
-
+from myPGM.helpers import MyVSeparator, SmartDoubleSpinBox
 
 class PressureToolbox(QWidget):
 
@@ -61,7 +51,6 @@ class PressureToolbox(QWidget):
         self.P_spinbox.setDecimals(3)
         self.P_spinbox.setRange(-np.inf, np.inf)
         self.P_spinbox.setSingleStep(0.1)
-#        self.P_spinbox.setStyleSheet("background: #ccffcc;")
         self.P_spinbox.setMinimumWidth(100)
 
         self.x_spinbox = SmartDoubleSpinBox()
@@ -95,7 +84,6 @@ class PressureToolbox(QWidget):
         self._xP_bgcolor = None
         self._T_bgcolor = None
 
-
         self.calibration_combo = QComboBox()
         self.calibration_combo.setObjectName("calibration_combo")
         self.calibration_combo.setMinimumWidth(160)
@@ -123,7 +111,6 @@ class PressureToolbox(QWidget):
 
         self.Tcor_Label = QLabel("NA")
         calibration_form.addRow(QLabel("T correction: "), self.Tcor_Label)
-
 
         Toolboxlayout.addLayout(calibration_form, stretch=2)
         Toolboxlayout.addWidget(MyVSeparator())
@@ -164,7 +151,6 @@ class PressureToolbox(QWidget):
     def calib_changed(self, newcalib_name):
         newcalib = self.calibrations[newcalib_name]
 
-        #self.set_calib(newcalib)
         # self.set_calib will be called from 
         # set_state_from_buffer in on_calib_changed(presenter.py)
         self.calibChanged.emit(newcalib)
@@ -271,7 +257,6 @@ class PressureToolbox(QWidget):
         PressureToolbox.BLUE = PressureToolbox.DARKMODEBLUE
         PressureToolbox.ORANGE = PressureToolbox.DARKMODEORANGE
 
-        
         if self._xP_bgcolor == PressureToolbox.LIGHTMODEGREEN:
             self.set_valid_colors(True)
         elif self._xP_bgcolor == PressureToolbox.LIGHTMODERED:
@@ -280,7 +265,6 @@ class PressureToolbox(QWidget):
             self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
 
         self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
-
 
     def set_light_mode(self):
         PressureToolbox.GREEN = PressureToolbox.LIGHTMODEGREEN
