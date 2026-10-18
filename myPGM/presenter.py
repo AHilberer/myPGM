@@ -214,9 +214,10 @@ class Presenter(QObject):
         # THE NEW x0 for this gauge is now x0.
         # Update both the buffer's calib copy AND the shared instance in the toolbox
         # so that future files using this calibration start with the updated x0default.
-        buffer.calib.x0default = x0
-        if buffer.calib is not None and buffer.calib.name in toolbox.calibrations:
-            toolbox.calibrations[buffer.calib.name].x0default = x0
+        if buffer.calib is not None:
+            buffer.calib.x0default = x0
+            if buffer.calib.name in toolbox.calibrations:
+                toolbox.calibrations[buffer.calib.name].x0default = x0
 
 #        toolbox.set_state_from_buffer(buffer)
         toolbox.set_Pval(buffer.P)
@@ -228,9 +229,10 @@ class Presenter(QObject):
 
         # THE NEW T0 for this gauge is now T0.
         # Update both the buffer's calib copy AND the shared instance in the toolbox.
-        buffer.calib.T0default = T0
-        if buffer.calib is not None and buffer.calib.name in toolbox.calibrations:
-            toolbox.calibrations[buffer.calib.name].T0default = T0
+        if buffer.calib is not None:
+            buffer.calib.T0default = T0
+            if buffer.calib.name in toolbox.calibrations:
+                toolbox.calibrations[buffer.calib.name].T0default = T0
         
 #        toolbox.set_state_from_buffer(buffer)
         toolbox.set_Pval(buffer.P)
@@ -256,12 +258,12 @@ class Presenter(QObject):
         toolbox.set_state_from_buffer(buffer)
 
     def file_selected_from_file_list(self, obj_id):
-        self.current_selected_file = obj_id
-        self.view.current_file_label.setText(f"{self.model.get(obj_id).filename}")
-
-        obj = self.model.get(self.current_selected_file, None)
+        obj = self.model.get(obj_id, None)
         if obj is None:
             return
+
+        self.current_selected_file = obj_id
+        self.view.current_file_label.setText(f"{obj.filename}")
 
         if self.view.Spectro_use_button.isChecked():
             if self.corrected_spectro_x is not None:
@@ -326,7 +328,8 @@ class Presenter(QObject):
             file_names = [
                 f
                 for f in os.listdir(self.current_directory)
-                if os.path.isfile(os.path.join(self.current_directory, f)) and ".asc" in f
+                if os.path.isfile(os.path.join(self.current_directory, f))
+                and f.lower().endswith((".asc", ".txt"))
             ]
             if file_names:
                 file_names.sort(
