@@ -383,7 +383,7 @@ class Presenter(QObject):
             # on utilise buffer (juste pour afficher les unités des axes dans plot_data)
             self.view.plot_data(x, y, self.buffer, preserve_view=preserve_view)
             if obj.fit_result is not None:
-                self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y)
+                self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y, P_err=obj.P_err)
 
             self.view.fit_range_selector.setBounds((x_min, x_max))
 

@@ -26,6 +26,7 @@ It currently supports the following pressure scales:
 - Use an optional spectrometer calibration file to recalculate the spectral axis when needed.
 - Switch to a dark mode interface for light-sensitive environments, for example during low-light instrument operation.
 - Store fitted points in a dedicated pressure table, visualize pressure evolution in a P vs Pm plot, and export the table to CSV.
+- Show the fit uncertainty on the peak position (σx) and pressure (σP) in the plot title, the table and as error bars. This is the statistical precision of the fit only: it does not include the uncertainty on x0, T, the calibration itself or the choice of fit model. Raman edge positions have no fit uncertainty.
 - Save and reload complete working sessions, including loaded spectra, fit results, table entries and spectrometer calibration state.
 
 **myPGM** is still a work in progress, so please open an issue or contact the authors if you notice a bug or unexpected behavior.

@@ -1,3 +1,4 @@
+import numpy as np
 import pyqtgraph as pg
 
 from PyQt5.QtGui import QFont
@@ -38,6 +39,7 @@ class PvPmPlotWindow(QMainWindow):
 		# self.data = HPDataTable_
 		# self.calibrations = calibrations_
 		self.lines = {}
+		self.error_bars = {}
 		
 		self.lines_checkbox.toggled.connect(self.toggle_lines)
 
@@ -90,6 +92,7 @@ class PvPmPlotWindow(QMainWindow):
 					{
 						"Pm": float(obj.Pm),
 						"P": float(obj.P),
+						"P_err": getattr(obj, "P_err", None),
 						"calib": obj.calib.name if obj.calib is not None else "unknown",
 					}
 				)
@@ -108,6 +111,8 @@ class PvPmPlotWindow(QMainWindow):
 				self.plot_graph.removeItem(self.lines[stale_group])
 				del self.lines[stale_group]
 				self.pens.pop(stale_group, None)
+				if stale_group in self.error_bars:
+					self.plot_graph.removeItem(self.error_bars.pop(stale_group))
 
 		for g, subdata in groups.items():
 			pm_values = [float(item['Pm']) for item in subdata]
@@ -132,7 +137,20 @@ class PvPmPlotWindow(QMainWindow):
 					symbolSize=14,
 					symbolBrush=color)
 
+			self._update_error_bars(g, subdata)
+
 		self._update_legend_font()
+
+	def _update_error_bars(self, group, subdata):
+		# statistical fit uncertainty on P (0 for points without one, e.g. Raman edge)
+		pm = np.array([float(item["Pm"]) for item in subdata])
+		p = np.array([float(item["P"]) for item in subdata])
+		err = np.array([item.get("P_err") or 0.0 for item in subdata], dtype=float)
+		if group not in self.error_bars:
+			# not given a name, so it stays out of the legend
+			self.error_bars[group] = pg.ErrorBarItem(beam=0, pen=self.pens[group])
+			self.plot_graph.addItem(self.error_bars[group])
+		self.error_bars[group].setData(x=pm, y=p, top=err, bottom=err)
 
 	def toggle_lines(self, checked):
 	    for g in self.lines:

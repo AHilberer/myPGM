@@ -229,3 +229,59 @@ def test_font_size_applies_everywhere_and_survives_theme_change(gui):
     window.close()
     gui.view.show_font_size_window()
     assert gui.view.font_size_window is window and window.slider.value() == 24
+
+
+# --- fit uncertainty display ------------------------------------------------------------
+
+def _title(gui):
+    return gui.view.data_widget.plotItem.titleLabel.text
+
+
+def test_title_shows_fit_uncertainty(gui):
+    obj = select_and_fit(gui, "Example_Ruby_1.asc")
+    assert f"{obj.P:.3f} ± {obj.P_err:.3f} GPa" in _title(gui)
+
+
+def test_title_without_uncertainty_for_raman_edge(gui):
+    gui.presenter.buffer.calib = C.Akahama2006
+    gui.presenter.buffer.x0 = 1334
+    gui.presenter.view.fit_range_enabled = False
+    select_and_fit(gui, "Example_diam_Raman.asc", F.RamanEdge)
+    assert "Fitted pressure" in _title(gui) and "±" not in _title(gui)
+
+
+def test_title_for_very_small_uncertainty():
+    from myPGM.ui.main_ui import MainWindow
+    assert MainWindow._pressure_title(1.0, 0.0002).endswith("± <0.001 GPa")
+    assert "±" not in MainWindow._pressure_title(1.0, None)
+
+
+def test_table_plot_and_csv_show_uncertainty(gui, tmp_path, monkeypatch):
+    obj = select_and_fit(gui, "Example_Ruby_1.asc")
+    gui.view.prompt_fit_pm = lambda current: 12.0
+    gui.presenter.add_current_fit_to_table()
+
+    table = gui.view.PvPmTableWindow.table_widget
+    headers = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())]
+    assert headers[:5] == ["Pm", "P", "σP (fit)", "x", "σx (fit)"]
+    assert table.item(0, 2).text() == f"{obj.P_err:.4f}"
+    assert table.item(0, 4).text() == f"{obj.x_err:.4f}"
+
+    bars = gui.view.PvPmPlotWindow.error_bars["Ruby2020"]
+    assert list(bars.opts["top"]) == pytest.approx([obj.P_err])
+    assert list(bars.opts["y"]) == pytest.approx([obj.P])
+
+    csv_file = tmp_path / "table.csv"
+    monkeypatch.setattr(gui.view.PvPmTableWindow, "get_save_filename_dialog", lambda: str(csv_file))
+    gui.view.PvPmTableWindow.save_data_to_csv()
+    lines = csv_file.read_text(encoding="utf-8").splitlines()
+    assert lines[0].startswith("Pm,P,σP (fit),x,σx (fit)")
+    assert f"{obj.P_err:.4f}" in lines[1]
+
+
+def test_error_bars_removed_with_table_entries(gui):
+    select_and_fit(gui, "Example_Ruby_1.asc")
+    gui.view.prompt_fit_pm = lambda current: 12.0
+    gui.presenter.add_current_fit_to_table()
+    gui.view.PvPmTableWindow.clear_table()
+    assert gui.view.PvPmPlotWindow.error_bars == {}

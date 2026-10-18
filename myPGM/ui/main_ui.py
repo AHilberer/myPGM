@@ -678,7 +678,15 @@ class MainWindow(QMainWindow):
             self.click_fit_button.setChecked(False)
 
 
-    def plot_fit(self, P, fit_model, fit_result, x, y):
+    @staticmethod
+    def _pressure_title(P, P_err=None):
+        """Title with the statistical fit uncertainty, when there is one."""
+        if P_err is None:
+            return f"Fitted pressure : {P : > 10.3f} GPa"
+        err = f"{P_err:.3f}" if round(P_err, 3) > 0 else "<0.001"
+        return f"Fitted pressure : {P : > 10.3f} \u00b1 {err} GPa"
+
+    def plot_fit(self, P, fit_model, fit_result, x, y, P_err=None):
         self.data_widget.removeItem(self.data_edge_marker)
         self.deriv_widget.removeItem(self.deriv_edge_marker)
         self.data_widget.removeItem(self.data_fit_line)
@@ -690,7 +698,7 @@ class MainWindow(QMainWindow):
             ]
             self.data_fit_line.setData(x, fitted)
             self.data_widget.addItem(self.data_fit_line)
-            self._set_plot_title(f"Fitted pressure : {P : > 10.3f} GPa")
+            self._set_plot_title(self._pressure_title(P, P_err))
 
         elif fit_model.type == "edge":
             self.data_edge_marker.setValue(fit_result["opti"])
@@ -699,7 +707,7 @@ class MainWindow(QMainWindow):
                 
             self.deriv_widget.addItem(self.deriv_edge_marker)
 
-            self._set_plot_title(f"Fitted pressure : {P : > 10.3f} GPa")
+            self._set_plot_title(self._pressure_title(P, P_err))
                                 
         else:
                 print("Plot fit not implemented")

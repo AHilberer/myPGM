@@ -87,6 +87,8 @@ class PressureGaugeDataObject:
         self.Pm = None
         self.P = None
         self.x = None
+        self.x_err = None # statistical fit uncertainties (std), None if not from a fit
+        self.P_err = None
         self.T = 298      # default T and T0 are 298 at __init__ for script use
         self.x0 = None    # in GUI T, T0 are set at 298 independently.
         self.T0 = 298     # x0, T0 are set in set_calibration
@@ -160,6 +162,8 @@ class PressureGaugeDataObject:
             "calib": self.calib.name if self.calib else None,
             "Pm": _json_scalar(self.Pm),
             "P": _json_scalar(self.P),
+            "x_err": _json_scalar(self.x_err),
+            "P_err": _json_scalar(self.P_err),
             "x": _json_scalar(self.x),
             "T": _json_scalar(self.T),
             "x0": _json_scalar(self.x0),
@@ -206,6 +210,8 @@ class PressureGaugeDataObject:
 
         obj.Pm = payload.get("Pm")
         obj.P = payload.get("P")
+        obj.x_err = payload.get("x_err")
+        obj.P_err = payload.get("P_err")
         obj.x = payload.get("x")
         obj.T = payload.get("T", 298)
         obj.x0 = payload.get("x0")
@@ -247,12 +253,17 @@ class PressureGaugeDataObject:
         return self.Pm
 
     def set_P(self, P):
+        # a typed pressure has no fit uncertainty
+        self.x_err = None
+        self.P_err = None
         self.P = P
         self._compute_x_from_P()
         return self.x
 
-    def set_x(self, x):
+    def set_x(self, x, x_err=None):
+        """Set x and its fit uncertainty (None for values not coming from a fit)."""
         self.x = x
+        self.x_err = x_err
         self._compute_P_from_x()
         return self.P
 
@@ -281,6 +292,20 @@ class PressureGaugeDataObject:
         except Exception as e:
             raise myPGM.helpers.PressureCalculationFailed(
                 f'Pressure Calculation Failed: {e}') from e
+        self.P_err = self._propagate_x_err()
+
+    def _propagate_x_err(self):
+        """sigma_P = |dP/dx| * sigma_x, the fit uncertainty on x propagated to P."""
+        if self.x is None or self.x_err is None:
+            return None
+        h = 1e-6 * max(abs(self.x), 1.0)
+        try:
+            dP_dx = (self.calib.func(self.x + h, self.T, self.x0, self.T0)
+                     - self.calib.func(self.x - h, self.T, self.x0, self.T0)) / (2 * h)
+            P_err = float(abs(dP_dx) * self.x_err)
+        except Exception:
+            return None
+        return P_err if np.isfinite(P_err) else None
 
     def _compute_x_from_P(self):
         try:
@@ -400,22 +425,35 @@ class PressureGaugeDataObject:
             fitted = [self.fit_model.func(wvl, *self.fit_result["opti"]) for wvl in x]
             self.fitted_data = np.column_stack((x, fitted))
             popt = self.fit_result["opti"]
-
-            # for now we use the number of args.... (crappy)
-            if len(popt) < 7:  # Samarium / Hydrogen (?)
-                best_x = popt[2]
-            elif len(popt) < 8:  # Ruby Gaussian
-                best_x = np.max([popt[2], popt[5]])
-            else:  # Ruby Voigt
-                best_x = np.max([popt[2], popt[6]])
+            i = self._peak_position_index(popt)
+            self.set_x(popt[i], self._position_uncertainty(self.fit_result["cov"], i))
 
         elif self.fit_model.type == "edge":
             self.fitted_data = self.fit_result["opti"]
-            best_x = self.fitted_data
+            # no fit, hence no uncertainty
+            self.set_x(self.fitted_data)
         else:
             raise ValueError(f"Fit type not implemented: {self.fit_model.type!r}")
 
-        self.set_x(best_x)
+    @staticmethod
+    def _peak_position_index(popt):
+        """Index of the fitted parameter used as the gauge position."""
+        # for now we use the number of args.... (crappy)
+        if len(popt) < 7:  # Samarium / Hydrogen (?)
+            return 2
+        # double peaks: the longer-wavelength one (R1 for ruby)
+        i, j = (2, 5) if len(popt) < 8 else (2, 6)   # Gaussian/Lorentzian or Voigt
+        return i if popt[i] >= popt[j] else j
+
+    @staticmethod
+    def _position_uncertainty(cov, i):
+        """Standard deviation of fitted parameter i, or None if it is not available."""
+        if cov is None:
+            return None
+        variance = np.asarray(cov)[i, i]
+        if not np.isfinite(variance) or variance < 0:
+            return None
+        return float(np.sqrt(variance))
 
 
     def fit_procedure(self, model, x, y, guess_peak=None):

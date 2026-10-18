@@ -240,3 +240,62 @@ def test_to_dict_from_dict_round_trip(ruby):
     np.testing.assert_allclose(restored.original_data, ruby.original_data)
     np.testing.assert_allclose(restored.fit_result["opti"], ruby.fit_result["opti"])
     assert list(restored.fitting_range) == [692.0, 697.0]
+
+
+# --- fit uncertainty -------------------------------------------------------------------
+
+def _dP_dx(obj, h=1e-4):
+    f = obj.calib.func
+    return (f(obj.x + h, obj.T, obj.x0, obj.T0) - f(obj.x - h, obj.T, obj.x0, obj.T0)) / (2 * h)
+
+
+def test_fit_gives_position_and_pressure_uncertainty(ruby):
+    ruby.fit_data()
+    assert 0 < ruby.x_err < 0.01                     # nm
+    assert 0.0005 < ruby.P_err < 0.01                # GPa, statistical fit precision only
+    assert ruby.P_err == pytest.approx(abs(_dP_dx(ruby)) * ruby.x_err, rel=1e-4)
+    i = PressureGaugeDataObject._peak_position_index(ruby.fit_result["opti"])
+    assert ruby.x == ruby.fit_result["opti"][i]      # R1, the longer-wavelength peak
+
+
+def test_uncertainty_follows_temperature_changes(ruby):
+    ruby.fit_data()
+    x_err = ruby.x_err
+    ruby.set_T(500)
+    assert ruby.x_err == x_err
+    assert ruby.P_err == pytest.approx(abs(_dP_dx(ruby)) * x_err, rel=1e-4)
+
+
+def test_manual_values_have_no_uncertainty(ruby):
+    ruby.fit_data()
+    ruby.set_x(695.0)                 # typed in the toolbox
+    assert ruby.x_err is None and ruby.P_err is None
+    ruby.fit_data()
+    ruby.set_P(3.0)                   # typed pressure
+    assert ruby.x_err is None and ruby.P_err is None
+
+
+def test_infinite_covariance_gives_no_uncertainty():
+    assert PressureGaugeDataObject._position_uncertainty(np.full((5, 5), np.inf), 2) is None
+    assert PressureGaugeDataObject._position_uncertainty(None, 2) is None
+    assert PressureGaugeDataObject._position_uncertainty(np.diag([0, 0, 4.0]), 2) == 2.0
+
+
+def test_raman_edge_has_no_uncertainty(resources):
+    obj = PressureGaugeDataObject()
+    obj.load_spectral_data_file("Example_diam_Raman.asc", str(resources / "Example_diam_Raman.asc"))
+    obj.set_calibration(C.Akahama2006)
+    obj.set_fit_model(F.RamanEdge)
+    obj.fit_data()
+    assert obj.x_err is None and obj.P_err is None
+
+
+def test_uncertainty_survives_session_round_trip(ruby):
+    ruby.fit_data()
+    restored = PressureGaugeDataObject.from_dict(json.loads(json.dumps(ruby.to_dict())))
+    assert restored.x_err == pytest.approx(ruby.x_err)
+    assert restored.P_err == pytest.approx(ruby.P_err)
+    del_payload = ruby.to_dict()
+    del del_payload["x_err"], del_payload["P_err"]        # older session files
+    old = PressureGaugeDataObject.from_dict(del_payload)
+    assert old.x_err is None and old.P_err is None

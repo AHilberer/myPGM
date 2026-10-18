@@ -29,7 +29,7 @@ class HPTableWidget(QTableWidget):
 
         self.set_font_size(18)
 
-        column_labels = ["Pm", "P", "x", "T", "x0", "T0", "calib", "file"]
+        column_labels = ["Pm", "P", "\u03c3P (fit)", "x", "\u03c3x (fit)", "T", "x0", "T0", "calib", "file"]
         self.setColumnCount(len(column_labels))
         #self.setRowCount(3)
 
@@ -91,7 +91,10 @@ class HPTableWidget(QTableWidget):
                     {
                         "Pm": self._format_float(obj.Pm, 2),
                         "P": self._format_float(obj.P, 3),
+                        # statistical fit uncertainties, blank when not from a fit
+                        "\u03c3P (fit)": self._format_float(getattr(obj, "P_err", None), 4),
                         "x": self._format_float(obj.x, 3),
+                        "\u03c3x (fit)": self._format_float(getattr(obj, "x_err", None), 4),
                         "T": self._format_float(obj.T, 3),
                         "x0": self._format_float(obj.x0, 3),
                         "T0": self._format_float(obj.T0, 3),
