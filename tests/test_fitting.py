@@ -20,13 +20,13 @@ def fitted(resources, name, calib, model, guess=None):
     ("Example_Ruby_1.asc", C.Ruby2020, F.DoubleVoigt,       694.9076, 1.699),
     ("Example_Ruby_1.asc", C.Ruby2020, F.DoubleLorentzian,  694.9096, 1.705),
     ("Example_Ruby_1.asc", C.Ruby2020, F.DoubleGaussian,    694.9059, 1.694),
-    ("Example_Ruby_1.asc", C.Ruby2020, F.SingleVoigt,       694.8678, 1.591),
     ("Example_Ruby_1.asc", C.Ruby2020, F.SingleLorentzian,  694.8672, 1.589),
     ("Example_Ruby_2.asc", C.Ruby2020, F.DoubleVoigt,       695.4771, 3.256),
-    ("Example_Ruby_2.asc", C.Ruby2020, F.SingleVoigt,       695.4399, 3.153),
     ("Example_Ruby_3.asc", C.Ruby2020, F.DoubleVoigt,       696.2243, 5.319),
-    # Not pinned: Single Voigt on the whole Ruby_3 doublet is poorly constrained and
-    # gives 696.143 nm on macOS but 696.159 nm on Linux CI (~0.05 GPa apart).
+    # Not pinned: Single Voigt on a whole ruby doublet is poorly constrained, and its
+    # result depends on the platform by up to ~0.01 nm (e.g. Ruby_1: 694.8671 nm on
+    # macOS, 694.8644 nm on Linux CI). Single peaks are covered by the H2 fits and
+    # by test_fitting_range_restricts_data (R1 only).
     ("Example_H2.txt",     C.H2Vibron, F.SingleLorentzian, 4206.0321, 5.895),
     ("Example_H2.txt",     C.H2Vibron, F.SingleGaussian,   4206.0494, 5.898),
     ("Example_H2.txt",     C.H2Vibron, F.SingleVoigt,      4206.0350, 5.896),
