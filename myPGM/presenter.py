@@ -647,13 +647,14 @@ class Presenter(QObject):
 
             obj = self.model.get(self.current_selected_file, None)
 
-            # Set parameters from buffer : 
+            # Set parameters from buffer :
+            # calibration first, as set_calibration resets x0/T0 to the calib defaults
+            # deepcopy more safe here also:
+            obj.set_calibration( deepcopy(self.buffer.calib) )
             obj.set_Pm(self.buffer.Pm)
             obj.set_T(self.buffer.T)
             obj.set_x0(self.buffer.x0)
             obj.set_T0(self.buffer.T0)
-            # deepcopy more safe here also:
-            obj.set_calibration( deepcopy(self.buffer.calib) )
 
             obj.set_fit_model(self.fit_mode)
 
