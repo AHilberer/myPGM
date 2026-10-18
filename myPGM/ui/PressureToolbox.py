@@ -217,6 +217,12 @@ class PressureToolbox(QWidget):
 
         self.x_spinbox.setSingleStep(newcalib.xstep)
         self.x0_spinbox.setSingleStep(newcalib.xstep)
+
+        # greyed out for calibrations that do not use x0 (H2 vibron)
+        uses_x0 = getattr(newcalib, "uses_x0", True)
+        self.x0_spinbox.setEnabled(uses_x0)
+        self.x0_label.setEnabled(uses_x0)
+        self.x0_spinbox.setToolTip("" if uses_x0 else "Not used by this calibration")
     
     def set_state_from_buffer(self, buffer):
         # buffer is a PressureGaugeDataObject

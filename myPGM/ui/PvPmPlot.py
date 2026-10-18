@@ -78,9 +78,8 @@ class PvPmPlotWindow(QMainWindow):
 			if self.data_manager is None:
 				return
 			incoming_data = []
-			for obj in self.data_manager.values():
-				if not getattr(obj, "include_in_table", False):
-					continue
+			# same order as the table '#': points are joined in the order they were added
+			for obj in self.data_manager.table_entries():
 				if obj.Pm is None or obj.P is None:
 					continue
 				incoming_data.append(
@@ -89,6 +88,7 @@ class PvPmPlotWindow(QMainWindow):
 						"P": float(obj.P),
 						"P_err": getattr(obj, "P_err", None),
 						"calib": obj.calib.name if obj.calib is not None else "unknown",
+						"label": obj.calib.short_name if obj.calib is not None else "unknown",
 					}
 				)
 		
@@ -125,7 +125,7 @@ class PvPmPlotWindow(QMainWindow):
 				self.lines[g] = self.plot_graph.plot(
 					pm_values,
 					p_values,
-					name=g,
+					name=subdata[0].get("label", g),   # short name, as in the table
 					pen=self.pens[g],
 					symbol="o",
 					symbolSize=14,

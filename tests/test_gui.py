@@ -560,3 +560,28 @@ def test_manual_background_is_flat_beyond_the_clicked_points(gui):
     for cx, cy in clicks:                                       # still goes through the clicks
         assert np.interp(cx, x, bg) == pytest.approx(cy, abs=2e-3)
     assert bg[inside].min() < bg[inside].max()                  # curved between the clicks
+
+
+def test_pvpm_plot_follows_table_order_and_short_names(gui):
+    for name, Pm in [("Example_Ruby_3.asc", 24.0), ("Example_Ruby_1.asc", 8.0), ("Example_Ruby_2.asc", 15.0)]:
+        _add(gui, name, Pm)
+    plot = gui.view.PvPmPlotWindow
+    pm, _ = plot.lines["Ruby2020"].getData()
+    assert list(pm) == [24.0, 8.0, 15.0]                  # order added, as the table '#'
+    legend = [label.text for _sample, label in plot.legend.items]
+    assert legend == ["Ruby2020"]
+
+
+def test_demo_plot_legend_uses_short_names(demo):
+    _presenter, view, _ = demo
+    legend = [label.text for _sample, label in view.PvPmPlotWindow.legend.items]
+    assert legend == ["Ruby2020", "H2 vibron"]
+
+
+def test_x0_greyed_out_for_calibrations_without_x0(gui):
+    toolbox = gui.view.ptoolbox
+    toolbox.set_calib(C.H2Vibron)
+    assert not toolbox.x0_spinbox.isEnabled() and not toolbox.x0_label.isEnabled()
+    assert toolbox.x0_spinbox.toolTip() == "Not used by this calibration"
+    toolbox.set_calib(C.Ruby2020)
+    assert toolbox.x0_spinbox.isEnabled() and toolbox.x0_label.isEnabled()
