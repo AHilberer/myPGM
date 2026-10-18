@@ -739,11 +739,12 @@ class MainWindow(QMainWindow):
         x_bg, unique_idx = np.unique(x_bg, return_index=True)
         y_bg = y_bg[unique_idx]
 
-        # spline fit:
+        # spline through the clicked points, flat beyond the outermost ones
+        # (extrapolating the polynomial made the background swing at the edges)
         if len(x_bg) >= 2:
             spl_order = len(x_bg) - 1 if len(x_bg) - 1 <= 5 else 5
             spl = InterpolatedUnivariateSpline(x_bg, y_bg, k=spl_order)
-            self.temp_bg = spl(curve_data_x)
+            self.temp_bg = spl(np.clip(curve_data_x, x_bg[0], x_bg[-1]))
             self.data_bg_line.setData(curve_data_x,self.temp_bg)
         return self.temp_bg
 

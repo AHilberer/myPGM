@@ -1,4 +1,6 @@
 import json
+
+import numpy as np
 import os
 import shutil
 import time
@@ -544,3 +546,17 @@ def test_removing_a_toolbox_point_from_the_table_deletes_it(gui):
     gui.view.PvPmTableWindow.clear_table()
     assert table_only.id not in gui.presenter.model
     assert len(gui.presenter.model) == 5                   # the loaded files stay
+
+
+def test_manual_background_is_flat_beyond_the_clicked_points(gui):
+    gui.presenter.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
+    x = gui.view.data_scatter.getData()[0]
+    clicks = [[689.0, 0.04], [691.0, 0.03], [692.5, 0.035], [697.0, 0.03], [699.0, 0.045]]
+    gui.view.ManualBg_points = [list(c) for c in clicks]
+    bg = gui.view.plot_ManualBg()
+    assert np.all(bg[x <= 689.0] == pytest.approx(0.04))       # flat left of the first click
+    assert np.all(bg[x >= 699.0] == pytest.approx(0.045))      # flat right of the last click
+    inside = (x > 689.0) & (x < 699.0)
+    for cx, cy in clicks:                                       # still goes through the clicks
+        assert np.interp(cx, x, bg) == pytest.approx(cy, abs=2e-3)
+    assert bg[inside].min() < bg[inside].max()                  # curved between the clicks
