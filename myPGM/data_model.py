@@ -8,6 +8,10 @@ from scipy.spatial import ConvexHull
 from scipy.ndimage import uniform_filter1d
 from scipy.optimize import curve_fit
 from collections.abc import MutableMapping
+from itertools import count
+
+
+_id_counter = count(int(time.time() * 1000))
 
 
 def _array_to_list(value):
@@ -61,7 +65,7 @@ class PressureGaugeDataObject:
         """
         Initialize the PressureGaugeDataObject with an ID.
         """
-        self.id = int(time.time() * 1000)
+        self.id = self.generate_id()
 
         # Attributes related to spectral measurement data
         self.filename = None
@@ -106,11 +110,13 @@ class PressureGaugeDataObject:
     @staticmethod
     def generate_id():
         """
-        Generate a unique ID based on the current time in milliseconds.
+        Generate a unique ID: a counter started from the current time in milliseconds,
+        so that objects created within the same millisecond still get distinct IDs
+        and new IDs stay above those stored in older session files.
 
         :return: int
         """
-        return int(time.time() * 1000)
+        return next(_id_counter)
     
 
     def load_spectral_data_file(self, file_name, file_path):
