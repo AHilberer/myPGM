@@ -391,8 +391,13 @@ class MainWindow(QMainWindow):
 
 
     def closeEvent(self, event):
-        for window in QApplication.topLevelWidgets():
-            window.close()
+        # close the side windows owned by this main window (not every app window,
+        # which recursed between main windows)
+        for window in (self.PvPmTableWindow, self.PvPmPlotWindow,
+                       self.additional_toolbox_window, self.font_size_window):
+            if window is not None:
+                window.close()
+        super().closeEvent(event)
 
     def switch_to_dark(self):
         try:
