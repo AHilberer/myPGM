@@ -27,11 +27,31 @@ try:
 except ImportError:
     from importlib_resources import files
 
+FONT_RULE_MARKER = "/* myPGM font size */"
+
+def set_app_theme(style):
+    """Apply a theme stylesheet to the whole application, keeping the font size rule."""
+    app = QApplication.instance()
+    _, marker, font_rule = app.styleSheet().partition(FONT_RULE_MARKER)
+    app.setStyleSheet(style + marker + font_rule)
+
+def set_app_font_size(size):
+    """Set the global font size, keeping the current theme stylesheet."""
+    app = QApplication.instance()
+    base_style = app.styleSheet().split(FONT_RULE_MARKER)[0]
+    app.setStyleSheet(f"{base_style}{FONT_RULE_MARKER}\n* {{ font-size: {size}px; }}\n")
+
+
 class FontSizeWindow(QWidget):
+
+    # widgets drawn outside of Qt stylesheets (plots, table) listen to this
+    font_size_changed = pyqtSignal(int)
 
     def __init__(self):
         super().__init__()
 
+        self.setObjectName("FontSizeWindow")
+        self.setAttribute(Qt.WA_StyledBackground, True)
         self.setWindowTitle("Font size control")
 
         layout = QVBoxLayout(self)
@@ -45,23 +65,15 @@ class FontSizeWindow(QWidget):
         self.slider.setValue(15)
         layout.addWidget(self.slider)
 
-        self.value_label = QLabel()
+        self.value_label = QLabel(f"{self.slider.value()}px")
         layout.addWidget(self.value_label)
-
-        self.set_font_size(self.slider.value())
 
         self.slider.valueChanged.connect(self.set_font_size)
 
-    FONT_RULE_MARKER = "/* myPGM font size */"
-
     def set_font_size(self, size):
-        app = QApplication.instance()
-        # keep the current theme: only replace our own font rule, appended at the end
-        base_style = app.styleSheet().split(self.FONT_RULE_MARKER)[0]
-        app.setStyleSheet(
-            f"{base_style}{self.FONT_RULE_MARKER}\n* {{ font-size: {size}px; }}\n"
-        )
+        set_app_font_size(size)
         self.value_label.setText(f"{size}px")
+        self.font_size_changed.emit(size)
 
 class SmartDoubleSpinBox(QDoubleSpinBox):
     def __init__(self, *args, **kwargs):

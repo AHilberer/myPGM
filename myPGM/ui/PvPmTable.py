@@ -27,11 +27,7 @@ class HPTableWidget(QTableWidget):
         self.row_object_ids = []
 
 
-        self.setStyleSheet(
-            "QTableWidget { font-size: 18px; }"
-            "QHeaderView::section { padding: 2px; }"
-            "QTableWidget::item { padding: 2px; }"
-        )
+        self.set_font_size(18)
 
         column_labels = ["Pm", "P", "x", "T", "x0", "T0", "calib", "file"]
         self.setColumnCount(len(column_labels))
@@ -51,7 +47,6 @@ class HPTableWidget(QTableWidget):
         
         h_header.setSectionResizeMode(ncols-1, QHeaderView.Stretch)
 
-        self.verticalHeader().setDefaultSectionSize(18)
 #        self.horizontalHeader().setDefaultSectionSize(70)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -67,6 +62,16 @@ class HPTableWidget(QTableWidget):
 
     def set_data_manager(self, data_manager):
         self.data_manager = data_manager
+
+    def set_font_size(self, size):
+        # this widget stylesheet overrides the app-wide font size, so it is set here
+        self.setStyleSheet(
+            f"QTableWidget {{ font-size: {size}px; }}"
+            f"QHeaderView::section {{ padding: 2px; font-size: {size}px; }}"
+            "QTableWidget::item { padding: 2px; }"
+        )
+        # rows were fixed at 18 px high, which clipped larger fonts
+        self.verticalHeader().setDefaultSectionSize(size + 6)
 
     @staticmethod
     def _format_float(value, decimals):

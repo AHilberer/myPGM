@@ -14,6 +14,10 @@ QInputDialog {
   background-color: #ececec;
 }
 
+FontSizeWindow {
+  background-color: #ececec;
+}
+
 PressureToolbox {
   background-color: #ececec;
 }

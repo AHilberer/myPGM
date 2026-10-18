@@ -22,7 +22,7 @@ from PyQt5.QtCore import (
     Qt,
     pyqtSignal,
 )
-from PyQt5.QtGui import QColor, QIcon
+from PyQt5.QtGui import QColor, QIcon, QFont
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -32,7 +32,8 @@ from myPGM.helpers import (load_style,
                           MyVSeparator, 
                           SmartDoubleSpinBox, 
                           SmartDoubleDialog,
-                          FontSizeWindow,)
+                          FontSizeWindow,
+                          set_app_theme,)
 
 from myPGM.ui.PvPmPlot import PvPmPlotWindow
 from myPGM.ui.PvPmTable import HPTableWindow
@@ -304,11 +305,14 @@ class MainWindow(QMainWindow):
         PlotLayout = QVBoxLayout()
         self.splitter = QSplitter(Qt.Vertical)
         self.plot_label_color = "black"
+        self.plot_font_px = 16          # axis labels and ticks, changed from the font size window
+        self.plot_title_size = "16pt"
+        self.font_size_window = None
 
         # #? Actual spectral data
         self.data_widget = pg.PlotWidget()
         self.data_widget.setBackground("white")
-        styles = {"color": "black", "font-size": "16px"}
+        styles = self._label_styles()
         self.data_widget.setLabel("bottom", "Spectral unit", **styles)
         self.data_widget.setLabel("left", "Intensity (a.u.)", **styles)
         self.data_scatter = pg.ScatterPlotItem(symbol='o', size=4, brush='grey')
@@ -331,7 +335,6 @@ class MainWindow(QMainWindow):
         # #? Setup derivative plotting section
         self.deriv_widget = pg.PlotWidget()
         self.deriv_widget.setBackground("white")
-        styles = {"color": "black", "font-size": "16px"}
         self.deriv_widget.setLabel("bottom", "Spectral unit", **styles)
         self.deriv_widget.setLabel("left", "dI/dx", **styles)
 
@@ -393,19 +396,14 @@ class MainWindow(QMainWindow):
         except OSError as exc:
             print(f"Could not load dark-mode stylesheet: {exc}")
         else:
-            self.setStyleSheet(style)
-            self.PvPmTableWindow.setStyleSheet(style)
-            self.PvPmPlotWindow.setStyleSheet(style)
-            self.additional_toolbox_window.setStyleSheet(style)
+            # app-wide, so that every window and dialog follows the theme
+            set_app_theme(style)
         self.plot_label_color = "white"
 
         # some parameters seem to be unaffected by the style import ...
         # thus we use the following fix
 
-#        self.PvPmPlotWindow.plot_graph.setBackground("#202020")
-        styles = {"color": self.plot_label_color, "font-size": "16px"}
-#        self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
-#        self.PvPmPlotWindow.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+        styles = self._label_styles()
         self.data_widget.setBackground("#202020")
         self.data_widget.setLabel("left", **styles)
         self.data_widget.setLabel("bottom", **styles)
@@ -426,20 +424,13 @@ class MainWindow(QMainWindow):
         except OSError as exc:
             print(f"Could not load light-mode stylesheet: {exc}")
         else:
-            self.setStyleSheet(style)
-            self.PvPmTableWindow.setStyleSheet(style)
-            self.PvPmPlotWindow.setStyleSheet(style)
-            self.additional_toolbox_window.setStyleSheet(style)
+            set_app_theme(style)
         self.plot_label_color = "black"
 
         # some parameters seem to be unaffected by the style import ...
         # thus we use the following fix
-        
-        #self.PvPmPlotWindow.plot_graph.setBackground("white")
-        styles = {"color": self.plot_label_color, "font-size": "16px"}
-        #self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
-        #self.PvPmPlotWindow.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
 
+        styles = self._label_styles()
         self.data_widget.setBackground("white")
         self.data_widget.setLabel("left", **styles)
         self.data_widget.setLabel("bottom", **styles)
@@ -593,7 +584,7 @@ class MainWindow(QMainWindow):
         self.deriv_widget.removeItem(self.deriv_edge_marker)
         self.data_widget.removeItem(self.data_fit_line)
         self.data_fit_line.setData([],[])
-        self.data_widget.setTitle('Not fitted', color=self.plot_label_color, size="16pt")
+        self._set_plot_title('Not fitted')
 
         self.data_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
         self.data_widget.setLabel("left", 'Intensity')
@@ -690,7 +681,7 @@ class MainWindow(QMainWindow):
             ]
             self.data_fit_line.setData(x, fitted)
             self.data_widget.addItem(self.data_fit_line)
-            self.data_widget.setTitle(f"Fitted pressure : {P : > 10.3f} GPa", color=self.plot_label_color, size="16pt")
+            self._set_plot_title(f"Fitted pressure : {P : > 10.3f} GPa")
 
         elif fit_model.type == "edge":
             self.data_edge_marker.setValue(fit_result["opti"])
@@ -699,7 +690,7 @@ class MainWindow(QMainWindow):
                 
             self.deriv_widget.addItem(self.deriv_edge_marker)
 
-            self.data_widget.setTitle(f"Fitted pressure : {P : > 10.3f} GPa", color=self.plot_label_color, size="16pt")
+            self._set_plot_title(f"Fitted pressure : {P : > 10.3f} GPa")
                                 
         else:
                 print("Plot fit not implemented")
@@ -729,8 +720,39 @@ class MainWindow(QMainWindow):
 
 
     def show_font_size_window(self):
-        self.u = FontSizeWindow()
-        self.u.show()
+        # created once, so reopening it keeps the chosen size
+        if self.font_size_window is None:
+            self.font_size_window = FontSizeWindow()
+            self.font_size_window.font_size_changed.connect(self.set_font_size)
+            self.font_size_window.set_font_size(self.font_size_window.slider.value())
+        self.font_size_window.show()
+        self.font_size_window.raise_()
+
+    def set_font_size(self, size):
+        # pyqtgraph items and the PvPm table are not reached by the app stylesheet
+        self.plot_font_px = size
+        self.update_plot_fonts()
+        self.PvPmTableWindow.table_widget.set_font_size(size)
+        self.PvPmPlotWindow.set_font_size(size)
+
+    def _label_styles(self):
+        return {"color": self.plot_label_color, "font-size": f"{self.plot_font_px}px"}
+
+    def _set_plot_title(self, text):
+        self.data_widget.setTitle(text, color=self.plot_label_color, size=self.plot_title_size)
+
+    def update_plot_fonts(self):
+        styles = self._label_styles()
+        tick_font = QFont()
+        tick_font.setPixelSize(self.plot_font_px)
+        for widget in (self.data_widget, self.deriv_widget):
+            widget.setLabel("left", **styles)
+            widget.setLabel("bottom", **styles)
+            for side in ("left", "bottom"):
+                widget.getAxis(side).setStyle(tickFont=tick_font)
+        self.plot_title_size = f"{self.plot_font_px + 4}px"
+        # re-apply the current title with the new size
+        self._set_plot_title(self.data_widget.plotItem.titleLabel.text)
 
     def toggle_ManualBg(self):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:

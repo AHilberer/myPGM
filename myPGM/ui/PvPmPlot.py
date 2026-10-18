@@ -1,5 +1,7 @@
 import pyqtgraph as pg
 
+from PyQt5.QtGui import QFont
+
 from PyQt5.QtWidgets import (QMainWindow,
 							 QWidget,
 							 QVBoxLayout,
@@ -25,11 +27,11 @@ class PvPmPlotWindow(QMainWindow):
 		self.setCentralWidget(central_widget)
 		self.pens = {}
 		self.calib_colors = None
+		self.font_px = 18
+		self.label_color = "black"
 		#self.plot_graph.setTitle("Temperature vs Time", color="b", size="20pt")
 		self.plot_graph.setBackground("white")
-		styles = {"color": "black", "font-size": "18px"}
-		self.plot_graph.setLabel("left", "P (GPa)", **styles)
-		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+		self._update_labels()
 		self.legend = self.plot_graph.addLegend()
 		self.plot_graph.showGrid(x=True, y=True)
 
@@ -46,17 +48,33 @@ class PvPmPlotWindow(QMainWindow):
 
 
 	def set_dark_mode(self):
-		styles = {"color": 'white', "font-size": "18px"}
+		self.label_color = "white"
 		self.plot_graph.setBackground("#202020")
-		self.plot_graph.setLabel("left", "P (GPa)", **styles)
-		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+		self._update_labels()
    
 
 	def set_light_mode(self):
-		styles = {"color": 'black', "font-size": "18px"}
+		self.label_color = "black"
 		self.plot_graph.setBackground("white")
+		self._update_labels()
+
+	def set_font_size(self, size):
+		self.font_px = size
+		self._update_labels()
+		self._update_legend_font()
+
+	def _update_labels(self):
+		styles = {"color": self.label_color, "font-size": f"{self.font_px}px"}
 		self.plot_graph.setLabel("left", "P (GPa)", **styles)
 		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+		tick_font = QFont()
+		tick_font.setPixelSize(self.font_px)
+		for side in ("left", "bottom"):
+			self.plot_graph.getAxis(side).setStyle(tickFont=tick_font)
+
+	def _update_legend_font(self):
+		for sample, label in self.legend.items:
+			label.setText(label.text, size=f"{self.font_px}px")
 
 	def updateplot(self, incoming_data=None): 
 		if incoming_data is None:
@@ -114,9 +132,7 @@ class PvPmPlotWindow(QMainWindow):
 					symbolSize=14,
 					symbolBrush=color)
 
-		# legend text size:
-		for sample, label in self.legend.items:
-			label.setText(label.text, size="18px")
+		self._update_legend_font()
 
 	def toggle_lines(self, checked):
 	    for g in self.lines:
