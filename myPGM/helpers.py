@@ -21,11 +21,7 @@ from PyQt5.QtCore import (Qt,
 from PyQt5.QtGui import QIcon, QFont, QFontInfo
 import csv
 from functools import wraps
-# compatibility bridge
-try:
-    from importlib.resources import files
-except ImportError:
-    from importlib_resources import files
+from importlib.resources import files
 
 FONT_RULE_MARKER = "/* myPGM font size */"
 

@@ -68,22 +68,28 @@ deactivate
 ```
 
 
-### 3) Install the required dependencies:
+### 3) Install myPGM and its dependencies:
+
+myPGM requires Python 3.10 or newer.
 
 ```bash
-python3 -m pip install -r requirements.txt
+python3 -m pip install -e .
 ```
+
+This also installs the `mypgm` command. (Alternatively, `python3 -m pip install -r requirements.txt` installs only the dependencies.)
 
 ### 4) Run the application:
 
 ```bash
-python3 run.py
+mypgm
 ```
 
-To start with the bundled example spectra loaded, use:
+or, from the code folder, `python3 run.py` or `python3 -m myPGM`.
+
+To start with the bundled example spectra loaded, add `--demo`:
 
 ```bash
-python3 run.py --demo
+mypgm --demo
 ```
 
 # Running the tests
@@ -91,11 +97,11 @@ python3 run.py --demo
 The test suite covers the pressure calibrations, the file parser, the fits on the bundled example spectra and the main GUI workflows (run headless, no window opens):
 
 ```bash
-python3 -m pip install pytest
+python3 -m pip install -e ".[test]"
 python3 -m pytest
 ```
 
-Tests marked `xfail` describe known bugs that are not fixed yet. The tests also run on GitHub for every push and pull request.
+A test marked `xfail` describes a known bug that is not fixed yet. The tests also run on GitHub for every push and pull request.
 
 # Executables
 Currently not available (WIP)

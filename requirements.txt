@@ -1,4 +1,5 @@
-numpy
-scipy
-PyQt5
-pyqtgraph
+# Keep in sync with the dependencies in pyproject.toml
+numpy>=1.24
+scipy>=1.10
+PyQt5>=5.15
+pyqtgraph>=0.13.3
