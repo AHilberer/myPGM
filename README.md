@@ -79,6 +79,12 @@ python3 -m pip install -r requirements.txt
 python3 run.py
 ```
 
+To start with the bundled example spectra loaded, use:
+
+```bash
+python3 run.py --demo
+```
+
 # Executables
 Currently not available (WIP)
 

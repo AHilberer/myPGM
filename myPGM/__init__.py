@@ -57,7 +57,8 @@ def main():
     view = MainWindow()
     if not app_icon.isNull():
         view.setWindowIcon(app_icon)
-    presenter = Presenter(model, view, test_mode=True)
+    # example spectra are only loaded on request: python run.py --demo
+    presenter = Presenter(model, view, test_mode="--demo" in sys.argv)
     presenter.view.show()
     #presenter.initialize_example()
 
