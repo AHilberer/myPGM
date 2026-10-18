@@ -1,7 +1,7 @@
 import sys
 import os
 import ctypes
-import traceback
+import logging
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import QLocale
 
@@ -9,6 +9,8 @@ from myPGM.helpers import load_style, get_app_icon
 from myPGM.ui.main_ui import MainWindow
 from myPGM.data_model import PressureGaugeDataManager
 from myPGM.presenter import Presenter
+
+logger = logging.getLogger(__name__)
 
 def _set_windows_appusermodelid():
     """Improve Windows taskbar icon association for non-frozen launches."""
@@ -24,13 +26,14 @@ def _set_windows_appusermodelid():
 def _install_excepthook():
     """Show unexpected errors in a dialog instead of letting PyQt abort the app."""
     def excepthook(exc_type, exc_value, exc_tb):
-        traceback.print_exception(exc_type, exc_value, exc_tb)
+        logger.error("Unexpected error", exc_info=(exc_type, exc_value, exc_tb))
         if QApplication.instance() is not None:
             QMessageBox.critical(None, "Unexpected error",
                                  f"{exc_type.__name__}: {exc_value}")
     sys.excepthook = excepthook
 
 def main():
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     _set_windows_appusermodelid()
     _install_excepthook()
     app = QApplication(sys.argv)
@@ -46,9 +49,8 @@ def main():
     try:
         style = load_style('light-mode.qss')
         app.setStyleSheet(style)
-    except Exception as e:
-        print(e)
-        pass
+    except Exception as exc:
+        logger.warning("Could not load the light-mode stylesheet: %s", exc)
     model = PressureGaugeDataManager()
     view = MainWindow()
     if not app_icon.isNull():

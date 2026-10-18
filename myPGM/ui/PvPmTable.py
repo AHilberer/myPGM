@@ -127,7 +127,7 @@ class HPTableWindow(QWidget):
         self.data_manager = None
 
         self.setWindowTitle("PvPm table")
-        self.setGeometry(1200, 100, 700, 400)
+        self.resize(700, 400)   # placed by MainWindow._arrange_windows
 
         layout = QVBoxLayout()
 

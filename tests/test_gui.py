@@ -299,3 +299,10 @@ def test_right_click_zoom_out_then_full_view(gui):
     (x_min, x_max), _ = vb.viewRange()
     x = gui.view.data_scatter.getData()[0]
     assert x_min <= x.min() and x_max >= x.max() and x_max - x_min < 200   # back to full spectrum
+
+
+def test_windows_open_within_the_screen(gui):
+    from PyQt5.QtGui import QGuiApplication
+    area = QGuiApplication.primaryScreen().availableGeometry()
+    for window in (gui.view, gui.view.PvPmTableWindow, gui.view.PvPmPlotWindow):
+        assert area.contains(window.geometry()), (window.windowTitle(), window.geometry(), area)

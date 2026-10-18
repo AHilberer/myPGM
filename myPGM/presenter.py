@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 import numpy as np
 from copy import deepcopy
 from importlib.metadata import PackageNotFoundError, version
@@ -9,6 +10,9 @@ from myPGM.data_model import PressureGaugeDataObject
 import myPGM.calibrations
 import myPGM.fit_models
 from myPGM.helpers import pressure_valid, spectro_calibration_reader, PressureCalculationFailed
+
+logger = logging.getLogger(__name__)
+
 
 def get_app_version():
     try:
@@ -402,7 +406,7 @@ class Presenter(QObject):
                     )
             
         else:
-            print('No data to be plotted.')
+            logger.info('No data to be plotted.')
 
     def on_theme_switched(self):
         if self.current_selected_file is not None:
@@ -635,8 +639,7 @@ class Presenter(QObject):
 
         tmp_color = self.view.fit_model_combo.model().item(newind).background().color().getRgb()
         self.view.fit_model_combo.setStyleSheet(
-            "background-color: rgba{};\
-                    selection-background-color: k;".format(tmp_color)
+            "background-color: rgba{};".format(tmp_color)
         )
 
     def fit_current_file(self, guess=None): 

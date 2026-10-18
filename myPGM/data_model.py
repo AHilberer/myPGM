@@ -448,32 +448,32 @@ class PressureGaugeDataObject:
             return {"opti": best_x, "cov": None}
 
 class PressureGaugeDataManager(MutableMapping):
-    def __init__(self, *args, **kwargs):
-        '''Use the object dict'''
+    """Dict-like container of PressureGaugeDataObject instances, keyed by their ID."""
 
+    def __init__(self, *args, **kwargs):
         super().__init__()
-        self.__dict__.update(*args, **kwargs)
+        self._items = dict(*args, **kwargs)
 
     def __setitem__(self, key, value):
-        self.__dict__[key] = value
+        self._items[key] = value
 
     def __getitem__(self, key):
-        return self.__dict__[key]
+        return self._items[key]
 
     def __delitem__(self, key):
-        del self.__dict__[key]
+        del self._items[key]
 
     def __iter__(self):
-        return iter(self.__dict__)
+        return iter(self._items)
 
     def __len__(self):
-        return len(self.__dict__)
+        return len(self._items)
 
     def __repr__(self):
-        return f"{type(self).__name__} ({len(self.__dict__)} pressure gauge data point(s))"
+        return f"{type(self).__name__} ({len(self._items)} pressure gauge data point(s))"
 
     def clear(self):
-        self.__dict__.clear()
+        self._items.clear()
 
     def add_instance(self, instance):
         """
@@ -482,17 +482,17 @@ class PressureGaugeDataManager(MutableMapping):
         :param instance: PressureGaugeDataObject
         """
         if isinstance(instance, PressureGaugeDataObject):
-            self.__dict__[instance.id] = instance
+            self._items[instance.id] = instance
         else:
             raise TypeError("Only instances of PressureGaugeDataObject can be added.")
-        
+
     def delete_instance(self, instance_id):
         """
         Delete a PressureGaugeDataObject instance from the manager by its ID.
 
         :param instance_id: int
         """
-        if instance_id in self.__dict__:
-            del self.__dict__[instance_id]
+        if instance_id in self._items:
+            del self._items[instance_id]
         else:
             raise KeyError(f"No instance with ID {instance_id} found.")

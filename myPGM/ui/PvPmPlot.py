@@ -14,7 +14,7 @@ class PvPmPlotWindow(QMainWindow):
 		self.data_manager = None
 		
 		self.setWindowTitle("PvPm Plot")
-		self.setGeometry(1200, 600, 700, 500)
+		self.resize(700, 500)   # placed by MainWindow._arrange_windows
 
 		self.plot_graph = pg.PlotWidget()
 		self.lines_checkbox = QCheckBox('Display lines')

@@ -191,8 +191,7 @@ class PressureToolbox(QWidget):
         self.Tcor_Label.setText(newcalib.Tcor_name)
 
         self.calibration_combo.setStyleSheet(
-            "background-color: {};\
-             selection-background-color: k;".format(newcalib.color))
+            "background-color: {};".format(newcalib.color))
 
         self.x_label.setText(
             "{} ({})".format(newcalib.xname, newcalib.xunit)

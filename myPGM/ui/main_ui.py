@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 from PyQt5.QtWidgets import (
     QMainWindow,
@@ -13,12 +15,13 @@ from PyQt5.QtWidgets import (
     QAction,
     QGridLayout,
     QSplitter,
+    QSpinBox,
 )
 from PyQt5.QtCore import (
     Qt,
     pyqtSignal,
 )
-from PyQt5.QtGui import QColor, QFont
+from PyQt5.QtGui import QColor, QFont, QGuiApplication
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -26,7 +29,6 @@ from myPGM.helpers import (load_style,
                           get_app_icon, 
                           MyHSeparator, 
                           MyVSeparator, 
-                          SmartDoubleSpinBox, 
                           SmartDoubleDialog,
                           FontSizeWindow,
                           set_app_theme,
@@ -38,6 +40,8 @@ from myPGM.ui.FileListViewerWidget import FileListViewerWidget
 from myPGM.ui.PressureToolbox import PressureToolbox
 
 import pyqtgraph as pg
+
+logger = logging.getLogger(__name__)
 
 class MainWindow(QMainWindow):
 
@@ -60,11 +64,7 @@ class MainWindow(QMainWindow):
         if not app_icon.isNull():
             self.setWindowIcon(app_icon)
 
-        x = 100
-        y = 100
-        width = 800
-        height = 1000
-        self.setGeometry(x, y, width, height)
+        self.resize(800, 1000)          # placed on screen by _arrange_windows
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
@@ -258,9 +258,8 @@ class MainWindow(QMainWindow):
         SmoothBox = QHBoxLayout()
         SmoothBox.addWidget(QLabel("Smoothing:", self), stretch=1)
 
-        self.smoothing_factor = SmartDoubleSpinBox()
-        self.smoothing_factor.setDecimals(0)
-        self.smoothing_factor.setRange(1, +np.inf)
+        self.smoothing_factor = QSpinBox()      # smoothing window, in points
+        self.smoothing_factor.setRange(1, 999)
         self.smoothing_factor.setValue(1)
         
         SmoothBox.addWidget(self.smoothing_factor, stretch=1)
@@ -346,9 +345,9 @@ class MainWindow(QMainWindow):
         # #? Setup PvPm table and plotwindow
 
         self.PvPmTableWindow = HPTableWindow()
-        self.PvPmTableWindow.show()
-
         self.PvPmPlotWindow = PvPmPlotWindow()
+        self._arrange_windows()
+        self.PvPmTableWindow.show()
         self.PvPmPlotWindow.show()
 
         self.set_font_size(self.plot_font_px)
@@ -357,6 +356,27 @@ class MainWindow(QMainWindow):
 
     #####################################################################################
     # ? Main window methods
+
+    def _arrange_windows(self):
+        """Place the main window and, to its right, the PvPm table and plot,
+        all within the available area of the screen (small laptop screens too)."""
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        area = screen.availableGeometry()
+        gap = 10
+
+        def fit(widget, x, y):
+            width = min(widget.width(), area.width())
+            height = min(widget.height(), area.height())
+            x = max(area.left(), min(x, area.right() - width))
+            y = max(area.top(), min(y, area.bottom() - height))
+            widget.setGeometry(x, y, width, height)
+
+        fit(self, area.left() + 100, area.top() + 100)
+        side_x = self.geometry().right() + gap
+        fit(self.PvPmTableWindow, side_x, self.geometry().top())
+        fit(self.PvPmPlotWindow, side_x, self.PvPmTableWindow.geometry().bottom() + gap)
 
     def closeEvent(self, event):
         # close the side windows owned by this main window (not every app window,
@@ -377,7 +397,7 @@ class MainWindow(QMainWindow):
         try:
             style = load_style(qss_file)
         except OSError as exc:
-            print(f"Could not load stylesheet {qss_file}: {exc}")
+            logger.warning("Could not load stylesheet %s: %s", qss_file, exc)
         else:
             # app-wide, so that every window and dialog follows the theme
             set_app_theme(style)
@@ -414,7 +434,7 @@ class MainWindow(QMainWindow):
             .getRgb()
             )
             self.fit_model_combo.setStyleSheet(
-                "background-color: rgba{};    selection-background-color: k;".format(tmp_color)
+                "background-color: rgba{};".format(tmp_color)
             )
         else:
             raise ImportError('Error loading fit models.')
@@ -622,7 +642,7 @@ class MainWindow(QMainWindow):
             self._set_plot_title(self._pressure_title(P, P_err))
 
         else:
-            print("Plot fit not implemented")
+            logger.warning("Plot of fit type %r not implemented", fit_model.type)
 
     def fit_error_popup_window(self):
         msg = QMessageBox()
