@@ -33,7 +33,8 @@ from myPGM.helpers import (load_style,
                           SmartDoubleSpinBox, 
                           SmartDoubleDialog,
                           FontSizeWindow,
-                          set_app_theme,)
+                          set_app_theme,
+                          current_app_font_px,)
 
 from myPGM.ui.PvPmPlot import PvPmPlotWindow
 from myPGM.ui.PvPmTable import HPTableWindow
@@ -305,8 +306,9 @@ class MainWindow(QMainWindow):
         PlotLayout = QVBoxLayout()
         self.splitter = QSplitter(Qt.Vertical)
         self.plot_label_color = "black"
-        self.plot_font_px = 16          # axis labels and ticks, changed from the font size window
-        self.plot_title_size = "16pt"
+        # plots and the PvPm table use the app font size, kept in sync by set_font_size
+        self.plot_font_px = current_app_font_px()
+        self.plot_title_size = f"{self.plot_font_px + 4}px"
         self.font_size_window = None
 
         # #? Actual spectral data
@@ -374,6 +376,8 @@ class MainWindow(QMainWindow):
 
         self.PvPmPlotWindow = PvPmPlotWindow()
         self.PvPmPlotWindow.show()
+
+        self.set_font_size(self.plot_font_px)
 #
 #        self.data.changed.connect(self.PvPmTableWindow.table_widget.updatetable)
 #        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
@@ -722,9 +726,8 @@ class MainWindow(QMainWindow):
     def show_font_size_window(self):
         # created once, so reopening it keeps the chosen size
         if self.font_size_window is None:
-            self.font_size_window = FontSizeWindow()
+            self.font_size_window = FontSizeWindow(self.plot_font_px)
             self.font_size_window.font_size_changed.connect(self.set_font_size)
-            self.font_size_window.set_font_size(self.font_size_window.slider.value())
         self.font_size_window.show()
         self.font_size_window.raise_()
 
@@ -751,8 +754,9 @@ class MainWindow(QMainWindow):
             for side in ("left", "bottom"):
                 widget.getAxis(side).setStyle(tickFont=tick_font)
         self.plot_title_size = f"{self.plot_font_px + 4}px"
-        # re-apply the current title with the new size
-        self._set_plot_title(self.data_widget.plotItem.titleLabel.text)
+        # re-apply the current title with the new size (none before the first plot)
+        if self.data_widget.plotItem.titleLabel.text:
+            self._set_plot_title(self.data_widget.plotItem.titleLabel.text)
 
     def toggle_ManualBg(self):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:

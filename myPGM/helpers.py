@@ -18,7 +18,7 @@ from PyQt5.QtCore import (Qt,
                          QModelIndex, 
                          QLocale)
 
-from PyQt5.QtGui import QIcon, QFont
+from PyQt5.QtGui import QIcon, QFont, QFontInfo
 import csv
 from functools import wraps
 # compatibility bridge
@@ -35,6 +35,10 @@ def set_app_theme(style):
     _, marker, font_rule = app.styleSheet().partition(FONT_RULE_MARKER)
     app.setStyleSheet(style + marker + font_rule)
 
+def current_app_font_px():
+    """Pixel size of the font currently used by the application widgets."""
+    return QFontInfo(QApplication.font()).pixelSize()
+
 def set_app_font_size(size):
     """Set the global font size, keeping the current theme stylesheet."""
     app = QApplication.instance()
@@ -47,7 +51,7 @@ class FontSizeWindow(QWidget):
     # widgets drawn outside of Qt stylesheets (plots, table) listen to this
     font_size_changed = pyqtSignal(int)
 
-    def __init__(self):
+    def __init__(self, current_size=15):
         super().__init__()
 
         self.setObjectName("FontSizeWindow")
@@ -62,7 +66,8 @@ class FontSizeWindow(QWidget):
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setMinimum(8)
         self.slider.setMaximum(30)
-        self.slider.setValue(15)
+        # start from the size in use: nothing changes until the slider is moved
+        self.slider.setValue(current_size)
         layout.addWidget(self.slider)
 
         self.value_label = QLabel(f"{self.slider.value()}px")
