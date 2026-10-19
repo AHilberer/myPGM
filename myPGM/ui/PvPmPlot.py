@@ -1,9 +1,12 @@
+import numpy as np
 import pyqtgraph as pg
+
+from PyQt5.QtGui import QFont
 
 from PyQt5.QtWidgets import (QMainWindow,
 							 QWidget,
 							 QVBoxLayout,
-							 QCheckBox,)
+							 QAction,)
 
 class PvPmPlotWindow(QMainWindow):
 	def __init__(self):
@@ -11,70 +14,86 @@ class PvPmPlotWindow(QMainWindow):
 		self.data_manager = None
 		
 		self.setWindowTitle("PvPm Plot")
-		self.setGeometry(1200, 600, 700, 500)
+		self.resize(700, 500)   # placed by MainWindow._arrange_windows
 
 		self.plot_graph = pg.PlotWidget()
-		self.lines_checkbox = QCheckBox('Display lines')
-		self.lines_checkbox.setChecked(True)
 
 		central_widget = QWidget()
 		layout = QVBoxLayout(central_widget)
 		layout.addWidget(self.plot_graph)
-		layout.addWidget(self.lines_checkbox)
 
 		self.setCentralWidget(central_widget)
 		self.pens = {}
 		self.calib_colors = None
-		#self.plot_graph.setTitle("Temperature vs Time", color="b", size="20pt")
+		self.font_px = 18
+		self.label_color = "black"
 		self.plot_graph.setBackground("white")
-		styles = {"color": "black", "font-size": "18px"}
-		self.plot_graph.setLabel("left", "P (GPa)", **styles)
-		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+		self._update_labels()
 		self.legend = self.plot_graph.addLegend()
 		self.plot_graph.showGrid(x=True, y=True)
 
-		# self.data = HPDataTable_
-		# self.calibrations = calibrations_
 		self.lines = {}
+		self.error_bars = {}
 		
-		self.lines_checkbox.toggled.connect(self.toggle_lines)
+		# 'Display lines' in the plot's right-click menu
+		self.lines_action = QAction('Display lines', self)
+		self.lines_action.setCheckable(True)
+		self.lines_action.setChecked(True)
+		self.lines_action.toggled.connect(self.toggle_lines)
+		menu = self.plot_graph.plotItem.vb.menu
+		menu.addSeparator()
+		menu.addAction(self.lines_action)
 
 		self.updateplot()
 
 	def set_data_manager(self, data_manager):
 		self.data_manager = data_manager
 
-
 	def set_dark_mode(self):
-		styles = {"color": 'white', "font-size": "18px"}
+		self.label_color = "white"
 		self.plot_graph.setBackground("#202020")
-		self.plot_graph.setLabel("left", "P (GPa)", **styles)
-		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
-   
+		self._update_labels()
 
 	def set_light_mode(self):
-		styles = {"color": 'black', "font-size": "18px"}
+		self.label_color = "black"
 		self.plot_graph.setBackground("white")
+		self._update_labels()
+
+	def set_font_size(self, size):
+		self.font_px = size
+		self._update_labels()
+		self._update_legend_font()
+
+	def _update_labels(self):
+		styles = {"color": self.label_color, "font-size": f"{self.font_px}px"}
 		self.plot_graph.setLabel("left", "P (GPa)", **styles)
 		self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+		tick_font = QFont()
+		tick_font.setPixelSize(self.font_px)
+		for side in ("left", "bottom"):
+			self.plot_graph.getAxis(side).setStyle(tickFont=tick_font)
 
-	def updateplot(self, incoming_data=None): 
-		if incoming_data is None:
-			if self.data_manager is None:
-				return
-			incoming_data = []
-			for obj in self.data_manager.values():
-				if not getattr(obj, "include_in_table", False):
-					continue
-				if obj.Pm is None or obj.P is None:
-					continue
-				incoming_data.append(
-					{
-						"Pm": float(obj.Pm),
-						"P": float(obj.P),
-						"calib": obj.calib.name if obj.calib is not None else "unknown",
-					}
-				)
+	def _update_legend_font(self):
+		for sample, label in self.legend.items:
+			label.setText(label.text, size=f"{self.font_px}px")
+
+	def updateplot(self):
+		if self.data_manager is None:
+			return
+		incoming_data = []
+		# same order as the table '#': points are joined in the order they were added
+		for obj in self.data_manager.table_entries():
+			if obj.Pm is None or obj.P is None:
+				continue
+			incoming_data.append(
+				{
+					"Pm": float(obj.Pm),
+					"P": float(obj.P),
+					"P_err": getattr(obj, "P_err", None),
+					"calib": obj.calib.name if obj.calib is not None else "unknown",
+					"label": obj.calib.short_name if obj.calib is not None else "unknown",
+				}
+			)
 		
 		# Group data by 'calib' key
 		groups = {}
@@ -90,11 +109,12 @@ class PvPmPlotWindow(QMainWindow):
 				self.plot_graph.removeItem(self.lines[stale_group])
 				del self.lines[stale_group]
 				self.pens.pop(stale_group, None)
+				if stale_group in self.error_bars:
+					self.plot_graph.removeItem(self.error_bars.pop(stale_group))
 
 		for g, subdata in groups.items():
 			pm_values = [float(item['Pm']) for item in subdata]
 			p_values = [float(item['P']) for item in subdata]
-			#print(f"Group: {g}, Pm: {pm_values}, P: {p_values}")
 
 			if g in list(self.lines.keys()):
 				self.lines[g].setData(pm_values, p_values)
@@ -108,15 +128,27 @@ class PvPmPlotWindow(QMainWindow):
 				self.lines[g] = self.plot_graph.plot(
 					pm_values,
 					p_values,
-					name=g,
-					pen=self.pens[g],
+					name=subdata[0].get("label", g),   # short name, as in the table
+					# a series added while lines are hidden starts hidden too
+					pen=self.pens[g] if self.lines_action.isChecked() else None,
 					symbol="o",
 					symbolSize=14,
 					symbolBrush=color)
 
-		# legend text size:
-		for sample, label in self.legend.items:
-			label.setText(label.text, size="18px")
+			self._update_error_bars(g, subdata)
+
+		self._update_legend_font()
+
+	def _update_error_bars(self, group, subdata):
+		# statistical fit uncertainty on P (0 for points without one, e.g. Raman edge)
+		pm = np.array([float(item["Pm"]) for item in subdata])
+		p = np.array([float(item["P"]) for item in subdata])
+		err = np.array([item.get("P_err") or 0.0 for item in subdata], dtype=float)
+		if group not in self.error_bars:
+			# not given a name, so it stays out of the legend
+			self.error_bars[group] = pg.ErrorBarItem(beam=0, pen=self.pens[group])
+			self.plot_graph.addItem(self.error_bars[group])
+		self.error_bars[group].setData(x=pm, y=p, top=err, bottom=err)
 
 	def toggle_lines(self, checked):
 	    for g in self.lines:

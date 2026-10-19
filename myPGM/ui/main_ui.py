@@ -1,6 +1,7 @@
+import logging
+
 import numpy as np
 from PyQt5.QtWidgets import (
-    QApplication,
     QMainWindow,
     QLabel,
     QPushButton,
@@ -9,20 +10,18 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QVBoxLayout,
     QHBoxLayout,
-    QDoubleSpinBox,
     QGroupBox,
     QMessageBox,
-    QInputDialog,
     QAction,
     QGridLayout,
     QSplitter,
-    
+    QSpinBox,
 )
 from PyQt5.QtCore import (
     Qt,
     pyqtSignal,
 )
-from PyQt5.QtGui import QColor, QIcon
+from PyQt5.QtGui import QColor, QFont, QGuiApplication
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -30,9 +29,10 @@ from myPGM.helpers import (load_style,
                           get_app_icon, 
                           MyHSeparator, 
                           MyVSeparator, 
-                          SmartDoubleSpinBox, 
                           SmartDoubleDialog,
-                          FontSizeWindow,)
+                          FontSizeWindow,
+                          set_app_theme,
+                          current_app_font_px,)
 
 from myPGM.ui.PvPmPlot import PvPmPlotWindow
 from myPGM.ui.PvPmTable import HPTableWindow
@@ -41,6 +41,7 @@ from myPGM.ui.PressureToolbox import PressureToolbox
 
 import pyqtgraph as pg
 
+logger = logging.getLogger(__name__)
 
 class MainWindow(QMainWindow):
 
@@ -50,7 +51,6 @@ class MainWindow(QMainWindow):
     fit_from_click_signal = pyqtSignal(object)
     start_auto_fit_signal = pyqtSignal(object)
     subtract_ManualBg_signal = pyqtSignal(object)
-    modified_fit_range_signal = pyqtSignal(object)
     add_current_fit_signal = pyqtSignal(object)
     open_session_signal = pyqtSignal()
     save_session_signal = pyqtSignal()
@@ -64,40 +64,28 @@ class MainWindow(QMainWindow):
         if not app_icon.isNull():
             self.setWindowIcon(app_icon)
 
-        x = 100
-        y = 100
-        width = 800
-        height = 1000
-        self.setGeometry(x, y, width, height)
-        # self.setWindowIcon(QIcon('resources/PGMicon.png'))
+        self.resize(800, 1000)          # placed on screen by _arrange_windows
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
 
-        # Use a QHBoxLayout for the main layout
+        # Main layout: pressure toolbox on top, files and fitting below
         main_layout = QVBoxLayout(central_widget)
 
-        # Create a new panel on the left
+        # Top panel
         top_panel_layout = QHBoxLayout()
         main_layout.addLayout(top_panel_layout)
 
-        # Create a new panel on the right
+        # Bottom panel
         bottom_panel_layout = QHBoxLayout()
         main_layout.addLayout(bottom_panel_layout)
 
         pg.setConfigOption('leftButtonPan', False)
  
-        #####################################################################################
-        # #? Setup Parameters table window
         menubar = self.menuBar()
-        # self.ParamWindow = ParameterWindow()
-        # param_menu = menubar.addMenu('Parameters')
-        # open_param_action = QAction('Change parameters', self)
-        # open_param_action.triggered.connect(self.toggle_params)
-        # param_menu.addAction(open_param_action)
 
         #####################################################################################
-        # #? Setup Theme switch menu
+        # #? Setup Files menu
         files_menu = menubar.addMenu("Files")
 
         open_session_action = QAction("Open session", self)
@@ -148,16 +136,12 @@ class MainWindow(QMainWindow):
         
         self.ptoolbox = PressureToolbox()
 
-        #PToolboxSubactionsLayout = QVBoxLayout()        
-        #self.popPToolbox_button = QPushButton('New PToolbox')
         self.PToolbox_toTable_button = QPushButton('Add \nto\n table')
-
 
         PToolboxLayout.addWidget(self.ptoolbox, stretch=10)
         PToolboxLayout.addWidget(self.PToolbox_toTable_button, stretch=1)
         PToolboxGroup.setLayout(PToolboxLayout)
         top_panel_layout.addWidget(PToolboxGroup)
-        
 
         #################################################################################### Main Bottom Panel ###################################################################################""
 
@@ -173,7 +157,6 @@ class MainWindow(QMainWindow):
         FileManagementLayout.addWidget(self.file_list_widget)
 
         bottom_panel_layout.addWidget(FileManagementBox, stretch=1)
-
 
         #####################################################################################
         # #? Setup right part of bottom panel
@@ -235,8 +218,6 @@ class MainWindow(QMainWindow):
         self.fit_model_combo = QComboBox()
         self.fit_model_combo.setObjectName("fit_model_combo")
         self.fit_model_combo.setMinimumWidth(100)
-        
-
 
         FitOptionBox.addWidget(self.fit_model_combo)
 
@@ -263,7 +244,6 @@ class MainWindow(QMainWindow):
         self.ResetBg_button = QPushButton("Reset Bg", self)
         BgBox.addWidget(self.ResetBg_button, stretch=3)
 
-
         SpectroCalibBox = QHBoxLayout()
         self.LoadSpectro_button = QPushButton("Load spectro", self)
         SpectroCalibBox.addWidget(self.LoadSpectro_button, stretch=3)
@@ -275,13 +255,11 @@ class MainWindow(QMainWindow):
         self.Spectro_filename_label = QLabel("None", self)
         SpectroCalibBox.addWidget(self.Spectro_filename_label, stretch=3)
 
-        
         SmoothBox = QHBoxLayout()
         SmoothBox.addWidget(QLabel("Smoothing:", self), stretch=1)
 
-        self.smoothing_factor = SmartDoubleSpinBox()
-        self.smoothing_factor.setDecimals(0)
-        self.smoothing_factor.setRange(1, +np.inf)
+        self.smoothing_factor = QSpinBox()      # smoothing window, in points
+        self.smoothing_factor.setRange(1, 999)
         self.smoothing_factor.setValue(1)
         
         SmoothBox.addWidget(self.smoothing_factor, stretch=1)
@@ -304,11 +282,15 @@ class MainWindow(QMainWindow):
         PlotLayout = QVBoxLayout()
         self.splitter = QSplitter(Qt.Vertical)
         self.plot_label_color = "black"
+        # plots and the PvPm table use the app font size, kept in sync by set_font_size
+        self.plot_font_px = current_app_font_px()
+        self.plot_title_size = f"{self.plot_font_px + 4}px"
+        self.font_size_window = None
 
         # #? Actual spectral data
         self.data_widget = pg.PlotWidget()
         self.data_widget.setBackground("white")
-        styles = {"color": "black", "font-size": "16px"}
+        styles = self._label_styles()
         self.data_widget.setLabel("bottom", "Spectral unit", **styles)
         self.data_widget.setLabel("left", "Intensity (a.u.)", **styles)
         self.data_scatter = pg.ScatterPlotItem(symbol='o', size=4, brush='grey')
@@ -331,7 +313,6 @@ class MainWindow(QMainWindow):
         # #? Setup derivative plotting section
         self.deriv_widget = pg.PlotWidget()
         self.deriv_widget.setBackground("white")
-        styles = {"color": "black", "font-size": "16px"}
         self.deriv_widget.setLabel("bottom", "Spectral unit", **styles)
         self.deriv_widget.setLabel("left", "dI/dx", **styles)
 
@@ -342,16 +323,13 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setMenuEnabled(False)
         self.deriv_scatter.scene().sigMouseClicked.connect(self.deriv_plot_click)
 
-
         self.splitter.addWidget(self.data_widget)
         self.splitter.addWidget(self.deriv_widget)
         PlotLayout.addWidget(self.splitter)
         self.splitter.setSizes([300, 200])
         self.splitter.widget(1).hide()
 
-        # splitter.setStyleSheet("QSplitter::handle {background: rgb(55, 100, 110);} ")
         FitBoxLayout.addLayout(PlotLayout)
-
 
         self.table_interactions = QHBoxLayout()
         self.add_fitted_button = QPushButton("Add fit to table")
@@ -367,93 +345,84 @@ class MainWindow(QMainWindow):
         # #? Setup PvPm table and plotwindow
 
         self.PvPmTableWindow = HPTableWindow()
-        self.PvPmTableWindow.show()
-
         self.PvPmPlotWindow = PvPmPlotWindow()
+        self._arrange_windows()
+        self.PvPmTableWindow.show()
         self.PvPmPlotWindow.show()
-#
-#        self.data.changed.connect(self.PvPmTableWindow.table_widget.updatetable)
-#        self.data.changed.connect(self.PvPmPlotWindow.updateplot)
+
+        self.set_font_size(self.plot_font_px)
 
         self.additional_toolbox_window = PressureToolbox()
-        #self.additional_toolbox_window.show()
 
+        # set by the presenter: called on close, returns False to keep the window open
+        self.close_guard = None
 
     #####################################################################################
     # ? Main window methods
 
+    def _arrange_windows(self):
+        """Place the main window and, to its right, the PvPm table and plot,
+        all within the available area of the screen (small laptop screens too)."""
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        area = screen.availableGeometry()
+        gap = 10
+
+        def fit(widget, x, y):
+            width = min(widget.width(), area.width())
+            height = min(widget.height(), area.height())
+            x = max(area.left(), min(x, area.right() - width))
+            y = max(area.top(), min(y, area.bottom() - height))
+            widget.setGeometry(x, y, width, height)
+
+        fit(self, area.left() + 100, area.top() + 100)
+        side_x = self.geometry().right() + gap
+        fit(self.PvPmTableWindow, side_x, self.geometry().top())
+        fit(self.PvPmPlotWindow, side_x, self.PvPmTableWindow.geometry().bottom() + gap)
 
     def closeEvent(self, event):
-        for window in QApplication.topLevelWidgets():
-            window.close()
+        if self.close_guard is not None and not self.close_guard():
+            event.ignore()
+            return
+        # close the side windows owned by this main window (not every app window,
+        # which recursed between main windows)
+        for window in (self.PvPmTableWindow, self.PvPmPlotWindow,
+                       self.additional_toolbox_window, self.font_size_window):
+            if window is not None:
+                window.close()
+        super().closeEvent(event)
 
     def switch_to_dark(self):
-        try:
-            style = load_style('dark-mode.qss')
-        except OSError as exc:
-            print(f"Could not load dark-mode stylesheet: {exc}")
-        else:
-            self.setStyleSheet(style)
-            self.PvPmTableWindow.setStyleSheet(style)
-            self.PvPmPlotWindow.setStyleSheet(style)
-            self.additional_toolbox_window.setStyleSheet(style)
-        self.plot_label_color = "white"
-
-        # some parameters seem to be unaffected by the style import ...
-        # thus we use the following fix
-
-#        self.PvPmPlotWindow.plot_graph.setBackground("#202020")
-        styles = {"color": self.plot_label_color, "font-size": "16px"}
-#        self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
-#        self.PvPmPlotWindow.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
-        self.data_widget.setBackground("#202020")
-        self.data_widget.setLabel("left", **styles)
-        self.data_widget.setLabel("bottom", **styles)
-        self.deriv_widget.setBackground("#202020")
-        self.deriv_widget.setLabel("left", **styles)
-        self.deriv_widget.setLabel("bottom", **styles)
-
-        self.ptoolbox.set_dark_mode()
-        self.additional_toolbox_window.set_dark_mode()
-        self.PvPmPlotWindow.set_dark_mode()
-#        self.PvPmPlotWindow.updateplot()
-
-        self.theme_switched.emit()
+        self._apply_theme('dark-mode.qss', label_color="white", plot_background="#202020", dark=True)
 
     def switch_to_light(self):
+        self._apply_theme('light-mode.qss', label_color="black", plot_background="white", dark=False)
+
+    def _apply_theme(self, qss_file, label_color, plot_background, dark):
         try:
-            style = load_style('light-mode.qss')
+            style = load_style(qss_file)
         except OSError as exc:
-            print(f"Could not load light-mode stylesheet: {exc}")
+            logger.warning("Could not load stylesheet %s: %s", qss_file, exc)
         else:
-            self.setStyleSheet(style)
-            self.PvPmTableWindow.setStyleSheet(style)
-            self.PvPmPlotWindow.setStyleSheet(style)
-            self.additional_toolbox_window.setStyleSheet(style)
-        self.plot_label_color = "black"
+            # app-wide, so that every window and dialog follows the theme
+            set_app_theme(style)
+        self.plot_label_color = label_color
 
-        # some parameters seem to be unaffected by the style import ...
-        # thus we use the following fix
-        
-        #self.PvPmPlotWindow.plot_graph.setBackground("white")
-        styles = {"color": self.plot_label_color, "font-size": "16px"}
-        #self.PvPmPlotWindow.plot_graph.setLabel("left", "P (GPa)", **styles)
-        #self.PvPmPlotWindow.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
+        # pyqtgraph plots are not styled by the Qt stylesheet
+        styles = self._label_styles()
+        for widget in (self.data_widget, self.deriv_widget):
+            widget.setBackground(plot_background)
+            widget.setLabel("left", **styles)
+            widget.setLabel("bottom", **styles)
 
-        self.data_widget.setBackground("white")
-        self.data_widget.setLabel("left", **styles)
-        self.data_widget.setLabel("bottom", **styles)
-        self.deriv_widget.setBackground("white")
-        self.deriv_widget.setLabel("left", **styles)
-        self.deriv_widget.setLabel("bottom", **styles)
-
-        self.ptoolbox.set_light_mode()
-        self.PvPmPlotWindow.set_light_mode()
-        self.additional_toolbox_window.set_light_mode()
-        #self.PvPmPlotWindow.updateplot()
+        for themed in (self.ptoolbox, self.additional_toolbox_window, self.PvPmPlotWindow):
+            if dark:
+                themed.set_dark_mode()
+            else:
+                themed.set_light_mode()
 
         self.theme_switched.emit()
-
 
     def populate_fit_models_combo(self, model_dict):
         if model_dict is not None:
@@ -471,11 +440,10 @@ class MainWindow(QMainWindow):
             .getRgb()
             )
             self.fit_model_combo.setStyleSheet(
-                "background-color: rgba{};    selection-background-color: k;".format(tmp_color)
+                "background-color: rgba{};".format(tmp_color)
             )
         else:
             raise ImportError('Error loading fit models.')
-
 
     def add_current_fit(self):
         self.add_current_fit_signal.emit(None)
@@ -483,16 +451,12 @@ class MainWindow(QMainWindow):
     def prompt_fit_pm(self, current_pm):
 
         dialog = SmartDoubleDialog(valuename='Pm (bar):')
-#        dialog.exec_()
-
-#        dialog = QInputDialog(self)
-#        dialog.setInputMode(QInputDialog.DoubleInput)
         dialog.setWindowTitle("Input Pm")
-#        dialog.setLabelText("Pm (bar)")
-#        dialog.setDoubleValue(current_pm)
-#        dialog.setDoubleRange(-1e12, 1e12)
-#        dialog.setDoubleDecimals(2)
-#        dialog.setStyleSheet(self.styleSheet())
+        # start from the last Pm, selected: typing replaces it, Enter keeps it
+        if current_pm is not None:
+            dialog.spinbox.setValue(float(current_pm))
+        dialog.spinbox.selectAll()
+        dialog.spinbox.setFocus()
         if dialog.exec_():
             return dialog.value()
         return None
@@ -537,8 +501,6 @@ class MainWindow(QMainWindow):
 
     def fit_range_changed(self):
         self.fit_range_selector_edited = True
-        if self.fit_range_enabled:
-            self.modified_fit_range_signal.emit(self.fit_range_selector.getRegion())
 
     def get_file_via_dialog(self):
         file_dialog = QFileDialog()
@@ -576,7 +538,6 @@ class MainWindow(QMainWindow):
         )
         return file_name or None
 
-
     def select_directory_from_dialog(self):
         options = QFileDialog.Options()
         dir_name = QFileDialog.getExistingDirectory(
@@ -586,14 +547,12 @@ class MainWindow(QMainWindow):
             self.dir_label.setText(f"Selected directory: {dir_name}")
         return dir_name
 
-
-
     def plot_data(self, x, y, buffer, preserve_view=False):
         self.data_widget.removeItem(self.data_edge_marker)
         self.deriv_widget.removeItem(self.deriv_edge_marker)
         self.data_widget.removeItem(self.data_fit_line)
         self.data_fit_line.setData([],[])
-        self.data_widget.setTitle('Not fitted', color=self.plot_label_color, size="16pt")
+        self._set_plot_title('Not fitted')
 
         self.data_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
         self.data_widget.setLabel("left", 'Intensity')
@@ -611,52 +570,40 @@ class MainWindow(QMainWindow):
         if not preserve_view:
             self.deriv_widget.autoRange()
 
-
-
     def toggle_click_fit(self):
         self.click_fit_enabled = not self.click_fit_enabled
 
     def data_plot_click(self, event):
-        if event.button() == Qt.RightButton or (
-            event.button() == Qt.LeftButton
-            and event.modifiers() & Qt.ControlModifier
-        ):
-            view_range = np.array(self.data_widget.plotItem.vb.viewRange()) * 2
-            curve_data = self.data_scatter.getData()
-            x_range = np.max(curve_data[0]) - np.min(curve_data[0])
-            if (view_range[0][1] - view_range[0][0]) > x_range:
-                #self.auto_range = True
-                self.data_widget.autoRange()
-            else:
-                #self.auto_range = False
-                self.data_widget.plotItem.vb.scaleBy((2, 2))
-            #self.emit_sig_range_changed()
+        if self._is_zoom_click(event):
+            self._zoom(self.data_widget, self.data_scatter)
         elif event.button() == Qt.LeftButton:
             if self.click_fit_enabled:
                 self.click_to_fit(event, 'data')
             elif self.click_ManualBg_enabled:
                 self.set_ManualBg(event)
 
-
-
     def deriv_plot_click(self, event):
-        if event.button() == Qt.RightButton or (
-            event.button() == Qt.LeftButton
-            and event.modifiers() & Qt.ControlModifier
-        ):
-            view_range = np.array(self.deriv_widget.plotItem.vb.viewRange()) * 2
-            curve_data = self.deriv_scatter.getData()
-            x_range = np.max(curve_data[0]) - np.min(curve_data[0])
-            if (view_range[0][1] - view_range[0][0]) > x_range:
-                #self.auto_range = True
-                self.deriv_widget.autoRange()
-            else:
-                #self.auto_range = False
-                self.deriv_widget.plotItem.vb.scaleBy((2, 2))
-            #self.emit_sig_range_changed()
+        if self._is_zoom_click(event):
+            self._zoom(self.deriv_widget, self.deriv_scatter)
         elif event.button() == Qt.LeftButton:
             if self.click_fit_enabled:
                 self.click_to_fit(event, 'deriv')
+
+    @staticmethod
+    def _is_zoom_click(event):
+        # right click, or ctrl + left click
+        return event.button() == Qt.RightButton or (
+            event.button() == Qt.LeftButton and event.modifiers() & Qt.ControlModifier)
+
+    @staticmethod
+    def _zoom(widget, scatter):
+        """Zoom out by 2, or back to the full spectrum once zoomed out past it."""
+        view_range = np.array(widget.plotItem.vb.viewRange()) * 2
+        curve_x = scatter.getData()[0]
+        if (view_range[0][1] - view_range[0][0]) > np.max(curve_x) - np.min(curve_x):
+            widget.autoRange()
+        else:
+            widget.plotItem.vb.scaleBy((2, 2))
 
     def auto_fit(self):
         self.start_auto_fit_signal.emit(None)
@@ -664,14 +611,12 @@ class MainWindow(QMainWindow):
     def click_to_fit(self, mouseClickEvent, window):
         if self.click_fit_enabled:
             scene_coords = mouseClickEvent.scenePos()
-            if window == 'data':
-                vb = self.data_widget.plotItem.vb
-                if self.data_widget.sceneBoundingRect().contains(scene_coords):
-                    click_point = vb.mapSceneToView(scene_coords)
-            elif window == 'deriv':
-                vb = self.deriv_widget.plotItem.vb
-                if self.deriv_widget.sceneBoundingRect().contains(scene_coords):
-                    click_point = vb.mapSceneToView(scene_coords)
+            widget = self.data_widget if window == 'data' else self.deriv_widget
+            vb = widget.plotItem.vb
+            # ignore clicks outside the plot area (axes, margins)
+            if not vb.sceneBoundingRect().contains(scene_coords):
+                return
+            click_point = vb.mapSceneToView(scene_coords)
 
             x_click, y_click = click_point.x(), click_point.y()
             self.fit_from_click_signal.emit(x_click)
@@ -679,33 +624,54 @@ class MainWindow(QMainWindow):
             self.toggle_click_fit()
             self.click_fit_button.setChecked(False)
 
+    @staticmethod
+    def _pressure_title(P, P_err=None):
+        """Title with the statistical fit uncertainty, when there is one."""
+        if P_err is None:
+            return f"Fitted pressure : {P : > 10.3f} GPa"
+        err = f"{P_err:.3f}" if round(P_err, 3) > 0 else "<0.001"
+        return f"Fitted pressure : {P : > 10.3f} \u00b1 {err} GPa"
 
-    def plot_fit(self, P, fit_model, fit_result, x, y):
+    def plot_fit(self, P, fit_model, fit_result, x, y, P_err=None):
         self.data_widget.removeItem(self.data_edge_marker)
         self.deriv_widget.removeItem(self.deriv_edge_marker)
         self.data_widget.removeItem(self.data_fit_line)
 
         if fit_model.type == "peak":
-            fitted = [
-                fit_model.func(wvl, *fit_result["opti"])
-                for wvl in x
-            ]
-            self.data_fit_line.setData(x, fitted)
+            # drawn over the whole spectrum, not only the fitting range
+            x = np.asarray(x)
+            self.data_fit_line.setData(x, fit_model.func(x, *fit_result["opti"]))
             self.data_widget.addItem(self.data_fit_line)
-            self.data_widget.setTitle(f"Fitted pressure : {P : > 10.3f} GPa", color=self.plot_label_color, size="16pt")
+            self._set_plot_title(self._pressure_title(P, P_err))
 
         elif fit_model.type == "edge":
             self.data_edge_marker.setValue(fit_result["opti"])
             self.data_widget.addItem(self.data_edge_marker)
             self.deriv_edge_marker.setValue(fit_result["opti"])
-                
             self.deriv_widget.addItem(self.deriv_edge_marker)
+            self._set_plot_title(self._pressure_title(P, P_err))
 
-            self.data_widget.setTitle(f"Fitted pressure : {P : > 10.3f} GPa", color=self.plot_label_color, size="16pt")
-                                
         else:
-                print("Plot fit not implemented")
+            logger.warning("Plot of fit type %r not implemented", fit_model.type)
 
+    def ask_save_changes(self):
+        """'save', 'discard' or 'cancel'."""
+        answer = QMessageBox.question(
+            self, "Unsaved changes",
+            "The session has unsaved changes (spectra, fits or table points).\n"
+            "Save them before closing?",
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Save)
+        return {QMessageBox.Save: "save", QMessageBox.Discard: "discard"}.get(answer, "cancel")
+
+    def ask_recover_session(self, when):
+        answer = QMessageBox.question(
+            self, "Recover session",
+            f"myPGM did not close normally last time.\n"
+            f"A backup of the unsaved session from {when} was found.\n\n"
+            "Recover it?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        return answer == QMessageBox.Yes
 
     def fit_error_popup_window(self):
         msg = QMessageBox()
@@ -713,7 +679,6 @@ class MainWindow(QMainWindow):
         msg.setText("Attempted fit couldn't converge.")
         msg.setWindowTitle("Fit error")
         msg.exec_()
-
 
     def toggle_PvPm(self):
         if self.PvPmTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
@@ -729,10 +694,40 @@ class MainWindow(QMainWindow):
         else:
             self.additional_toolbox_window.show()
 
-
     def show_font_size_window(self):
-        self.u = FontSizeWindow()
-        self.u.show()
+        # created once, so reopening it keeps the chosen size
+        if self.font_size_window is None:
+            self.font_size_window = FontSizeWindow(self.plot_font_px)
+            self.font_size_window.font_size_changed.connect(self.set_font_size)
+        self.font_size_window.show()
+        self.font_size_window.raise_()
+
+    def set_font_size(self, size):
+        # pyqtgraph items and the PvPm table are not reached by the app stylesheet
+        self.plot_font_px = size
+        self.update_plot_fonts()
+        self.PvPmTableWindow.table_widget.set_font_size(size)
+        self.PvPmPlotWindow.set_font_size(size)
+
+    def _label_styles(self):
+        return {"color": self.plot_label_color, "font-size": f"{self.plot_font_px}px"}
+
+    def _set_plot_title(self, text):
+        self.data_widget.setTitle(text, color=self.plot_label_color, size=self.plot_title_size)
+
+    def update_plot_fonts(self):
+        styles = self._label_styles()
+        tick_font = QFont()
+        tick_font.setPixelSize(self.plot_font_px)
+        for widget in (self.data_widget, self.deriv_widget):
+            widget.setLabel("left", **styles)
+            widget.setLabel("bottom", **styles)
+            for side in ("left", "bottom"):
+                widget.getAxis(side).setStyle(tickFont=tick_font)
+        self.plot_title_size = f"{self.plot_font_px + 4}px"
+        # re-apply the current title with the new size (none before the first plot)
+        if self.data_widget.plotItem.titleLabel.text:
+            self._set_plot_title(self.data_widget.plotItem.titleLabel.text)
 
     def toggle_ManualBg(self):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:
@@ -748,20 +743,17 @@ class MainWindow(QMainWindow):
             self.data_widget.addItem(self.data_bg_line)
             self.data_widget.addItem(self.data_bg_scatter)
         self.click_ManualBg_enabled = not self.click_ManualBg_enabled
-        # if self.click_ManualBg_enabled:
-        #    self.ManualBg_button.setText('test')
 
     def set_ManualBg(self, mouseClickEvent):
         if self.click_ManualBg_enabled:
             scene_coords = mouseClickEvent.scenePos()
             vb = self.data_widget.plotItem.vb
-            if self.data_widget.sceneBoundingRect().contains(scene_coords):
-                click_point = vb.mapSceneToView(scene_coords)
-                x_click, y_click = click_point.x(), click_point.y()
+            if not vb.sceneBoundingRect().contains(scene_coords):
+                return
+            click_point = vb.mapSceneToView(scene_coords)
+            x_click, y_click = click_point.x(), click_point.y()
             self.ManualBg_points.append([x_click, y_click])
-            #current_spectrum.bg = self.plot_ManualBg()
             self.plot_ManualBg()
-
 
     def plot_ManualBg(self):
         curve_data_x = self.data_scatter.getData()[0]
@@ -772,20 +764,18 @@ class MainWindow(QMainWindow):
         
         self.data_bg_scatter.setData(x_bg,y_bg)
         
-        # sort bg points
-        y_bg = y_bg[np.argsort(x_bg)]
-        x_bg = np.sort(x_bg)
+        # sort bg points, dropping duplicate x (the spline needs strictly increasing x)
+        x_bg, unique_idx = np.unique(x_bg, return_index=True)
+        y_bg = y_bg[unique_idx]
 
-        # spline fit:
+        # spline through the clicked points, flat beyond the outermost ones
+        # (extrapolating the polynomial made the background swing at the edges)
         if len(x_bg) >= 2:
             spl_order = len(x_bg) - 1 if len(x_bg) - 1 <= 5 else 5
             spl = InterpolatedUnivariateSpline(x_bg, y_bg, k=spl_order)
-            self.temp_bg = spl(curve_data_x)
+            self.temp_bg = spl(np.clip(curve_data_x, x_bg[0], x_bg[-1]))
             self.data_bg_line.setData(curve_data_x,self.temp_bg)
         return self.temp_bg
-
-
-
 
 class ResizeOnlyLinearRegion(pg.LinearRegionItem):
     def __init__(self, *args, **kwargs):
@@ -807,6 +797,3 @@ class ResizeOnlyLinearRegion(pg.LinearRegionItem):
                 line.setCursor(Qt.SizeHorCursor)
             else:
                 line.unsetCursor()
-
-if __name__ == "__main__":
-    print("Only MainWindow was executed.")

@@ -12,51 +12,57 @@ class GaugeFitModel():
         self.color = color  # color printed in calibration combobox
 
     def get_pinit(self, x, y, guess_peak=None):
-        
-        pinit = list()
-        
-        xbin = x[1] - x[0] # nm/px or cm-1/px
-        if guess_peak == None:
-            pk, prop = find_peaks(y - np.min(y), height = np.ptp(y)/2, width=0.1/xbin)
-            pk = pk[np.argsort(prop['peak_heights'])]
-            prop['peak_heights'].sort()
-            pinit.append( y[0] )
-            params = getfullargspec(self.func).args[1:]
-            if (len(params)-1)%3 == 0:
-                param_per_peak = 3
-                peak_number = (len(params)-1)//3
-                for i in range(peak_number):
-                    pinit.append( 0.5 )                         # height
-                    pinit.append( x[pk[i]]  )                   # position
-                    pinit.append( prop['widths'][i] * xbin )    # sigma
-                   #print(prop['widths'][i] * xbin)
-            elif (len(params)-1)%4 == 0:
-                param_per_peak = 4
-                peak_number = (len(params)-1)//4
-                for i in range(peak_number):
-                    pinit.append( 0.5 )                         # height
-                    pinit.append( x[pk[i]]  )                   # position
-                    pinit.append( prop['widths'][i] * xbin/2 ) # sigma
-                    pinit.append( prop['widths'][i] * xbin/2 ) # gamma
-        else: 
-            pinit.append( y[0] ) 
-            params = getfullargspec(self.func).args[1:]
-            if (len(params)-1)%3 == 0:
-                param_per_peak = 3
-                peak_number = (len(params)-1)//3
-                for i in range(peak_number):
-                    pinit.append( 0.5 )             # height
-                    pinit.append( guess_peak -1.5*i ) # idiot trick for the 2nd peak
-                    pinit.append( 0.5 )    # sigma
-            elif (len(params)-1)%4 == 0:
-                param_per_peak = 4
-                peak_number = (len(params)-1)//4
-                for i in range(peak_number):
-                    pinit.append( 0.5 )             # height
-                    pinit.append( guess_peak -1.5*i ) # idiot trick for the 2nd peak
-                    pinit.append( 0.2 ) # sigma
-                    pinit.append( 0.2 ) # gamma
+        ''' Initial parameters: offset c, then per peak height, position and
+            width(s): (a, x, sigma) or, for Voigt, (a, x, sigma, gamma). '''
+        n_params = len(getfullargspec(self.func).args) - 2   # minus x and c
+        params_per_peak = 3 if n_params % 3 == 0 else 4
+        peak_number = n_params // params_per_peak
+
+        if guess_peak is None:
+            xbin = x[1] - x[0] # nm/px or cm-1/px
+            positions, widths = self._find_peak_guesses(x, y, xbin, peak_number)
+            # a Voigt splits the width between its Gaussian and Lorentzian parts
+            widths = widths if params_per_peak == 3 else [w / 2 for w in widths]
+        else:
+            # clicked position; any 2nd peak is started 1.5 x-units below it
+            positions = [guess_peak - 1.5 * i for i in range(peak_number)]
+            widths = [0.5 if params_per_peak == 3 else 0.2] * peak_number
+
+        pinit = [y[0]]
+        for position, width in zip(positions, widths):
+            if params_per_peak == 4:
+                amplitude = self._voigt_amplitude(x, y, position, width, offset=y[0])
+            else:
+                amplitude = 0.5
+            pinit += [amplitude, position] + [width] * (params_per_peak - 2)
         return pinit
+
+    @staticmethod
+    def _voigt_amplitude(x, y, position, width, offset):
+        ''' The Voigt amplitude is the peak area: start from the one giving the
+            measured peak height, whatever the units and peak width (a fixed 0.5
+            gave a starting peak 36x too low for the ~10 cm-1 wide H2 vibron). '''
+        height = y[np.argmin(np.abs(x - position))] - offset
+        height = max(height, 0.1 * np.ptp(y))      # keep a positive, sensible start
+        return height / voigt(0, width, width)
+
+    @staticmethod
+    def _find_peak_guesses(x, y, xbin, peak_number):
+        ''' Positions and widths (x units) of the peak_number tallest peaks,
+            tallest first. Missing peaks are guessed next to the tallest one. '''
+        pk, prop = find_peaks(y - np.min(y), height = np.ptp(y)/2, width=0.1/abs(xbin))
+        order = np.argsort(prop['peak_heights'])[::-1]
+        positions = list(x[pk[order]])
+        widths = list(prop['widths'][order] * abs(xbin))
+
+        if not positions:
+            positions = [x[np.argmax(y)]]
+            widths = [10 * abs(xbin)]
+        while len(positions) < peak_number:
+            # e.g. unresolved doublet: start the extra peak just beside the main one
+            positions.append(positions[0] - widths[0])
+            widths.append(widths[0])
+        return positions[:peak_number], widths[:peak_number]
 
 
     def __repr__(self):

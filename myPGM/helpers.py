@@ -1,37 +1,47 @@
 import numpy as np
-from copy import deepcopy
-from scipy.optimize import minimize
-from PyQt5.QtWidgets import (QFrame, 
-                             QDoubleSpinBox, 
-                             QDialog, 
-                             QVBoxLayout, 
-                             QHBoxLayout, 
-                             QLabel, 
-                             QPushButton, 
+from PyQt5.QtWidgets import (QFrame,
+                             QDoubleSpinBox,
+                             QDialog,
+                             QVBoxLayout,
+                             QHBoxLayout,
+                             QLabel,
+                             QPushButton,
                              QWidget,
                              QSlider,
                              QApplication)
-from PyQt5.QtCore import (Qt, 
-                         QObject, 
-                         pyqtSignal, 
-                         QAbstractListModel, 
-                         QModelIndex, 
-                         QLocale)
-
-from PyQt5.QtGui import QIcon, QFont
-import csv
+from PyQt5.QtCore import Qt, pyqtSignal, QLocale
+from PyQt5.QtGui import QIcon, QFontInfo
 from functools import wraps
-# compatibility bridge
-try:
-    from importlib.resources import files
-except ImportError:
-    from importlib_resources import files
+from importlib.resources import files
+
+FONT_RULE_MARKER = "/* myPGM font size */"
+
+def set_app_theme(style):
+    """Apply a theme stylesheet to the whole application, keeping the font size rule."""
+    app = QApplication.instance()
+    _, marker, font_rule = app.styleSheet().partition(FONT_RULE_MARKER)
+    app.setStyleSheet(style + marker + font_rule)
+
+def current_app_font_px():
+    """Pixel size of the font currently used by the application widgets."""
+    return QFontInfo(QApplication.font()).pixelSize()
+
+def set_app_font_size(size):
+    """Set the global font size, keeping the current theme stylesheet."""
+    app = QApplication.instance()
+    base_style = app.styleSheet().split(FONT_RULE_MARKER)[0]
+    app.setStyleSheet(f"{base_style}{FONT_RULE_MARKER}\n* {{ font-size: {size}px; }}\n")
 
 class FontSizeWindow(QWidget):
 
-    def __init__(self):
+    # widgets drawn outside of Qt stylesheets (plots, table) listen to this
+    font_size_changed = pyqtSignal(int)
+
+    def __init__(self, current_size=15):
         super().__init__()
 
+        self.setObjectName("FontSizeWindow")
+        self.setAttribute(Qt.WA_StyledBackground, True)
         self.setWindowTitle("Font size control")
 
         layout = QVBoxLayout(self)
@@ -42,24 +52,19 @@ class FontSizeWindow(QWidget):
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setMinimum(8)
         self.slider.setMaximum(30)
-        self.slider.setValue(15)
+        # start from the size in use: nothing changes until the slider is moved
+        self.slider.setValue(current_size)
         layout.addWidget(self.slider)
 
-        self.value_label = QLabel()
+        self.value_label = QLabel(f"{self.slider.value()}px")
         layout.addWidget(self.value_label)
-
-        self.set_font_size(self.slider.value())
 
         self.slider.valueChanged.connect(self.set_font_size)
 
     def set_font_size(self, size):
-        app = QApplication.instance()
-        app.setStyleSheet(f"""
-            * {{
-                font-size: {size}px;
-            }}
-        """)
+        set_app_font_size(size)
         self.value_label.setText(f"{size}px")
+        self.font_size_changed.emit(size)
 
 class SmartDoubleSpinBox(QDoubleSpinBox):
     def __init__(self, *args, **kwargs):
@@ -118,7 +123,6 @@ class MyVSeparator(QFrame):
         self.setFrameShape(QFrame.VLine)
         self.setFrameShadow(QFrame.Sunken)
 
-
 class PressureCalculationFailed(Exception):
     pass
 
@@ -152,7 +156,6 @@ def validate_scalar(value, name="Value"):
 
 def load_style(qssfile):
     return files("myPGM.ui").joinpath(qssfile).read_text(encoding="utf-8")
-
 
 def get_app_icon():
     """Return the application icon with a safe fallback order."""
@@ -243,7 +246,6 @@ def spectro_calibration_reader(f):
                     v = float(line.strip().replace(',', '.'))
                     data_lines.append(v)
                 except ValueError:
-                    #print(line)
                     pass
 
             if not data_lines:
@@ -251,21 +253,3 @@ def spectro_calibration_reader(f):
 
             data = np.array(data_lines, dtype=np.float64)
         return data
-
-
-if __name__ == '__main__':
-    
-    import os
-
-    f1 = os.path.dirname(__file__)+'/resources/'+'Example_Ruby_1.asc'
-    f2 = os.path.dirname(__file__)+'/resources/'+'alternate_spectro_calib_2cols.asc'
-    f3 = os.path.dirname(__file__)+'/resources/'+'alternate_spectro_calib_1col_header.asc'    
-
-
-    print(customparse_file2data(f1))
-
-    print(spectro_calibration_reader(f2))
-    print(spectro_calibration_reader(f3))
-
-
-    print(all(spectro_calibration_reader(f2) == spectro_calibration_reader(f3)))
