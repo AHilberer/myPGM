@@ -4,7 +4,7 @@ import ctypes
 import logging
 import time
 from PyQt5.QtWidgets import QApplication, QMessageBox
-from PyQt5.QtCore import QLocale
+from PyQt5.QtCore import QLocale, QLoggingCategory
 
 from myPGM.helpers import load_style, get_app_icon
 from myPGM.ui.main_ui import MainWindow
@@ -60,6 +60,10 @@ def _install_excepthook():
 
 def main():
     _set_windows_appusermodelid()
+    # Qt 5's Wayland backend warns on every window activation it cannot perform
+    # ("Wayland does not support QWindow::requestActivate()"); harmless, so muted.
+    # A QT_LOGGING_RULES environment variable still overrides this.
+    QLoggingCategory.setFilterRules("qt.qpa.wayland.warning=false")
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setApplicationName("myPGM")
