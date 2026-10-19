@@ -59,6 +59,8 @@ automated test suite.
 - The spectrum axis units could come from the previously selected spectrum (e.g. cm⁻¹ on a ruby
   spectrum).
 - The font size window wiped the theme, and the T field turned orange at 298 K in light mode.
+- On Linux under Wayland, the terminal filled with "Wayland does not support
+  QWindow::requestActivate()" warnings; these harmless Qt messages are now muted.
 
 ### Known limitations
 - σx and σP are the statistical precision of the fit only: they do not include the uncertainty on x0,
@@ -66,7 +68,7 @@ automated test suite.
 - The Raman edge model needs a fit range around the edge: on the whole spectrum it can pick an
   unrelated feature.
 - Settings (λ0, theme, font size, folders) are not remembered between launches.
-- Tested on macOS (and Linux by the automated tests); Windows has not been tested yet.
+- Tested on macOS and Linux (AlmaLinux, Wayland); Windows has not been tested yet.
 - No standalone executables yet.
 
 ### Development
