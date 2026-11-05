@@ -1,4 +1,3 @@
-import sys
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -19,18 +18,11 @@ class FileListViewerWidget(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.files = {}
         self.init_ui()
 
     def init_ui(self):
 
         layout = QVBoxLayout()
-
-
-        # Optional refresh button
-        # refresh_button = QPushButton("Refresh List")
-        # refresh_button.clicked.connect(self.populate_list)
-        
 
         # File loading options
         FileLoadLayout = QGridLayout()
@@ -85,20 +77,8 @@ class FileListViewerWidget(QWidget):
         layout.addLayout(FileLoadLayout)
         layout.addWidget(self.list_widget)
         layout.addLayout(MoveLayout)
-        # layout.addWidget(refresh_button)
 
         self.setLayout(layout)
 
     def on_item_selected(self, item):
-            obj_id = item.data(Qt.UserRole)
-            #obj = self.data_manager.get(obj_id, None)
-
-            try:
-                self.object_selected.emit(obj_id)
-            except AttributeError as exc:
-                print(f"Could not retrieve object data: {exc}")
-
-
-
-if __name__ == '__main__': #! To be verified
-    pass
+        self.object_selected.emit(item.data(Qt.UserRole))

@@ -15,3 +15,8 @@ venv/
 # OS-specific
 .DS_Store
 Thumbs.db
+# Test caches
+.pytest_cache/
+
+# Log files (myPGM writes its log in the user app data folder, not here)
+*.log

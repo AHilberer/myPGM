@@ -1,7 +1,7 @@
 <h1 align="center"> myPGM - Pressure Gauge Monitor </h1>
 
 <div align="center">
-<img alt="Demo myPGM UI" src="myPGM/resources/UI_demo.png"> </img>
+<img alt="myPGM main window with the PvPm table and plot (mypgm --demo)" src="docs/myPGM_screenshot.png">
 </div>
 
 <br>
@@ -26,9 +26,11 @@ It currently supports the following pressure scales:
 - Use an optional spectrometer calibration file to recalculate the spectral axis when needed.
 - Switch to a dark mode interface for light-sensitive environments, for example during low-light instrument operation.
 - Store fitted points in a dedicated pressure table, visualize pressure evolution in a P vs Pm plot, and export the table to CSV.
+  In the table, click a header to sort and right-click the headers to show or hide columns (T, x0, T0 and σx are hidden by default; T appears automatically, highlighted, when a point is not at 298 K). The CSV export always contains every column at full precision.
+- Show the fit uncertainty on the peak position (σx) and pressure (σP) in the plot title, the table and as error bars. This is the statistical precision of the fit only: it does not include the uncertainty on x0, T, the calibration itself or the choice of fit model. Raman edge positions have no fit uncertainty.
 - Save and reload complete working sessions, including loaded spectra, fit results, table entries and spectrometer calibration state.
 
-**myPGM** is still a work in progress, so please open an issue or contact the authors if you notice a bug or unexpected behavior.
+If you notice a bug or unexpected behavior, please [open an issue](https://github.com/AHilberer/myPGM/issues) (attaching the log file, see below) or contact the authors.
 
 # Quick start
 
@@ -46,7 +48,7 @@ Once the application is running, a typical workflow is:
 
 ```bash
 git clone https://github.com/AHilberer/myPGM.git
-````
+```
 ```bash
 cd myPGM
 ```
@@ -67,20 +69,66 @@ deactivate
 ```
 
 
-### 3) Install the required dependencies:
+### 3) Install myPGM and its dependencies:
+
+myPGM requires Python 3.10 or newer. It is used and tested on macOS, and its automated tests run on Linux; Windows is expected to work but has not been tested yet.
 
 ```bash
-python3 -m pip install -r requirements.txt
+python3 -m pip install -e .
 ```
+
+This also installs the `mypgm` command. (Alternatively, `python3 -m pip install -r requirements.txt` installs only the dependencies.)
 
 ### 4) Run the application:
 
 ```bash
-python3 run.py
+mypgm
 ```
 
+or, from the code folder, `python3 run.py` or `python3 -m myPGM`.
+
+To try the application on an example session, add `--demo`:
+
+```bash
+mypgm --demo
+```
+
+It loads the bundled example spectra, fits the three ruby spectra and the H2 vibron spectrum with their default models, and adds them to the pressure table with membrane pressures (8, 15, 24 and 27 bar) as in a typical loading run, so the table and the P vs Pm plot are filled in.
+
+# Unsaved work and automatic backup
+
+When closing myPGM with unsaved changes (spectra, fits, processing or table points), it asks whether to save the session first. While you work, the session is also backed up automatically every 30 seconds in your user folder (next to the log file below). Each myPGM window has its own backup, so several windows can be open at the same time. If myPGM closes unexpectedly, it offers to recover that backup at the next start; a declined backup is kept aside with a `.discarded.json` extension.
+
+# Log file
+
+myPGM writes warnings and errors, including every error message shown in the app, to the terminal and to a log file in your user folder (the file is limited to 1 MB, with the last 3 files kept):
+
+- macOS: `~/Library/Application Support/myPGM/mypgm.log`
+- Windows: `%APPDATA%\myPGM\mypgm.log`
+- Linux: `~/.local/share/myPGM/mypgm.log`
+
+The exact path is printed at startup and shown in the dialog that appears if an unexpected error occurs. Please attach this file when reporting a bug.
+
+For more detailed messages (files loaded, fit results, sessions saved and loaded), start the app with `--debug`:
+
+```bash
+mypgm --debug
+```
+
+# Running the tests
+
+The test suite covers the pressure calibrations, the file parser, the fits on the bundled example spectra and the main GUI workflows (run headless, no window opens):
+
+```bash
+python3 -m pip install -e ".[test]"
+python3 -m pytest
+```
+
+A test marked `xfail` describes a known bug that is not fixed yet. The tests also run on GitHub for every push and pull request.
+
 # Executables
-Currently not available (WIP)
+
+Standalone executables are not provided yet: install from source as described above.
 
 # Contributors
 

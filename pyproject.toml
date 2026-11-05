@@ -5,9 +5,46 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "myPGM"
 version = "1.0.0"
+description = "Fit spectroscopic pressure gauges and follow pressure in high-pressure experiments"
+readme = "README.md"
+license = { text = "GNU General Public License v3 (GPLv3), see LICENSE" }
+authors = [
+    { name = "Antoine Hilberer", email = "antoine.hilberer@cea.fr" },
+    { name = "Alexis Forestier", email = "alexis.forestier@cea.fr" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Environment :: X11 Applications :: Qt",
+]
+requires-python = ">=3.10"
+# lower bounds are tested in CI (oldest-deps job); keep requirements.txt in sync
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "PyQt5>=5.15",
+    "pyqtgraph>=0.13.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/AHilberer/myPGM"
+Issues = "https://github.com/AHilberer/myPGM/issues"
+
+[project.gui-scripts]
+mypgm = "myPGM:main"
+
+[project.optional-dependencies]
+test = ["pytest"]
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["myPGM*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.setuptools.package-data]
 "myPGM" = ["ui/*.qss", "resources/*", "resources/icons/*"]

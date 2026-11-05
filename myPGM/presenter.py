@@ -1,14 +1,28 @@
 import os
+import glob
 import json
+import hashlib
+import logging
+import threading
+import time
+import uuid
 import numpy as np
 from copy import deepcopy
 from importlib.metadata import PackageNotFoundError, version
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
-from PyQt5.QtCore import Qt, QFileInfo, QObject
+from PyQt5.QtCore import Qt, QFileInfo, QObject, QTimer, QLockFile
 from myPGM.data_model import PressureGaugeDataObject
 import myPGM.calibrations
 import myPGM.fit_models
-from myPGM.helpers import pressure_valid, spectro_calibration_reader
+from myPGM.helpers import pressure_valid, spectro_calibration_reader, PressureCalculationFailed
+
+logger = logging.getLogger(__name__)
+
+
+
+def _fmt_err(value):
+    """Fit uncertainty for log messages (2 significant digits, n/a if none)."""
+    return "n/a" if value is None else f"{value:.2g}"
 
 
 def get_app_version():
@@ -19,7 +33,13 @@ def get_app_version():
         return "dev"
 
 class Presenter(QObject):
-    def __init__(self, model, view, test_mode=False):
+    AUTOSAVE_INTERVAL_MS = 30_000
+    BACKUP_PREFIX = "autosave_session"     # + _<pid>_<start time>_<random>.json, one per window
+
+    def __init__(self, model, view, test_mode=False, demo=False, backup_dir=None):
+        """test_mode: load the example spectra (used by the tests).
+        demo: load them as a fitted example session (python run.py --demo).
+        backup_dir: folder for the automatic session backup (None: no backup)."""
         super().__init__()
         self.model = model
         self.view = view
@@ -34,12 +54,19 @@ class Presenter(QObject):
                 "Example_Ruby_3.asc",
                 "Example_H2.txt",
             ]
+        # demo session: (file, calibration, fit model, Pm in bar), as one membrane
+        # loading run, with the H2 vibron used as a second gauge at the last step
+        self.example_fits = [
+                ("Example_Ruby_1.asc", "Ruby2020", "Double Voigt", 8.0),
+                ("Example_Ruby_2.asc", "Ruby2020", "Double Voigt", 15.0),
+                ("Example_Ruby_3.asc", "Ruby2020", "Double Voigt", 24.0),
+                ("Example_H2.txt", "H2 Vibron <30GPa", "Single Voigt", 27.0),
+            ]
         self.ordered_files_to_display = []
         self.buffer = PressureGaugeDataObject()
         self.additional_buffer = PressureGaugeDataObject()
         self.app_version = get_app_version()
         self.view.setWindowTitle(f"myPGM - Pressure Gauge Monitor v{self.app_version}")
-
 
         self.initialize_calibrations_menu()
         self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
@@ -81,8 +108,36 @@ class Presenter(QObject):
 
         self.view.PToolbox_toTable_button.clicked.connect(self.add_current_PToolbox_to_table)
 
-        if self.test_mode:
+        if self.test_mode or demo:
             self.initialize_example()
+        if demo:
+            self.fit_examples()
+
+        # unsaved changes: compared with the content at start / last save or load
+        self._saved_fingerprint = self._content_fingerprint()
+        self.view.close_guard = self.confirm_close
+
+        # automatic backup of the session, recovered after a crash (offer_recovery)
+        self.backup_dir = backup_dir
+        self.backup_path = None
+        self._backup_lock = None
+        self._backup_fingerprint = None
+        self._backup_thread = None
+        self._backup_failed = False     # warned once, then only debug messages
+        self.autosave_timer = None
+        if backup_dir is not None:
+            # each window has its own backup, locked while the window is open, so that
+            # several myPGM windows never recover or delete each other's backups
+            base = os.path.join(backup_dir, f"{self.BACKUP_PREFIX}_{os.getpid()}_"
+                                            f"{int(time.time())}_{uuid.uuid4().hex[:6]}")
+            self.backup_path = base + ".json"
+            self._backup_lock = QLockFile(base + ".lock")
+            self._backup_lock.setStaleLockTime(0)       # only the owner process being gone matters
+            if not self._backup_lock.tryLock(0):
+                logger.warning("Could not lock the session backup %s", base + ".lock")
+            self.autosave_timer = QTimer(self)
+            self.autosave_timer.timeout.connect(self.autosave)
+            self.autosave_timer.start(self.AUTOSAVE_INTERVAL_MS)
 
     ##################################################################################""
         #? Methods 
@@ -93,6 +148,11 @@ class Presenter(QObject):
         self.view.additional_toolbox_window.initialize(calib_dict)
 
     def _show_error(self, text, title="Error"):
+        # every error shown to the user is also kept in the log
+        logger.warning("%s: %s", title, text.replace("\n", " "))
+        self._error_dialog(text, title)
+
+    def _error_dialog(self, text, title):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Critical)
         msg.setText(text)
@@ -137,7 +197,6 @@ class Presenter(QObject):
         self.view.populate_fit_models_combo(model_dict)
         self.fit_mode = model_dict[self.view.fit_model_combo.currentText()]
 
-
     def initialize_buffer(self):
         # Default state at opening 
         calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
@@ -153,24 +212,24 @@ class Presenter(QObject):
         self.view.ptoolbox.set_state_from_buffer(self.buffer)
         self.view.additional_toolbox_window.set_state_from_buffer(self.additional_buffer)
     
-        # Connects
-        self.view.ptoolbox.calibChanged.connect(self.on_calib_changed)
-        self.view.ptoolbox.PmChanged.connect(self.on_Pm_edited)
-        self.view.ptoolbox.PChanged.connect(self.on_P_edited)
-        self.view.ptoolbox.xChanged.connect(self.on_x_edited)
-        self.view.ptoolbox.TChanged.connect(self.on_T_edited)
-        self.view.ptoolbox.x0Changed.connect(self.on_x0_edited)
-        self.view.ptoolbox.T0Changed.connect(self.on_T0_edited)
+        # Connects (both toolboxes share the slots, see _get_toolbox_context)
+        for toolbox in (self.view.ptoolbox, self.view.additional_toolbox_window):
+            toolbox.calibChanged.connect(self.on_calib_changed)
+            toolbox.PmChanged.connect(self.on_Pm_edited)
+            toolbox.PChanged.connect(self.on_P_edited)
+            toolbox.xChanged.connect(self.on_x_edited)
+            toolbox.TChanged.connect(self.on_T_edited)
+            toolbox.x0Changed.connect(self.on_x0_edited)
+            toolbox.T0Changed.connect(self.on_T0_edited)
 
-        self.view.additional_toolbox_window.calibChanged.connect(self.on_calib_changed)
-        self.view.additional_toolbox_window.PmChanged.connect(self.on_Pm_edited)
-        self.view.additional_toolbox_window.PChanged.connect(self.on_P_edited)
-        self.view.additional_toolbox_window.xChanged.connect(self.on_x_edited)
-        self.view.additional_toolbox_window.TChanged.connect(self.on_T_edited)
-        self.view.additional_toolbox_window.x0Changed.connect(self.on_x0_edited)
-        self.view.additional_toolbox_window.T0Changed.connect(self.on_T0_edited)
+    def _select_fit_model(self, name):
+        """Select a fit model by name in the combo box (no-op if unknown or already selected)."""
+        if name not in self.fit_models:
+            return
+        ind = self.view.fit_model_combo.findText(name, Qt.MatchExactly)
+        if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
+            self.view.fit_model_combo.setCurrentIndex(ind)
 
-    
     def _get_toolbox_context(self, sender=None):
         src = sender or self.sender()
         if src == self.view.additional_toolbox_window:
@@ -181,29 +240,23 @@ class Presenter(QObject):
     def on_Pm_edited(self, Pm):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_Pm(Pm)
-#        toolbox.set_state_from_buffer(buffer)
-        
-#       Nothing to do
 
     @pressure_valid
     def on_P_edited(self, p):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_P(p)
-#        toolbox.set_state_from_buffer(buffer)
         toolbox.set_xval(buffer.x)
     
     @pressure_valid
     def on_x_edited(self, x):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_x(x)        
-#        toolbox.set_state_from_buffer(buffer)
         toolbox.set_Pval(buffer.P)
 
     @pressure_valid
     def on_T_edited(self, T):
         toolbox, buffer = self._get_toolbox_context()
         buffer.set_T(T)        
-#        toolbox.set_state_from_buffer(buffer)
         toolbox.set_Pval(buffer.P)
 
     @pressure_valid
@@ -214,11 +267,11 @@ class Presenter(QObject):
         # THE NEW x0 for this gauge is now x0.
         # Update both the buffer's calib copy AND the shared instance in the toolbox
         # so that future files using this calibration start with the updated x0default.
-        buffer.calib.x0default = x0
-        if buffer.calib is not None and buffer.calib.name in toolbox.calibrations:
-            toolbox.calibrations[buffer.calib.name].x0default = x0
+        if buffer.calib is not None:
+            buffer.calib.x0default = x0
+            if buffer.calib.name in toolbox.calibrations:
+                toolbox.calibrations[buffer.calib.name].x0default = x0
 
-#        toolbox.set_state_from_buffer(buffer)
         toolbox.set_Pval(buffer.P)
 
     @pressure_valid
@@ -228,11 +281,11 @@ class Presenter(QObject):
 
         # THE NEW T0 for this gauge is now T0.
         # Update both the buffer's calib copy AND the shared instance in the toolbox.
-        buffer.calib.T0default = T0
-        if buffer.calib is not None and buffer.calib.name in toolbox.calibrations:
-            toolbox.calibrations[buffer.calib.name].T0default = T0
+        if buffer.calib is not None:
+            buffer.calib.T0default = T0
+            if buffer.calib.name in toolbox.calibrations:
+                toolbox.calibrations[buffer.calib.name].T0default = T0
         
-#        toolbox.set_state_from_buffer(buffer)
         toolbox.set_Pval(buffer.P)
 
     @pressure_valid
@@ -241,11 +294,7 @@ class Presenter(QObject):
         # data model method!
         buffer.set_calibration(newcalib)
 
-        default_fit_name = getattr(newcalib, "default_fit_model", None)
-        if default_fit_name in self.fit_models:
-            ind = self.view.fit_model_combo.findText(default_fit_name, Qt.MatchExactly)
-            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
-                self.view.fit_model_combo.setCurrentIndex(ind)
+        self._select_fit_model(getattr(newcalib, "default_fit_model", None))
 
         if toolbox == self.view.ptoolbox and buffer.calib is not None:
             xlabel = f"{buffer.calib.xname} ({buffer.calib.xunit})"
@@ -256,12 +305,17 @@ class Presenter(QObject):
         toolbox.set_state_from_buffer(buffer)
 
     def file_selected_from_file_list(self, obj_id):
-        self.current_selected_file = obj_id
-        self.view.current_file_label.setText(f"{self.model.get(obj_id).filename}")
-
-        obj = self.model.get(self.current_selected_file, None)
+        obj = self.model.get(obj_id, None)
         if obj is None:
             return
+
+        self.current_selected_file = obj_id
+        self.view.current_file_label.setText(f"{obj.filename}")
+
+        # show this file's own smoothing, without re-applying it
+        was_blocked = self.view.smoothing_factor.blockSignals(True)
+        self.view.smoothing_factor.setValue(obj.current_smoothing or 1)
+        self.view.smoothing_factor.blockSignals(was_blocked)
 
         if self.view.Spectro_use_button.isChecked():
             if self.corrected_spectro_x is not None:
@@ -288,29 +342,34 @@ class Presenter(QObject):
             self.view.ptoolbox.set_state_from_buffer(self.buffer)
 
         # fit model combo box is updated.
-        if obj.fit_model is not None and obj.fit_model.name in self.fit_models:
-            ind = self.view.fit_model_combo.findText(obj.fit_model.name, Qt.MatchExactly)
-            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
-                self.view.fit_model_combo.setCurrentIndex(ind)
-
+        if obj.fit_model is not None:
+            self._select_fit_model(obj.fit_model.name)
 
     def add_instance_from_path(self, file_path):
         file_info = QFileInfo(file_path)
         file_name = file_info.fileName()
         a = PressureGaugeDataObject()
-        self.model.add_instance(a)
+        # load first so that an unreadable file does not leave an empty entry
         a.load_spectral_data_file(file_name, file_path)
+        a.file_mtime = os.path.getmtime(file_path)     # to recognise an unchanged file
+        self.model.add_instance(a)
+        logger.debug("Loaded %s (%d points)", file_path, len(a.original_data))
 
+    def _add_files(self, file_paths):
+        failed = []
+        for file in file_paths:
+            try:
+                self.add_instance_from_path(file)
+            except Exception as exc:
+                failed.append(f"{os.path.basename(file)}: {exc}")
+        self.populate_file_list()
+        if failed:
+            self._show_error("Could not load:\n" + "\n".join(failed), title="File load error")
 
     def add_new_file(self):
-        try:
-            selected_files = self.view.get_file_via_dialog()
-        except Exception as exc:
-            raise RuntimeError(f"File selection dialog failed: {exc}") from exc
+        selected_files = self.view.get_file_via_dialog()
         if selected_files is not None:
-            for file in selected_files:
-                self.add_instance_from_path(file)
-            self.populate_file_list()
+            self._add_files(selected_files)
 
     def set_current_directory(self):
         self.current_directory = self.view.select_directory_from_dialog()
@@ -320,7 +379,8 @@ class Presenter(QObject):
             file_names = [
                 f
                 for f in os.listdir(self.current_directory)
-                if os.path.isfile(os.path.join(self.current_directory, f)) and ".asc" in f
+                if os.path.isfile(os.path.join(self.current_directory, f))
+                and f.lower().endswith((".asc", ".txt"))
             ]
             if file_names:
                 file_names.sort(
@@ -328,21 +388,51 @@ class Presenter(QObject):
                 )
                 latest_file_name = file_names[-1]
                 file = os.path.join(self.current_directory, latest_file_name)
-                self.add_instance_from_path(file)
-                self.populate_file_list()
+                if self._already_loaded(file):
+                    message = f"No new file since {latest_file_name} (already loaded)"
+                    self.view.current_file_label.setText(message)
+                    logger.info(message)
+                    return
+                self._add_files([file])
             else:
                 self._show_error("No files in selected directory.")
         else:
             self._show_error("No directory selected.")
 
+    @staticmethod
+    def _canonical_path(path):
+        # the same file can be reached as /tmp/x or /private/tmp/x (links), or with
+        # slashes or backslashes and different letter case on Windows
+        return os.path.normcase(os.path.realpath(path))
+
+    def _already_loaded(self, file_path):
+        """True if this file is in the file list and unchanged since it was loaded."""
+        mtime = os.path.getmtime(file_path)
+        target = self._canonical_path(file_path)
+        return any(o.include_in_filelist and o.full_path is not None
+                   and self._canonical_path(o.full_path) == target
+                   and o.file_mtime == mtime
+                   for o in self.model.values())
+
     def delete_current_file(self):
         if self.current_selected_file is not None:
             obj_id = self.current_selected_file
-            self.model.delete_instance(obj_id)
+            obj = self.model[obj_id]
+            message = "No file selected"
+            if obj.include_in_table:
+                # keep the measured point: it becomes a table-only entry (like points
+                # added from the toolbox), deleted once removed from the table
+                obj.include_in_filelist = False
+                number = [o.id for o in self.model.table_entries()].index(obj_id) + 1
+                message = (f"{obj.filename} removed from the file list; "
+                           f"its point #{number} is kept in the table")
+                logger.info(message)
+            else:
+                self.model.delete_instance(obj_id)
             self.current_selected_file = None
             self.populate_file_list()
             self.update_PvPm_table()
-            self.view.current_file_label.setText("No file selected")
+            self.view.current_file_label.setText(message)
         else:
             self._show_error("No file selected to delete.")
 
@@ -367,10 +457,12 @@ class Presenter(QObject):
             x_min = float(np.min(x))
             x_max = float(np.max(x))
 
-            # on utilise buffer (juste pour afficher les unités des axes dans plot_data)
-            self.view.plot_data(x, y, self.buffer, preserve_view=preserve_view)
+            # only used for the axis units: the spectrum's own calibration if it has
+            # one (the buffer may still hold the previously selected spectrum)
+            units_source = obj if obj.calib is not None else self.buffer
+            self.view.plot_data(x, y, units_source, preserve_view=preserve_view)
             if obj.fit_result is not None:
-                self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y)
+                self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y, P_err=obj.P_err)
 
             self.view.fit_range_selector.setBounds((x_min, x_max))
 
@@ -407,9 +499,10 @@ class Presenter(QObject):
                     )
             
         else:
-            print('No data to be plotted.')
+            logger.info('No data to be plotted.')
 
     def on_theme_switched(self):
+        self.view.PvPmTableWindow.table_widget.updatetable()
         if self.current_selected_file is not None:
             self.update_data_plots(self.current_selected_file, preserve_view=True)
 
@@ -460,7 +553,6 @@ class Presenter(QObject):
 
         return (abs(cur_low - low) > 1e-12) or (abs(cur_high - high) > 1e-12)
 
-
     def smoothen(self, smoothing_factor):
         if self.current_selected_file is None:
             return
@@ -474,7 +566,11 @@ class Presenter(QObject):
             return
 
         obj = self.model.get(self.current_selected_file, None)
-        obj.convexhull_bg()
+        try:
+            obj.convexhull_bg()
+        except Exception as exc:
+            self._show_error(f"Automatic background failed: {exc}", title="Background error")
+            return
         self.update_data_plots(self.current_selected_file)
 
     def subtract_manual_bg(self, bg):
@@ -482,7 +578,11 @@ class Presenter(QObject):
             return
 
         obj = self.model.get(self.current_selected_file, None)
-        obj.subtract_external_bg(bg)
+        try:
+            obj.subtract_external_bg(bg)
+        except Exception as exc:
+            self._show_error(f"Manual background failed: {exc}", title="Background error")
+            return
         self.update_data_plots(self.current_selected_file, preserve_view=True)
     
     def reset_bg(self):
@@ -492,7 +592,6 @@ class Presenter(QObject):
         obj = self.model.get(self.current_selected_file, None)
         obj.reset_bg()
         self.update_data_plots(self.current_selected_file)
-
 
     def load_spectro_calibration(self):
         selected_files = self.view.get_file_via_dialog()
@@ -518,6 +617,7 @@ class Presenter(QObject):
 
         self.corrected_spectro_x = corrected_spectro_x
         self.view.Spectro_filename_label.setText(file_name)
+        logger.debug("Spectrometer calibration loaded from %s", selected_file)
 
         if self.view.Spectro_use_button.isChecked() and self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
@@ -604,11 +704,8 @@ class Presenter(QObject):
         self.buffer = deepcopy(obj)
         self.view.ptoolbox.set_state_from_buffer(self.buffer)
 
-        if obj.fit_model is not None and obj.fit_model.name in self.fit_models:
-            ind = self.view.fit_model_combo.findText(obj.fit_model.name, Qt.MatchExactly)
-            if ind >= 0 and ind != self.view.fit_model_combo.currentIndex():
-                self.view.fit_model_combo.setCurrentIndex(ind)
-
+        if obj.fit_model is not None:
+            self._select_fit_model(obj.fit_model.name)
 
     def move_up(self):
         if self.current_selected_file is not None:
@@ -632,14 +729,12 @@ class Presenter(QObject):
                 )
                 self.populate_file_list()
 
-
     def update_fit_model(self, newind):
         self.fit_mode = self.fit_models[self.view.fit_model_combo.currentText()]
 
         tmp_color = self.view.fit_model_combo.model().item(newind).background().color().getRgb()
         self.view.fit_model_combo.setStyleSheet(
-            "background-color: rgba{};\
-                    selection-background-color: k;".format(tmp_color)
+            "background-color: rgba{};".format(tmp_color)
         )
 
     def fit_current_file(self, guess=None): 
@@ -647,35 +742,42 @@ class Presenter(QObject):
 
             obj = self.model.get(self.current_selected_file, None)
 
-            # Set parameters from buffer : 
-            obj.set_Pm(self.buffer.Pm)
-            obj.set_T(self.buffer.T)
-            obj.set_x0(self.buffer.x0)
-            obj.set_T0(self.buffer.T0)
-            # deepcopy more safe here also:
-            obj.set_calibration( deepcopy(self.buffer.calib) )
-
-            obj.set_fit_model(self.fit_mode)
-
             try:
+                # Set parameters from buffer :
+                # calibration first, as set_calibration resets x0/T0 to the calib defaults
+                # deepcopy more safe here also:
+                obj.set_calibration( deepcopy(self.buffer.calib) )
+                obj.set_Pm(self.buffer.Pm)
+                obj.set_T(self.buffer.T)
+                obj.set_x0(self.buffer.x0)
+                obj.set_T0(self.buffer.T0)
+
+                obj.set_fit_model(self.fit_mode)
+
+                # the range is only used while "Fit range" is on
                 if self.view.fit_range_enabled:
                     obj.fitting_range = self.view.fit_range_selector.getRegion()
+                else:
+                    obj.fitting_range = None
                 obj.fit_data(guess)
 
-                # On récupère obj dans buffer après fit
-                # deepcopy, autrement self.buffer est une ref au dernier 
-                # obj fité et une modif de self.buffer via la GUI 
-                # modifie ce dernier obj !
-                # ici self.buffer.calib est également copié (deepcopy) 
+                # Copy the fitted obj into the buffer. It must be a deepcopy:
+                # otherwise self.buffer would be a reference to the last fitted
+                # obj, and editing the buffer from the GUI would modify that obj.
+                # self.buffer.calib is deep-copied as well.
                 self.buffer = deepcopy(obj)
+                logger.debug("Fitted %s with %s, %s: x = %.4f ± %s, P = %.3f ± %s GPa",
+                             obj.filename, obj.fit_model.name, obj.calib.name,
+                             obj.x, _fmt_err(obj.x_err), obj.P, _fmt_err(obj.P_err))
                 # set ptoolbox state:
                 self.view.ptoolbox.set_state_from_buffer(self.buffer)
                 self.update_data_plots(self.current_selected_file, preserve_view=True)
 
-            except RuntimeError:
-                self.fit_error_popup()
+            except (RuntimeError, PressureCalculationFailed) as exc:
+                self.fit_error_popup(f"{obj.filename}: {exc}")
 
-    def fit_error_popup(self):
+    def fit_error_popup(self, reason=""):
+        logger.warning("Fit error: %s", reason)
         self.view.fit_error_popup_window()
 
     def add_current_fit_to_table(self, _=None):
@@ -688,26 +790,51 @@ class Presenter(QObject):
                 obj.set_Pm(pm_value)
                 self.buffer.set_Pm(pm_value)
                 self.view.ptoolbox.set_Pmval(pm_value)
-                obj.include_in_table = True
+                self.model.add_to_table(obj)
                 self.update_PvPm_table()
             else:
                 self._show_error("No fit result to add to table.")
         else:
             self._show_error("No file selected.")
 
-
     def update_PvPm_table(self):
         self.view.PvPmTableWindow.table_widget.updatetable()
         self.view.PvPmPlotWindow.updateplot()
 
     def initialize_example(self):
-        for i, current_file in enumerate(self.example_files):
+        for current_file in self.example_files:
             current_file_path = os.path.dirname(__file__) + "/resources/" + current_file
             self.add_instance_from_path(current_file_path)
-        
 
         self.populate_file_list()
 
+    def fit_examples(self):
+        """Fit the example spectra and add them to the PvPm table (demo session)."""
+        ids = {self.model[i].filename: i for i in self.ordered_files_to_display}
+        for file_name, calib_name, model_name, Pm in self.example_fits:
+            obj_id = ids[file_name]
+            self.select_file_in_list(obj_id)
+            self.file_selected_from_file_list(obj_id)
+            # same state as choosing the calibration and model in the GUI
+            self.buffer.set_calibration(self.view.ptoolbox.calibrations[calib_name])
+            self.view.ptoolbox.set_state_from_buffer(self.buffer)
+            self._select_fit_model(model_name)
+            self.fit_mode = self.fit_models[model_name]
+            self.fit_current_file()
+
+            obj = self.model[obj_id]
+            if obj.fit_result is None:
+                logger.warning("Demo: could not fit %s", file_name)
+                continue
+            obj.set_Pm(Pm)
+            self.model.add_to_table(obj)
+        self.update_PvPm_table()
+
+        # finish on the last ruby spectrum, with the ruby calibration in the toolbox
+        last_ruby = ids[self.example_fits[2][0]]
+        self.select_file_in_list(last_ruby)
+        self.file_selected_from_file_list(last_ruby)
+        logger.debug("Demo session ready")
 
     def add_current_PToolbox_to_table(self):
         # create a new object from buffer and add it to the model, then update table and plot
@@ -716,16 +843,17 @@ class Presenter(QObject):
         new_obj.filename = None
         new_obj.full_path = None
         new_obj.include_in_filelist = False
-        new_obj.include_in_table = True
+        # the buffer may be a copy of a table entry: this is a new table point
+        new_obj.include_in_table = False
+        new_obj.table_id = None
         self.model.add_instance(new_obj)
+        self.model.add_to_table(new_obj)
         self.update_PvPm_table()
 
-    def save_session(self):
-        file_path = self.view.get_save_session_filename_dialog()
-        if not file_path:
-            return
+    # --- sessions ------------------------------------------------------------------------
 
-        session = {
+    def _session_dict(self):
+        return {
             "app_version": self.app_version,
             "ordered_files": self.ordered_files_to_display,
             "current_selected_file": self.current_selected_file,
@@ -737,20 +865,52 @@ class Presenter(QObject):
             "files": [obj.to_dict() for obj in self.model.values()],
         }
 
+    @staticmethod
+    def _write_json(session, file_path, indent=2):
+        # write to a temporary file first, so a crash never leaves a half-written file
+        tmp_path = file_path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as file_handle:
+            json.dump(session, file_handle, indent=indent)
+        os.replace(tmp_path, file_path)
+
+    def save_session(self):
+        """Ask for a file and save the session. Returns True if it was saved."""
+        file_path = self.view.get_save_session_filename_dialog()
+        if not file_path:
+            return False
         try:
-            with open(file_path, "w", encoding="utf-8") as file_handle:
-                json.dump(session, file_handle, indent=2)
+            self._write_json(self._session_dict(), file_path)
         except Exception as exc:
             self._show_error(f"Failed to save session: {exc}", title="Save error")
+            return False
+        self._saved_fingerprint = self._content_fingerprint()
+        self._remove_backup()
+        logger.debug("Session saved to %s (%d spectra)", file_path, len(self.model))
+        return True
 
-    def load_session(self):
-        file_path = self.view.get_open_session_filename_dialog()
+    def load_session(self, file_path=None):
+        """Load a session file (asked for if not given). Returns True if loaded."""
+        if file_path is None:
+            file_path = self.view.get_open_session_filename_dialog()
         if not file_path:
-            return
+            return False
 
         try:
             with open(file_path, "r", encoding="utf-8") as file_handle:
                 session = json.load(file_handle)
+        except Exception as exc:
+            self._show_error(f"Failed to load session: {exc}", title="Load error")
+            return False
+
+        calib_dict = self.view.ptoolbox.calibrations
+        model_dict = self.fit_models
+
+        # parse everything before touching the current session
+        try:
+            objects = [
+                PressureGaugeDataObject.from_dict(payload, calib_dict, model_dict)
+                for payload in session.get("files", [])
+            ]
         except Exception as exc:
             self._show_error(f"Failed to load session: {exc}", title="Load error")
             return
@@ -760,11 +920,7 @@ class Presenter(QObject):
         self.current_selected_file = None
         self.corrected_spectro_x = None
 
-        calib_dict = self.view.ptoolbox.calibrations
-        model_dict = self.fit_models
-
-        for payload in session.get("files", []):
-            obj = PressureGaugeDataObject.from_dict(payload, calib_dict, model_dict)
+        for obj in objects:
             self.model.add_instance(obj)
 
         self.ordered_files_to_display = session.get(
@@ -797,3 +953,131 @@ class Presenter(QObject):
             self.file_selected_from_file_list(selected_id)
 
         self.update_PvPm_table()
+        self._saved_fingerprint = self._content_fingerprint()
+        logger.debug("Session loaded from %s (%d spectra)", file_path, len(self.model))
+        return True
+
+    # --- unsaved changes, automatic backup and recovery ----------------------------------------
+
+    def _content_fingerprint(self):
+        """Hash of the session content that matters (spectra, processing, fits, table,
+        file order). Values typed in the pressure toolbox alone do not count."""
+        hasher = hashlib.sha1()
+        hasher.update(repr((self.ordered_files_to_display,
+                            self.view.Spectro_use_button.isChecked())).encode("utf-8"))
+        hasher.update(b"-" if self.corrected_spectro_x is None
+                      else np.ascontiguousarray(self.corrected_spectro_x, dtype=float).tobytes())
+        for obj in self.model.values():
+            obj.update_fingerprint(hasher)
+        return hasher.hexdigest()
+
+    def has_unsaved_changes(self):
+        return self._content_fingerprint() != self._saved_fingerprint
+
+    def confirm_close(self):
+        """Called when the main window is closed: True to let it close."""
+        if self.has_unsaved_changes():
+            choice = self.view.ask_save_changes()
+            if choice == "cancel":
+                return False
+            if choice == "save" and not self.save_session():
+                return False            # save dialog cancelled or failed: keep the app open
+        self._remove_backup()           # closed normally: no recovery needed next time
+        if self._backup_lock is not None:
+            self._backup_lock.unlock()
+        return True
+
+    def autosave(self):
+        """Write the backup if there are unsaved changes not backed up yet.
+        The session is collected here, then encoded and written in a background
+        thread (compact JSON), so that large sessions do not freeze the app."""
+        if self.backup_path is None:
+            return
+        if not self.has_unsaved_changes():
+            self._remove_backup()
+            return
+        fingerprint = self._content_fingerprint()
+        if fingerprint == self._backup_fingerprint:
+            return
+        if self._backup_thread is not None and self._backup_thread.is_alive():
+            return                      # previous backup still being written: next time
+        session = self._session_dict()
+        self._backup_fingerprint = fingerprint
+
+        def write():
+            try:
+                self._write_json(session, self.backup_path, indent=None)
+                logger.debug("Session backup written to %s", self.backup_path)
+            except OSError as exc:
+                if not self._backup_failed:
+                    self._backup_failed = True
+                    logger.warning("Could not write the session backup (no automatic backup "
+                                   "until this is fixed): %s", exc)
+                else:
+                    logger.debug("Could not write the session backup: %s", exc)
+
+        self._backup_thread = threading.Thread(target=write, name="session-backup", daemon=True)
+        self._backup_thread.start()
+
+    def flush_backup(self):
+        """Wait for a backup being written, if any."""
+        if self._backup_thread is not None:
+            self._backup_thread.join(timeout=30)
+
+    def _remove_backup(self):
+        self.flush_backup()             # so that a write in progress cannot re-create it
+        self._backup_fingerprint = None
+        if self.backup_path is not None and os.path.exists(self.backup_path):
+            os.remove(self.backup_path)
+
+    def _orphan_backups(self):
+        """Backups left by windows that did not close normally (their lock is not
+        held any more), newest first. Backups of windows still open are skipped."""
+        if self.backup_dir is None:
+            return []
+        orphans = []
+        for path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.json")):
+            if path == self.backup_path or path.endswith(".discarded.json"):
+                continue
+            lock = QLockFile(os.path.splitext(path)[0] + ".lock")
+            lock.setStaleLockTime(0)
+            if not lock.tryLock(0):
+                continue                # another myPGM window is still using it
+            lock.unlock()               # stale lock of a crashed window: cleaned up
+            orphans.append(path)
+        # half-written backups of windows that crashed while writing one
+        for tmp_path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.json.tmp")):
+            lock = QLockFile(tmp_path[:-len(".json.tmp")] + ".lock")
+            lock.setStaleLockTime(0)
+            if lock.tryLock(0):         # its window is gone (a live one may be writing it)
+                lock.unlock()
+                os.remove(tmp_path)
+        # locks left by windows that crashed with nothing to back up
+        for lock_path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.lock")):
+            if os.path.exists(os.path.splitext(lock_path)[0] + ".json"):
+                continue
+            lock = QLockFile(lock_path)
+            lock.setStaleLockTime(0)
+            if lock.tryLock(0):
+                lock.unlock()           # removes the stale lock file
+        return sorted(orphans, key=os.path.getmtime, reverse=True)
+
+    def offer_recovery(self):
+        """At startup: offer to recover the newest backup left by a window that did
+        not close normally. Declined backups are kept as *.discarded.json."""
+        orphans = self._orphan_backups()
+        if not orphans:
+            return False
+        path = orphans[0]
+        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(path)))
+        if self.view.ask_recover_session(when):
+            if self.load_session(path):
+                self._saved_fingerprint = None      # recovered work is not saved yet
+                os.remove(path)                     # now backed up by this window
+                logger.info("Session recovered from %s", path)
+                return True
+            return False
+        discarded = os.path.splitext(path)[0] + ".discarded.json"
+        os.replace(path, discarded)
+        logger.info("Session backup declined, kept as %s", discarded)
+        return False

@@ -1,24 +1,14 @@
 import numpy as np
-from PyQt5.QtWidgets import (QApplication, 
-                             QWidget, 
-                             QPushButton, 
-                             QComboBox, 
+from PyQt5.QtWidgets import (QWidget,
+                             QComboBox,
                              QLabel,
-                             QLineEdit,
-                             QVBoxLayout,
                              QHBoxLayout,
-                             QFormLayout,
-                             QGridLayout,
-                             QFrame,
-                             QGroupBox,
-                             QSpinBox,
-                             QDoubleSpinBox,)
+                             QFormLayout,)
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import pyqtSignal, Qt
 
 from myPGM.calibrations import HPCalibration
-from myPGM.helpers import MyHSeparator, MyVSeparator, SmartDoubleSpinBox
-
+from myPGM.helpers import MyVSeparator, SmartDoubleSpinBox
 
 class PressureToolbox(QWidget):
 
@@ -61,7 +51,6 @@ class PressureToolbox(QWidget):
         self.P_spinbox.setDecimals(3)
         self.P_spinbox.setRange(-np.inf, np.inf)
         self.P_spinbox.setSingleStep(0.1)
-#        self.P_spinbox.setStyleSheet("background: #ccffcc;")
         self.P_spinbox.setMinimumWidth(100)
 
         self.x_spinbox = SmartDoubleSpinBox()
@@ -95,7 +84,6 @@ class PressureToolbox(QWidget):
         self._xP_bgcolor = None
         self._T_bgcolor = None
 
-
         self.calibration_combo = QComboBox()
         self.calibration_combo.setObjectName("calibration_combo")
         self.calibration_combo.setMinimumWidth(160)
@@ -123,7 +111,6 @@ class PressureToolbox(QWidget):
 
         self.Tcor_Label = QLabel("NA")
         calibration_form.addRow(QLabel("T correction: "), self.Tcor_Label)
-
 
         Toolboxlayout.addLayout(calibration_form, stretch=2)
         Toolboxlayout.addWidget(MyVSeparator())
@@ -164,7 +151,6 @@ class PressureToolbox(QWidget):
     def calib_changed(self, newcalib_name):
         newcalib = self.calibrations[newcalib_name]
 
-        #self.set_calib(newcalib)
         # self.set_calib will be called from 
         # set_state_from_buffer in on_calib_changed(presenter.py)
         self.calibChanged.emit(newcalib)
@@ -205,8 +191,7 @@ class PressureToolbox(QWidget):
         self.Tcor_Label.setText(newcalib.Tcor_name)
 
         self.calibration_combo.setStyleSheet(
-            "background-color: {};\
-             selection-background-color: k;".format(newcalib.color))
+            "background-color: {};".format(newcalib.color))
 
         self.x_label.setText(
             "{} ({})".format(newcalib.xname, newcalib.xunit)
@@ -232,6 +217,12 @@ class PressureToolbox(QWidget):
 
         self.x_spinbox.setSingleStep(newcalib.xstep)
         self.x0_spinbox.setSingleStep(newcalib.xstep)
+
+        # greyed out for calibrations that do not use x0 (H2 vibron)
+        uses_x0 = getattr(newcalib, "uses_x0", True)
+        self.x0_spinbox.setEnabled(uses_x0)
+        self.x0_label.setEnabled(uses_x0)
+        self.x0_spinbox.setToolTip("" if uses_x0 else "Not used by this calibration")
     
     def set_state_from_buffer(self, buffer):
         # buffer is a PressureGaugeDataObject
@@ -271,7 +262,6 @@ class PressureToolbox(QWidget):
         PressureToolbox.BLUE = PressureToolbox.DARKMODEBLUE
         PressureToolbox.ORANGE = PressureToolbox.DARKMODEORANGE
 
-        
         if self._xP_bgcolor == PressureToolbox.LIGHTMODEGREEN:
             self.set_valid_colors(True)
         elif self._xP_bgcolor == PressureToolbox.LIGHTMODERED:
@@ -280,7 +270,6 @@ class PressureToolbox(QWidget):
             self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
 
         self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
-
 
     def set_light_mode(self):
         PressureToolbox.GREEN = PressureToolbox.LIGHTMODEGREEN
@@ -292,8 +281,6 @@ class PressureToolbox(QWidget):
             self.set_valid_colors(True)
         elif self._xP_bgcolor == PressureToolbox.DARKMODERED:
             self.set_valid_colors(False)
-        if self._T_bgcolor == PressureToolbox.LIGHTMODEORANGE:
-            self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
+        self.update_T_spinbox_style(self.T_spinbox.value())
 
         self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
-        self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
