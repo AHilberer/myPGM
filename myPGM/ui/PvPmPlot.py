@@ -1,34 +1,38 @@
 import numpy as np
 import pyqtgraph as pg
 
-from PyQt5.QtWidgets import (QMainWindow,
-                             QWidget,
+from PyQt5.QtWidgets import (QAction,
+                             QLabel,
                              QVBoxLayout,
-                             QAction,)
+                             QWidget,)
 
 from myPGM.ui import theme
 
 LINE_OPACITY = 0.6      # line joining the points, DESIGN.md §6
 
-class PvPmPlotWindow(QMainWindow):
+class PvPmPlotWindow(QWidget):
+    """P vs Pm plot, shown in the bottom dock. Its legend (a dot per calibration) is
+    `legend_label`, placed in the dock header (DESIGN.md §1)."""
+
     def __init__(self):
         super().__init__()
         self.data_manager = None
-        
-        self.setWindowTitle("PvPm Plot")
-        self.resize(700, 500)   # placed by MainWindow._arrange_windows
+
+        self.setWindowTitle("P vs Pm")
 
         self.plot_graph = pg.PlotWidget()
-
-        central_widget = QWidget()
-        layout = QVBoxLayout(central_widget)
+        # room around the points: the highest one sat on the top edge of the card
+        self.plot_graph.getViewBox().setDefaultPadding(0.08)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.plot_graph)
 
-        self.setCentralWidget(central_widget)
         self.pens = {}
         self.calibs = {}            # calibration of each series: gives its colour
+        self.labels = {}            # legend text of each series (calibration short name)
         self.font_px = 18
-        self.legend = self.plot_graph.addLegend()
+        self.legend_label = QLabel()
+        self.legend_label.setObjectName("PlotLegend")
 
         self.lines = {}
         self.error_bars = {}
@@ -60,11 +64,10 @@ class PvPmPlotWindow(QMainWindow):
         t = theme.tokens()
         self.label_color = t["mu"]
         theme.style_axes(self.plot_graph, t)
-        self.legend.setLabelTextColor(theme.qcolor(t["tx"]))
         self._update_labels()
         for group in self.lines:
             self._style_series(group)
-        self._update_legend_font()
+        self._update_legend()
 
     def _series_color(self, group):
         return theme.qcolor(theme.calib_color(self.calibs.get(group)))
@@ -85,7 +88,6 @@ class PvPmPlotWindow(QMainWindow):
     def set_font_size(self, size):
         self.font_px = size
         self._update_labels()
-        self._update_legend_font()
 
     def _update_labels(self):
         styles = theme.label_styles(self.label_color, self.font_px)
@@ -95,9 +97,14 @@ class PvPmPlotWindow(QMainWindow):
         for side in ("left", "bottom"):
             self.plot_graph.getAxis(side).setStyle(tickFont=tick_font)
 
-    def _update_legend_font(self):
-        for sample, label in self.legend.items:
-            label.setText(label.text, size=f"{self.font_px}px")
+    def legend_entries(self):
+        """(text, colour) of each series, in the order they were first plotted."""
+        return [(self.labels[group], self._series_color(group).name()) for group in self.lines]
+
+    def _update_legend(self):
+        self.legend_label.setText("&nbsp;&nbsp;&nbsp;".join(
+            f'<span style="color:{color}">●</span>&nbsp;{text}'
+            for text, color in self.legend_entries()))
 
     def updateplot(self):
         if self.data_manager is None:
@@ -133,6 +140,7 @@ class PvPmPlotWindow(QMainWindow):
                 del self.lines[stale_group]
                 self.pens.pop(stale_group, None)
                 self.calibs.pop(stale_group, None)
+                self.labels.pop(stale_group, None)
                 if stale_group in self.error_bars:
                     self.plot_graph.removeItem(self.error_bars.pop(stale_group))
 
@@ -144,17 +152,14 @@ class PvPmPlotWindow(QMainWindow):
                 self.lines[g].setData(pm_values, p_values)
             else:
                 self.calibs[g] = subdata[0]["calib_obj"]
-                self.lines[g] = self.plot_graph.plot(
-                    pm_values,
-                    p_values,
-                    name=subdata[0].get("label", g),   # short name, as in the table
-                    symbol="o")
+                self.labels[g] = subdata[0].get("label", g)   # short name, as in the table
+                self.lines[g] = self.plot_graph.plot(pm_values, p_values, symbol="o")
                 # pen (none while lines are hidden), markers in the calibration colour
                 self._style_series(g)
 
             self._update_error_bars(g, subdata)
 
-        self._update_legend_font()
+        self._update_legend()
 
     def _update_error_bars(self, group, subdata):
         # statistical fit uncertainty on P (0 for points without one, e.g. Raman edge)

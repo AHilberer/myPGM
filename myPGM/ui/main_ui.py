@@ -18,9 +18,10 @@ from PyQt5.QtWidgets import (
     QSplitter,
     QSpinBox,
 )
+from PyQt5 import sip
 from PyQt5.QtCore import (
-    QEvent,
     Qt,
+    QTimer,
     pyqtSignal,
 )
 from PyQt5.QtGui import QColor, QGuiApplication, QKeySequence
@@ -39,6 +40,7 @@ from myPGM.ui.PvPmTable import HPTableWindow
 from myPGM.ui.FileListViewerWidget import FileListViewerWidget
 from myPGM.ui.PressureToolbox import PressureToolbox
 from myPGM.ui.TopBar import TopBar
+from myPGM.ui.docks import MIN_HEIGHT as MIN_DOCK_HEIGHT, PanelDock
 from myPGM.ui import icons, theme
 from myPGM.ui.widgets import GAP, Card, ElidedLabel, button, hbox, label
 
@@ -48,6 +50,12 @@ SIDEBAR_WIDTH = 240         # default column widths of the workspace (DESIGN.md 
 SIDEBAR_MIN_WIDTH = 200
 INSPECTOR_WIDTH = 300
 INSPECTOR_MIN_WIDTH = 270
+DEFAULT_WIDTH, DEFAULT_HEIGHT = 1440, 1010
+DOCK_HEIGHT_FRACTION = 0.28     # default height of the bottom panels (DESIGN.md §1)
+MAX_DOCK_HEIGHT_FRACTION = 0.5
+LOG_WIDTH_FRACTION = 0.7        # pressure log | P vs Pm split
+LAYOUT_VERSION = 1              # saveState / restoreState version of the dock layout
+QWIDGETSIZE_MAX = 16777215
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +81,7 @@ class MainWindow(QMainWindow):
         if not app_icon.isNull():
             self.setWindowIcon(app_icon)
 
-        self.resize(1440, 1010)         # placed on screen by _arrange_windows
+        self.resize(DEFAULT_WIDTH, DEFAULT_HEIGHT)   # fitted to the screen by _place_window
 
         pg.setConfigOption('leftButtonPan', False)
 
@@ -115,10 +123,11 @@ class MainWindow(QMainWindow):
         self.workspace_splitter.setObjectName("Workspace")
         self.workspace_splitter.setHandleWidth(GAP)
         self.workspace_splitter.setChildrenCollapsible(False)
-        workspace_layout = QVBoxLayout()
-        workspace_layout.setContentsMargins(GAP, GAP, GAP, GAP)
-        workspace_layout.addWidget(self.workspace_splitter)
-        main_layout.addLayout(workspace_layout, 1)
+        # bottom margin: none while docked panels are shown (their separator is the gap)
+        self.workspace_layout = QVBoxLayout()
+        self.workspace_layout.setContentsMargins(GAP, GAP, GAP, GAP)
+        self.workspace_layout.addWidget(self.workspace_splitter)
+        main_layout.addLayout(self.workspace_layout, 1)
 
         self.file_list_widget = FileListViewerWidget()
         self.file_list_widget.setMinimumWidth(SIDEBAR_MIN_WIDTH)
@@ -133,16 +142,15 @@ class MainWindow(QMainWindow):
                                           INSPECTOR_WIDTH])
 
         #####################################################################################
-        # #? Setup PvPm table and plotwindow
+        # #? Bottom panels: pressure log and P vs Pm plot, side by side in docks
 
         self.PvPmTableWindow = HPTableWindow()
         self.PvPmPlotWindow = PvPmPlotWindow()
-        self._connect_top_bar()
-        self.PvPmTableWindow.show()
-        self.PvPmPlotWindow.show()
-        # placed once shown: showing polishes the widgets, which can enlarge the
-        # windows' minimum size (to 823 px for the table on Windows CI)
-        self._arrange_windows()
+        self._setup_docks()
+        self._layout_restored = self._restore_layout()
+        if not self._layout_restored:
+            self._place_window()
+        self._connect_top_bar()                 # toggles start from the restored layout
 
         self.set_font_size(self.plot_font_px)
 
@@ -193,6 +201,10 @@ class MainWindow(QMainWindow):
         fontsize_setting = QAction("Set font size", self)
         fontsize_setting.triggered.connect(self.show_font_size_window)
         fontsize_menu.addAction(fontsize_setting)
+
+        #####################################################################################
+        # #? View menu: the bottom panels (filled by _setup_docks)
+        self.view_menu = menubar.addMenu("View")
 
         #####################################################################################
         # #? Exit button setup
@@ -266,11 +278,6 @@ class MainWindow(QMainWindow):
         self.PToolbox_toTable_button = button(
             "Add point to log", 36, role="accent", icon_name="plus", icon_role="act",
             tooltip="Add a point from the λ, T and P values alone (no spectrum)")
-
-        # replaced by the top bar toggles; kept until the panels are docks (step 3)
-        self.toggle_PvPm_button = QPushButton("P vs Pm", self)
-        self.toggle_PvPm_button.clicked.connect(self.toggle_PvPm)
-        self.toggle_PvPm_button.hide()
 
     def _create_plots(self):
         self.splitter = QSplitter(Qt.Vertical)
@@ -394,27 +401,104 @@ class MainWindow(QMainWindow):
         scroll.setMinimumWidth(INSPECTOR_MIN_WIDTH)
         return scroll
 
+    def _setup_docks(self):
+        """Pressure log (≈ 70 %) and P vs Pm (≈ 30 %) side by side under the workspace
+        (DESIGN.md §1, "Bottom dock area")."""
+        self.log_dock = PanelDock("Pressure log", "PressureLogDock", self.PvPmTableWindow,
+                                  "Hide the pressure log")
+        self.log_dock.add_header_widgets(self.PvPmTableWindow.header_widgets,
+                                         self.PvPmTableWindow.header_actions)
+        self.plot_dock = PanelDock("P vs Pm", "PvPmDock", self.PvPmPlotWindow,
+                                   "Hide the P vs Pm plot", body_padding=8)
+        self.plot_dock.add_header_widgets([self.PvPmPlotWindow.legend_label])
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.log_dock)
+        self.splitDockWidget(self.log_dock, self.plot_dock, Qt.Horizontal)
+        self._docks = (self.log_dock, self.plot_dock)
+        for dock in self._docks:
+            action = dock.toggleViewAction()
+            action.setText(dock.windowTitle())
+            self.view_menu.addAction(action)
+            dock.visibilityChanged.connect(self._schedule_panel_update)
+            dock.topLevelChanged.connect(self._schedule_panel_update)
+        self._default_dock_sizes()
+
+    def _default_dock_sizes(self):
+        height = self.height() if self.height() > 0 else DEFAULT_HEIGHT
+        width = self.width() if self.width() > 0 else DEFAULT_WIDTH
+        self.resizeDocks([self.log_dock], [int(height * DOCK_HEIGHT_FRACTION)], Qt.Vertical)
+        self.resizeDocks([self.log_dock, self.plot_dock],
+                         [int(width * LOG_WIDTH_FRACTION), int(width * (1 - LOG_WIDTH_FRACTION))],
+                         Qt.Horizontal)
+
+    def _schedule_panel_update(self, *_args):
+        # after Qt has laid the docks out
+        QTimer.singleShot(0, self._update_panels)
+
+    def _update_panels(self):
+        """Workspace bottom gap and dock height limits after a dock is shown, hidden,
+        undocked or docked."""
+        if sip.isdeleted(self):
+            return
+        docked = [d for d in self._docks if not d.isHidden() and not d.isFloating()]
+        margins = self.workspace_layout.contentsMargins()
+        bottom = 0 if docked else GAP
+        if margins.bottom() != bottom:
+            self.workspace_layout.setContentsMargins(GAP, GAP, GAP, bottom)
+        self._limit_dock_heights()
+        for dock in self._docks:
+            dock.update_margins()
+
+    def _limit_dock_heights(self):
+        """Docked panels take at most half the window height: the spectrum keeps the
+        rest. Floating panels keep their own size."""
+        limit = max(MIN_DOCK_HEIGHT, int(self.height() * MAX_DOCK_HEIGHT_FRACTION))
+        for dock in self._docks:
+            dock.setMaximumHeight(QWIDGETSIZE_MAX if dock.isFloating() else limit)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "_docks"):
+            self._limit_dock_heights()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not getattr(self, "_shown_once", False):
+            self._shown_once = True
+            if not self._layout_restored:
+                self._default_dock_sizes()      # with the final window size
+            self._schedule_panel_update()
+
     def _connect_top_bar(self):
         bar = self.top_bar
         bar.open_button.clicked.connect(self.open_session_signal.emit)
         bar.save_button.clicked.connect(self.save_session_signal.emit)
         bar.export_button.clicked.connect(self.PvPmTableWindow.save_data_to_csv)
         bar.theme_button.clicked.connect(self.toggle_theme)
-        # panel toggles follow the windows (closed with their own title bar too)
-        self._panel_toggles = {self.PvPmTableWindow: bar.log_toggle,
-                               self.PvPmPlotWindow: bar.plot_toggle}
-        for window, toggle in self._panel_toggles.items():
-            toggle.toggled.connect(window.setVisible)
-            window.installEventFilter(self)
+        # panel toggles show / hide the docks where they were (docked or floating), and
+        # follow them when they are hidden with their × or the View menu
+        for dock, toggle in ((self.log_dock, bar.log_toggle), (self.plot_dock, bar.plot_toggle)):
+            action = dock.toggleViewAction()
+            # the action is only checked once the window is shown
+            toggle.setChecked(not dock.isHidden())
+            toggle.clicked.connect(dock.setVisible)
+            action.toggled.connect(toggle.setChecked)
 
-    def eventFilter(self, watched, event):
-        toggles = getattr(self, "_panel_toggles", {})
-        if watched in toggles and event.type() in (QEvent.Show, QEvent.Hide):
-            toggle = toggles[watched]
-            was_blocked = toggle.blockSignals(True)
-            toggle.setChecked(event.type() == QEvent.Show)
-            toggle.blockSignals(was_blocked)
-        return super().eventFilter(watched, event)
+    # --- window geometry and panel layout, kept between launches ---------------------------
+
+    def _restore_layout(self):
+        settings = app_settings()
+        geometry = settings.value("window/geometry")
+        state = settings.value("window/state")
+        if geometry is None or state is None:
+            return False
+        if not (self.restoreGeometry(geometry) and self.restoreState(state, LAYOUT_VERSION)):
+            return False
+        return True
+
+    def save_layout(self):
+        settings = app_settings()
+        settings.setValue("window/geometry", self.saveGeometry())
+        settings.setValue("window/state", self.saveState(LAYOUT_VERSION))
 
     # session shown in the top bar (set by the presenter)
     def set_version(self, version):
@@ -429,43 +513,32 @@ class MainWindow(QMainWindow):
     #####################################################################################
     # ? Main window methods
 
-    def _arrange_windows(self):
-        """Place the main window and, to its right, the PvPm table and plot,
-        all within the available area of the screen (small laptop screens too)."""
+    def _place_window(self):
+        """Fit the main window in the available area of the screen (small laptop
+        screens too); a window that cannot shrink to the screen starts at its edge."""
         screen = QGuiApplication.primaryScreen()
         if screen is None:
             return
         area = screen.availableGeometry()
-        gap = 10
-
-        def fit(widget, x, y):
-            """Place the window frame (title bar and borders included) at x, y, moved
-            back inside the screen if needed."""
-            frame, inner = widget.frameGeometry(), widget.geometry()
-            frame_w, frame_h = frame.width() - inner.width(), frame.height() - inner.height()
-            # never below the minimum size of the window's layout, which Qt applies
-            # anyway: a window that cannot shrink to the screen starts at its edge
-            minimum = widget.minimumSizeHint().expandedTo(widget.minimumSize())
-            width = max(min(inner.width(), area.width() - frame_w), minimum.width())
-            height = max(min(inner.height(), area.height() - frame_h), minimum.height())
-            x = max(area.left(), min(x, area.right() + 1 - width - frame_w))
-            y = max(area.top(), min(y, area.bottom() + 1 - height - frame_h))
-            widget.setGeometry(x + inner.left() - frame.left(), y + inner.top() - frame.top(),
-                               width, height)
-
-        fit(self, area.left() + 100, area.top() + 100)
-        side_x = self.frameGeometry().right() + gap
-        fit(self.PvPmTableWindow, side_x, self.frameGeometry().top())
-        fit(self.PvPmPlotWindow, side_x, self.PvPmTableWindow.frameGeometry().bottom() + gap)
+        frame, inner = self.frameGeometry(), self.geometry()
+        frame_w, frame_h = frame.width() - inner.width(), frame.height() - inner.height()
+        # never below the minimum size of the window's layout, which Qt applies anyway
+        minimum = self.minimumSizeHint().expandedTo(self.minimumSize())
+        width = max(min(inner.width(), area.width() - frame_w), minimum.width())
+        height = max(min(inner.height(), area.height() - frame_h), minimum.height())
+        x = max(area.left(), area.left() + (area.width() - width - frame_w) // 2)
+        y = max(area.top(), area.top() + (area.height() - height - frame_h) // 2)
+        self.setGeometry(x + inner.left() - frame.left(), y + inner.top() - frame.top(),
+                         width, height)
 
     def closeEvent(self, event):
         if self.close_guard is not None and not self.close_guard():
             event.ignore()
             return
+        self.save_layout()
         # close the side windows owned by this main window (not every app window,
-        # which recursed between main windows)
-        for window in (self.PvPmTableWindow, self.PvPmPlotWindow,
-                       self.additional_toolbox_window, self.font_size_window):
+        # which recursed between main windows); floating panels close with it
+        for window in (self.additional_toolbox_window, self.font_size_window):
             if window is not None:
                 window.close()
         super().closeEvent(event)
@@ -498,6 +571,8 @@ class MainWindow(QMainWindow):
         icons.refresh()
         self.top_bar.restyle()
         self.file_list_widget.restyle()
+        for dock in self._docks:
+            dock.restyle()
 
         for themed in (self.ptoolbox, self.additional_toolbox_window, self.PvPmPlotWindow):
             if dark:
@@ -805,14 +880,6 @@ class MainWindow(QMainWindow):
         msg.setInformativeText(reason)
         msg.setWindowTitle("Fit error")
         msg.exec_()
-
-    def toggle_PvPm(self):
-        if self.PvPmTableWindow.isVisible() or self.PvPmPlotWindow.isVisible():
-            self.PvPmTableWindow.hide()
-            self.PvPmPlotWindow.hide()
-        else:
-            self.PvPmTableWindow.show()
-            self.PvPmPlotWindow.show()
 
     def toggle_additional_ptoolbox(self):
         if self.additional_toolbox_window.isVisible():

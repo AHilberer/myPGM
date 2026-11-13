@@ -571,7 +571,8 @@ def test_right_click_zoom_out_then_full_view(gui):
 def test_windows_open_within_the_screen(gui):
     from PyQt5.QtGui import QGuiApplication
     area = QGuiApplication.primaryScreen().availableGeometry()
-    for window in (gui.view, gui.view.PvPmTableWindow, gui.view.PvPmPlotWindow):
+    # the pressure log and P vs Pm plot are docked in the main window (step 3)
+    for window in (gui.view,):
         geometry = window.frameGeometry()  # title bar and borders included
         minimum = window.minimumSizeHint().expandedTo(window.minimumSize())
         info = (window.windowTitle(), geometry, area, minimum)
@@ -589,10 +590,11 @@ def test_windows_open_within_the_screen(gui):
 
 def test_window_wider_than_the_screen_starts_at_its_edge(qapp, monkeypatch):
     # a window whose layout cannot shrink to the screen was placed with its usual
-    # width, next to the main window; Qt then widened it to its minimum when showing
-    # it, and it ran off the right edge (Windows CI, 800 px screen: the table needed
-    # 823 px, with the Windows fonts)
+    # width; Qt then widened it to its minimum when showing it, and it ran off the
+    # right edge (Windows CI, 800 px screen: the table needed 823 px, with the Windows
+    # fonts). The table is now docked in the main window, which must start at the edge.
     from PyQt5.QtGui import QGuiApplication
+    from conftest import dispose
     from myPGM.ui import PvPmTable
     from myPGM.ui.main_ui import MainWindow
     area = QGuiApplication.primaryScreen().availableGeometry()
@@ -604,10 +606,9 @@ def test_window_wider_than_the_screen_starts_at_its_edge(qapp, monkeypatch):
     monkeypatch.setattr(PvPmTable.HPTableWindow, "__init__", wide_table_init)
     view = MainWindow()
     qapp.processEvents()
-    table = view.PvPmTableWindow
-    assert table.frameGeometry().left() == area.left()  # geometry() excludes the frame
-    assert table.width() > area.width()
-    view.close()
+    assert view.frameGeometry().left() == area.left()  # geometry() excludes the frame
+    assert view.width() > area.width()
+    dispose(view)
 
 
 # --- demo session -------------------------------------------------------------------------
@@ -861,13 +862,14 @@ def test_pvpm_plot_follows_table_order_and_short_names(gui):
     plot = gui.view.PvPmPlotWindow
     pm, _ = plot.lines["Ruby2020"].getData()
     assert list(pm) == [24.0, 8.0, 15.0]                  # order added, as the table '#'
-    legend = [label.text for _sample, label in plot.legend.items]
-    assert legend == ["Ruby2020"]
+    # legend in the dock header (step 3)
+    assert [text for text, _color in plot.legend_entries()] == ["Ruby2020"]
+    assert "Ruby2020" in plot.legend_label.text()
 
 
 def test_demo_plot_legend_uses_short_names(demo):
     _presenter, view, _ = demo
-    legend = [label.text for _sample, label in view.PvPmPlotWindow.legend.items]
+    legend = [text for text, _color in view.PvPmPlotWindow.legend_entries()]
     assert legend == ["Ruby2020", "H2 vibron"]
 
 

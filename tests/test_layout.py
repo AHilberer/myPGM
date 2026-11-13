@@ -84,17 +84,19 @@ def test_theme_menu_is_replaced_by_the_top_bar_toggle(gui):
     assert not theme.is_dark() and bar.theme_button._theme_icon[0] == "moon"
 
 
-def test_panel_toggles_follow_the_windows(gui):
+def test_panel_toggles_follow_the_docks(gui):
     view, bar = gui.view, gui.view.top_bar
     assert bar.log_toggle.isChecked() and bar.plot_toggle.isChecked()
+    view.show()             # the docks' View menu actions follow them once shown
+    gui.app.processEvents()
     bar.log_toggle.click()
-    assert not view.PvPmTableWindow.isVisible() and view.PvPmPlotWindow.isVisible()
+    assert view.log_dock.isHidden() and not view.plot_dock.isHidden()
     bar.log_toggle.click()
-    assert view.PvPmTableWindow.isVisible()
-    view.PvPmPlotWindow.close()             # its own title bar
-    assert not bar.plot_toggle.isChecked()
-    view.toggle_PvPm()                      # one hidden: hides both
-    assert not bar.log_toggle.isChecked() and not bar.plot_toggle.isChecked()
+    assert not view.log_dock.isHidden()
+    view.plot_dock.header.close_button.click()          # × in its header
+    assert view.plot_dock.isHidden() and not bar.plot_toggle.isChecked()
+    view.plot_dock.toggleViewAction().trigger()          # View menu
+    assert not view.plot_dock.isHidden() and bar.plot_toggle.isChecked()
 
 
 def test_top_bar_open_save_export(gui, tmp_path, monkeypatch):

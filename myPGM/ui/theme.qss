@@ -279,6 +279,15 @@ QScrollBar::add-page, QScrollBar::sub-page {
 QSplitter::handle {
   background-color: transparent;
 }
+/* gaps between the workspace and the bottom panels, and between the panels */
+QMainWindow::separator {
+  background-color: transparent;
+  width: 8px;
+  height: 8px;
+}
+QMainWindow::separator:hover {
+  background-color: $bd;
+}
 QSplitter::handle:hover {
   background-color: $bd;
 }
@@ -435,4 +444,59 @@ QPushButton[role="accent"] {
 }
 QPushButton[role="accent"]:hover {
   background-color: $acs;
+}
+
+/* --- bottom panels (docks) ------------------------------------------------------------- */
+
+QDockWidget {
+  background: transparent;
+}
+#DockHeader {
+  background-color: $sf;
+  border: 1px solid $bd;
+  border-bottom: none;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+#DockHeader[floating="true"] {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+#DockBody {
+  background-color: $sf;
+  border: 1px solid $bd;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+#DockBody[floating="true"] {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+QTableWidget#PressureLogTable {
+  border: none;
+  border-radius: 0px;
+}
+QLabel#CountPill {
+  background-color: $hd;
+  color: $mu;
+  border-radius: 10px;
+  padding: 2px 9px;
+  font-size: 12px;
+}
+QLabel#PlotLegend {
+  color: $tx;
+  font-size: 13px;
+}
+QLabel[role="window-title"] {
+  font-size: 14px;
+  font-weight: 600;
+}
+QPushButton[role="close"] {
+  background: transparent;
+  border: none;
+  padding: 0px;
+  min-height: 0px;
+}
+QPushButton[role="close"]:hover {
+  background-color: $hd;
 }

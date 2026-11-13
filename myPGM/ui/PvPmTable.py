@@ -4,8 +4,7 @@ import logging
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QPushButton,
-    QHBoxLayout,
+    QLabel,
     QFileDialog,
     QTableWidgetItem,
     QHeaderView,
@@ -20,6 +19,7 @@ from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
 from myPGM.settings import last_dir, remember_dir
 from myPGM.ui.PressureToolbox import PressureToolbox
 from myPGM.ui import theme
+from myPGM.ui.widgets import button
 
 logger = logging.getLogger(__name__)
 
@@ -96,11 +96,13 @@ class HPTableWidget(QTableWidget):
 
     # Use object to avoid truncation of large integer IDs in Qt int signals.
     recall_requested = pyqtSignal(object)
+    rows_changed = pyqtSignal(int)          # number of points, after each update
 
     def __init__(self):
         super().__init__()
 
         self.data_manager = None
+        self._shown_count = 0               # rows at the last update: new ones are scrolled to
         self.user_column_visibility = {}   # columns shown/hidden from the header menu
         self.font_px = 18
 
@@ -185,6 +187,18 @@ class HPTableWidget(QTableWidget):
             self._decorate_row(row, obj)
         self.setSortingEnabled(True)
         self._apply_column_visibility(entries)
+        if len(entries) > self._shown_count:
+            self._scroll_to_number(len(entries))        # the point just added
+        self._shown_count = len(entries)
+        self.rows_changed.emit(len(entries))
+
+    def _scroll_to_number(self, number):
+        """Scroll the row numbered `number` ('#' column) into view, whatever the sort."""
+        for row in range(self.rowCount()):
+            item = self.item(row, COLUMN_INDEX["#"])
+            if item is not None and item.data(SORT_ROLE) == number:
+                self.scrollToItem(item, QAbstractItemView.EnsureVisible)
+                return
 
     def _decorate_row(self, row, obj):
         self.item(row, COLUMN_INDEX["#"]).setData(ID_ROLE, obj.id)
@@ -208,6 +222,10 @@ class HPTableWidget(QTableWidget):
             self.setColumnHidden(col, not self.user_column_visibility.get(key, shown))
 
     def _show_column_menu(self, position):
+        self.column_menu().exec_(self.horizontalHeader().mapToGlobal(position))
+
+    def column_menu(self):
+        """Menu of the optional columns (header right-click and the Columns button)."""
         menu = QMenu(self)
         for col, (key, header, _numeric, _shown) in enumerate(COLUMNS):
             if key == "#":
@@ -216,7 +234,7 @@ class HPTableWidget(QTableWidget):
             action.setCheckable(True)
             action.setChecked(not self.isColumnHidden(col))
             action.toggled.connect(lambda visible, key=key: self.set_column_visible(key, visible))
-        menu.exec_(self.horizontalHeader().mapToGlobal(position))
+        return menu
 
     def set_column_visible(self, key, visible):
         self.user_column_visibility[key] = visible
@@ -259,6 +277,8 @@ class HPTableWidget(QTableWidget):
 
 
 class HPTableWindow(QWidget):
+    """Pressure log: the table, shown in the bottom dock. Its header actions (point
+    count, Columns, Remove selected, Clear) are placed in the dock header."""
     table_changed = pyqtSignal()
 
     def __init__(self):
@@ -266,31 +286,37 @@ class HPTableWindow(QWidget):
 
         self.data_manager = None
 
-        self.setWindowTitle("PvPm table")
-        self.resize(700, 400)   # placed by MainWindow._arrange_windows
+        self.setWindowTitle("Pressure log")
 
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         self.table_widget = HPTableWidget()
+        self.table_widget.setObjectName("PressureLogTable")
         layout.addWidget(self.table_widget)
 
-        table_actions_layout = QHBoxLayout()
+        self.count_label = QLabel()
+        self.count_label.setObjectName("CountPill")
+        self.count_label.setFixedHeight(22)
+        self.columns_button = button("Columns", 32, tooltip="Show or hide columns")
+        self.remove_selected_button = button("Remove selected", 32)
+        self.clear_table_button = button("Clear", 32, tooltip="Remove every point of the log")
+        self.header_widgets = [self.count_label]
+        self.header_actions = [self.columns_button, self.remove_selected_button,
+                               self.clear_table_button]
 
-        self.remove_selected_button = QPushButton("Remove selected")
-        self.clear_table_button = QPushButton("Clear table")
-
-        self.table_save_csv_button = QPushButton("Export table to csv")
-        table_actions_layout.addWidget(self.remove_selected_button)
-        table_actions_layout.addWidget(self.clear_table_button)
-        table_actions_layout.addWidget(self.table_save_csv_button)
-
-        layout.addLayout(table_actions_layout)
-
-        self.setLayout(layout)
-
-        self.table_save_csv_button.clicked.connect(self.save_data_to_csv)
+        self.columns_button.clicked.connect(self._show_columns_menu)
         self.remove_selected_button.clicked.connect(self.delete_selected)
         self.clear_table_button.clicked.connect(self.clear_table)
+        self.table_widget.rows_changed.connect(self._update_count)
+        self._update_count(0)
+
+    def _update_count(self, count):
+        self.count_label.setText(f"{count} point{'' if count == 1 else 's'}")
+
+    def _show_columns_menu(self):
+        menu = self.table_widget.column_menu()
+        menu.exec_(self.columns_button.mapToGlobal(self.columns_button.rect().bottomLeft()))
 
     def delete_selected(self):
         obj_id = self.table_widget.object_id_at(self.table_widget.currentRow())
