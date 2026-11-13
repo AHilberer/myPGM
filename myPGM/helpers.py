@@ -220,36 +220,48 @@ def customparse_file2data(f):
         if len(sp) < 2:
             continue
         try:
-            data_rows.append([_to_float(v) for v in sp])
+            # first two columns only: rows with more values (e.g. a numeric
+            # header line) made the array ragged
+            data_rows.append([_to_float(v) for v in sp][:2])
         except ValueError:
             continue
 
     if not data_rows:
         raise RuntimeError("No numeric data found in file")
 
-    data = np.array(data_rows, dtype=np.float64)
-    return data[:, :2]
+    return np.array(data_rows, dtype=np.float64)
+
+def _single_column_values(f):
+    """Values of a one-number-per-line file (header/footer lines skipped), or None."""
+    with open(f, 'r') as file:
+        data_lines = []
+        for line in file:
+            try:
+                data_lines.append(float(line.strip().replace(',', '.')))
+            except ValueError:
+                pass
+    return np.array(data_lines, dtype=np.float64) if data_lines else None
+
+def _strictly_monotonic(values):
+    steps = np.diff(values)
+    return bool(np.all(steps > 0) or np.all(steps < 0))
 
 def spectro_calibration_reader(f):
+    """x axis of an alternative spectrometer calibration: the first column of a
+    two-column file, or a single-column file. A calibration axis is strictly
+    monotonic, which decides between the two readings of a line like '690,01'
+    (two columns, or one value with a decimal comma: it was read as 690)."""
+    readings = []
     try:
-        # two-column file
-        data = customparse_file2data(f)[:, 0]
-        return data
-
-    except Exception:
-        # single-column file (?)
-        with open(f, 'r') as file:
-            data_lines = []
-            for line in file:
-                try:
-                    # in case of header/footer
-                    v = float(line.strip().replace(',', '.'))
-                    data_lines.append(v)
-                except ValueError:
-                    pass
-
-            if not data_lines:
-                raise RuntimeError("No numeric data found in spectrometer calibration file")
-
-            data = np.array(data_lines, dtype=np.float64)
-        return data
+        readings.append(customparse_file2data(f)[:, 0])      # two-column file
+    except RuntimeError:
+        pass
+    single = _single_column_values(f)
+    if single is not None:
+        readings.append(single)
+    if not readings:
+        raise RuntimeError("No numeric data found in spectrometer calibration file")
+    for data in readings:
+        if _strictly_monotonic(data):
+            return data
+    return readings[0]

@@ -18,6 +18,10 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
   stayed flat, so a sloped baseline was only partly removed at the high-x end.
 - Spectra stored with x decreasing: Auto Bg used the upper hull (making the spectrum negative), and
   the Raman edge and the derivative plot followed the file order instead of increasing x.
+- Spectrum files with a row of more values than the others (e.g. a numeric header line) could not
+  be loaded.
+- A single-column spectrometer calibration file with decimal commas (`690,01`) was read as two
+  columns, giving a flat x axis (690, 690, ...) without any error.
 
 ## [1.0.0] - 2026-10-18
 

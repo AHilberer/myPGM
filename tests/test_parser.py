@@ -42,6 +42,13 @@ def test_extra_columns_are_ignored(tmp_path):
     np.testing.assert_allclose(customparse_file2data(f), [[1, 10], [2, 20]])
 
 
+def test_rows_with_more_values_are_kept(tmp_path):
+    # a row with an extra value made the array ragged: ValueError, file not loaded
+    f = tmp_path / "ragged.txt"
+    f.write_text("1 2 3\n4 5\n6 7\n")
+    np.testing.assert_allclose(customparse_file2data(f), [[1, 2], [4, 5], [6, 7]])
+
+
 def test_no_numeric_data_raises(tmp_path):
     f = tmp_path / "bad.asc"
     f.write_text("hello\nworld\n")
@@ -60,6 +67,20 @@ def test_spectro_calibration_single_column(resources):
     x = spectro_calibration_reader(resources / "alternate_spectro_calib.asc")
     assert x.shape == (1024,)
     assert np.all(np.diff(x) > 0)
+
+
+def test_spectro_calibration_single_column_with_decimal_comma(tmp_path):
+    # '690,01' was read as two columns, x = 690: a flat axis of the right length
+    f = tmp_path / "calib.asc"
+    f.write_text("690,00\n690,01\n690,02\n690,03\n")
+    np.testing.assert_allclose(spectro_calibration_reader(f), [690.00, 690.01, 690.02, 690.03])
+
+
+def test_spectro_calibration_two_integer_columns_with_comma(tmp_path):
+    # the other reading of 'a,b': kept when its first column is a valid axis
+    f = tmp_path / "calib.csv"
+    f.write_text("1,500\n2,510\n3,490\n")
+    np.testing.assert_allclose(spectro_calibration_reader(f), [1, 2, 3])
 
 
 def test_spectro_calibration_empty_raises(tmp_path):
