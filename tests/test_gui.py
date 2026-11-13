@@ -569,6 +569,22 @@ def test_manual_background_is_flat_beyond_the_clicked_points(gui):
     assert bg[inside].min() < bg[inside].max()                  # curved between the clicks
 
 
+def test_manual_background_with_one_click_does_not_reuse_the_previous_one(gui):
+    gui.presenter.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
+    obj = gui.presenter.model[gui.file_id("Example_Ruby_1.asc")]
+    gui.view.toggle_ManualBg()                                  # start
+    gui.view.ManualBg_points = [[689.0, 0.04], [699.0, 0.05]]
+    gui.view.plot_ManualBg()
+    gui.view.toggle_ManualBg()                                  # subtract
+    bg = obj.bg.copy()
+    gui.view.toggle_ManualBg()                                  # again, one click only
+    gui.view.ManualBg_points = [[694.0, 0.04]]
+    gui.view.plot_ManualBg()
+    gui.view.toggle_ManualBg()
+    np.testing.assert_array_equal(obj.bg, bg)                   # was subtracted twice
+    assert gui.errors == []
+
+
 def test_pvpm_plot_follows_table_order_and_short_names(gui):
     for name, Pm in [("Example_Ruby_3.asc", 24.0), ("Example_Ruby_1.asc", 8.0), ("Example_Ruby_2.asc", 15.0)]:
         _add(gui, name, Pm)

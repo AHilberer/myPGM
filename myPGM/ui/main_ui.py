@@ -733,6 +733,7 @@ class MainWindow(QMainWindow):
         if self.click_ManualBg_enabled and self.ManualBg_points != []:
             self.subtract_ManualBg_signal.emit(self.temp_bg)
             self.ManualBg_points = []
+            self.temp_bg = None
             self.data_bg_line.setData([],[])
             self.data_bg_scatter.setData([],[])
             self.ManualBg_button.setText("Manual Bg")
@@ -770,6 +771,8 @@ class MainWindow(QMainWindow):
 
         # spline through the clicked points, flat beyond the outermost ones
         # (extrapolating the polynomial made the background swing at the edges)
+        # no background from a single point: never a previous background reused
+        self.temp_bg = None
         if len(x_bg) >= 2:
             spl_order = len(x_bg) - 1 if len(x_bg) - 1 <= 5 else 5
             spl = InterpolatedUnivariateSpline(x_bg, y_bg, k=spl_order)

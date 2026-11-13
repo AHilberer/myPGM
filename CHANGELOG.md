@@ -8,6 +8,7 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
 - A failed fit left the spectrum with the toolbox calibration but its previous position, so a
   point already in the PvPm table could show a wrong pressure; a failed fit now changes nothing.
 - A fit range with too few points for the model gave an "Unexpected error" instead of the fit error.
+- Manual Bg with a single click subtracted the previous manual background a second time.
 
 ## [1.0.0] - 2026-10-18
 
