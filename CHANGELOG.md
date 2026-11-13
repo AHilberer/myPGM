@@ -10,6 +10,9 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
   behind it).
 
 ### Fixed
+- Exporting the table to a file that cannot be written (no permission, file open elsewhere) gave an
+  unexpected error; it is now reported. The `.csv` extension was not added when `.csv` appeared
+  elsewhere in the path, and was added again to a name ending in `.CSV`.
 - A failed fit left the spectrum with the toolbox calibration but its previous position, so a
   point already in the PvPm table could show a wrong pressure; a failed fit now changes nothing.
 - A fit range with too few points for the model gave an "Unexpected error" instead of the fit error.

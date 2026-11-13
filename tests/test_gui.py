@@ -425,6 +425,29 @@ def test_table_plot_and_csv_show_uncertainty(gui, tmp_path, monkeypatch):
     assert exported[0]["x unit"] == "nm" and exported[0]["fit model"] == "Double Voigt"
 
 
+def test_csv_export_error_is_shown(gui, tmp_path, monkeypatch, caplog):
+    from PyQt5.QtWidgets import QMessageBox
+    shown = []
+    monkeypatch.setattr(QMessageBox, "critical", lambda parent, title, text: shown.append(title))
+    window = gui.view.PvPmTableWindow
+    monkeypatch.setattr(window, "get_save_filename_dialog", lambda: str(tmp_path / "missing" / "t.csv"))
+    window.save_data_to_csv()                       # raised FileNotFoundError
+    assert shown == ["Export error"]
+    assert "Could not export the table" in caplog.text
+
+
+@pytest.mark.parametrize("chosen, saved", [
+    ("/data/run.csv.d/table", "/data/run.csv.d/table.csv"),   # '.csv' only in a folder name
+    ("/data/table.CSV", "/data/table.CSV"),
+    ("/data/table", "/data/table.csv"),
+])
+def test_csv_export_adds_the_extension(gui, monkeypatch, chosen, saved):
+    from PyQt5.QtWidgets import QFileDialog
+    monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                        lambda *args, **kwargs: (chosen, "CSV Files (*.csv)"))
+    assert gui.view.PvPmTableWindow.get_save_filename_dialog() == saved
+
+
 def test_error_bars_removed_with_table_entries(gui):
     select_and_fit(gui, "Example_Ruby_1.asc")
     gui.view.prompt_fit_pm = lambda current: 12.0
