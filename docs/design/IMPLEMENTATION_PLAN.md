@@ -30,27 +30,32 @@ Work on the `antoine_dev` branch, one step at a time: each step is reviewed, tes
    - Move the PressureToolbox content into the inspector cards (Pressure gauge, Parameters, Spectrometer).
 3. **Docks**
    - Turn `HPTableWindow` and `PvPmPlotWindow` into `QDockWidget`s in the bottom area, side by side, with an undock button in their headers; floating docks get the compact title bar.
+   - Bottom dock area sizing (DESIGN.md §1, "Bottom area sizing"): `resizeDocks()` for the default height (≈ 28 % of the window) and the 70/30 width split, minimum heights so the table and plot never collapse, maximum so the spectrum keeps at least half the height; table scrolls with a sticky header and scrolls the new row into view.
+   - Both docks are closable: × in their header and a checkable top-bar `QToolButton` each, wired to `dock.toggleViewAction()` (DESIGN.md §1, "Optional panels").
    - Save and restore dock layout and window geometry with `saveState()` / `restoreState()` in `QSettings`. Replace `_arrange_windows` accordingly.
-   - The "P vs Pm" button that toggled the separate windows becomes unnecessary (docks can be closed/reopened from the Settings menu or a View submenu).
+   - The "P vs Pm" button that toggled the separate windows becomes unnecessary (docks can be closed/reopened from a View submenu or a context menu).
 4. **Center panel**
-   - Fitted pressure card (big value, σ, pills, Pm field + Add fit to log). It replaces the plot title and the "Add fit to table" button (`add_fitted_button`, same code path). The manual "Add to table" of the pressure toolbox stays as "Add point to log" in the Parameters card (`PToolbox_toTable_button`).
+   - Fitted pressure card (big value without uncertainty, pills, Pm field + Add fit to log). It replaces the plot title and the "Add fit to table" button (`add_fitted_button`, same code path). The manual "Add to table" of the pressure toolbox stays as "Add point to log" in the Parameters card (`PToolbox_toTable_button`).
    - Fit toolbar: Fit / Click-to-fit / Fit range (+ edit); Background as an exclusive `QButtonGroup` of checkable buttons (Auto / Manual / None); Smoothing stepper; legend row with the dI/dλ pill toggle on its right (drives the existing derivative splitter pane). The toolbar must fit on one line at 1280 px.
 5. **Density and colors**
    - File list: `QStyledItemDelegate` for one-line 30 px rows (dot, name, fitted P), tooltip with calibration and model.
    - Pressure log: 26 px rows, mono numbers, highlighted current row, header strip style.
    - Calibration-colored selectors: dynamic property on the combos (e.g. `setProperty("calib", "ruby")`) used by the QSS, re-polished (`style().unpolish(w); style().polish(w)`) on each calibration change. Same family color for dots, table, P vs Pm markers.
-6. **Settings menu**
-   - `QToolButton` with gear icon, `InstantPopup`, `QMenu` with the entries of DESIGN.md §4; Font size and additional PToolbox go into a Preferences dialog.
+   - Pressure log: P column shows the value alone; add an optional "σP (fit)" column (off by default, like "σx (fit)"). P vs Pm: add the "P (GPa)" axis title.
+   - Startup / empty state (DESIGN.md §4b): empty center card with drop zone and actions, empty sidebar, empty log and plot, "Not saved yet"; replace the `ask_recover_session` message box with the recovery banner (keep the method name and return value so the presenter and tests are unchanged, or adapt the test in the same commit).
+6. **Settings window**
+   - Gear `QToolButton` in the top bar opens a `SettingsDialog` (non-modal, single instance) laid out as DESIGN.md §4: section list on the left, content on the right, Restore defaults / Cancel / Save.
+   - Store every value in `QSettings`; read them at startup. Autosave interval: replace the `AUTOSAVE_INTERVAL_MS` constant by the stored value (default 30 s) and restart `autosave_timer` when it changes. Move Font size and the additional PToolbox toggle here and remove those menu-bar entries.
    - Icons: Lucide SVGs in `myPGM/resources/icons/ui/`, recolored to the current text color when the theme changes (replace `stroke="currentColor"` before loading into a `QIcon`, or render with `QSvgRenderer`).
 7. **Polish and docs**
-   - Compare light and dark against all four mockups; fix spacing, alignment, focus states, tooltips on icon-only buttons, keyboard navigation.
+   - Compare light and dark against all the `mockup_*.png` captures (main window, startup, settings); fix spacing, alignment, focus states, tooltips on icon-only buttons, keyboard navigation.
    - Update the README screenshot (`docs/myPGM_screenshot.png`) and CHANGELOG.
 
 ## Prompts to paste
 
 Start (in plan mode):
 
-> Read `docs/design/DESIGN.md`, `docs/design/IMPLEMENTATION_PLAN.md` and look at the four `docs/design/mockup_*.png`. Then read `myPGM/ui/*.py`, the two `.qss` files, `presenter.py` and `tests/test_gui.py`. Propose a detailed plan for **step 1 only**, following the ground rules. List the files you will create or change and how you will check the result visually.
+> Read `docs/design/DESIGN.md`, `docs/design/IMPLEMENTATION_PLAN.md` and look at all the `docs/design/mockup_*.png` captures (the table in DESIGN.md says what each one shows). Then read `myPGM/ui/*.py`, the two `.qss` files, `presenter.py` and `tests/test_gui.py`. Propose a detailed plan for **step 1 only**, following the ground rules. List the files you will create or change and how you will check the result visually.
 
 Each following step:
 
