@@ -71,6 +71,20 @@ def test_double_model_on_single_peak_fails_cleanly(resources):
             pass
 
 
+@pytest.mark.parametrize("n_points", [0, 1, 3, 9])     # Double Voigt has 9 parameters
+def test_too_narrow_fit_range_fails_cleanly(resources, n_points):
+    # used to raise TypeError (curve_fit) or IndexError (initial guess), shown as an
+    # unexpected error instead of the "Fit error" popup
+    obj = PressureGaugeDataObject()
+    obj.load_spectral_data_file("Example_Ruby_1.asc", str(resources / "Example_Ruby_1.asc"))
+    obj.set_calibration(C.Ruby2020)
+    obj.set_fit_model(F.DoubleVoigt)
+    x = obj.normalized_data[:, 0]
+    obj.fitting_range = (x[500], x[499 + n_points]) if n_points else (1.0, 2.0)
+    with pytest.raises(RuntimeError, match="points in the fit range"):
+        obj.fit_data()
+
+
 # --- initial guess -------------------------------------------------------------
 
 def _two_gaussians(x):
@@ -152,3 +166,10 @@ def test_raman_edge_uses_click_position():
     obj = _edge_object(1450.0)
     obj.fit_data(guess_peak=1420.0)
     assert obj.x == 1420.0
+
+
+def test_raman_edge_in_too_narrow_range_fails_cleanly():
+    obj = _edge_object(1450.0)
+    obj.fitting_range = (1449.9, 1450.1)       # a single point
+    with pytest.raises(RuntimeError, match="points in the fit range"):
+        obj.fit_data()

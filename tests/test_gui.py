@@ -96,6 +96,18 @@ def test_failed_fit_leaves_the_spectrum_and_its_table_point_unchanged(gui):
     assert table_rows(gui.view.PvPmTableWindow.table_widget)[0]["calibration"] == "Ruby2020"
 
 
+def test_too_narrow_fit_range_shows_fit_error(gui):
+    fid = gui.file_id("Example_Ruby_1.asc")
+    gui.presenter.file_selected_from_file_list(fid)
+    x = gui.presenter.model[fid].normalized_data[:, 0]
+    gui.view.toggle_fit_range()
+    gui.view.fit_range_selector.setRegion((x[500], x[502]))     # 3 points
+    gui.presenter.fit_mode = F.DoubleVoigt
+    gui.presenter.fit_current_file()
+    assert gui.errors == ["Fit error"]
+    assert gui.presenter.model[fid].fit_result is None
+
+
 def test_add_fit_to_table(gui):
     select_and_fit(gui, "Example_Ruby_1.asc")
     gui.view.prompt_fit_pm = lambda current: 12.0

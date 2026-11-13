@@ -7,6 +7,7 @@ from scipy.spatial import ConvexHull
 from scipy.ndimage import uniform_filter1d
 from scipy.optimize import curve_fit
 from collections.abc import MutableMapping
+from inspect import getfullargspec
 from itertools import count
 
 _id_counter = count(int(time.time() * 1000))
@@ -447,6 +448,11 @@ class PressureGaugeDataObject:
 
     def fit_procedure(self, model, x, y, guess_peak=None):
         if model.type == "peak":
+            # a narrow fit range made curve_fit raise TypeError (or get_pinit IndexError)
+            n_params = len(getfullargspec(model.func).args) - 1     # minus x
+            if len(x) <= n_params:
+                raise RuntimeError(f"{len(x)} points in the fit range, the {model.name} "
+                                   f"model needs more than {n_params}.")
             try:
                 popt, pcov = curve_fit(
                     model.func, x, y, p0=model.get_pinit(x, y, guess_peak=guess_peak)
@@ -461,6 +467,9 @@ class PressureGaugeDataObject:
             if guess_peak is not None:
                 best_x = guess_peak
             else:
+                if len(x) < 3:
+                    raise RuntimeError(f"{len(x)} points in the fit range, the edge "
+                                       "search needs at least 3.")
                 grad = np.gradient(y)
                 best_x = x[np.argmin(grad)]
             return {"opti": best_x, "cov": None}
