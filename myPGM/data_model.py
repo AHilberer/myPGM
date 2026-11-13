@@ -7,7 +7,6 @@ from scipy.spatial import ConvexHull
 from scipy.ndimage import uniform_filter1d
 from scipy.optimize import curve_fit
 from collections.abc import MutableMapping
-from inspect import getfullargspec
 from itertools import count
 
 _id_counter = count(int(time.time() * 1000))
@@ -430,7 +429,7 @@ class PressureGaugeDataObject:
         self.fitted_data = self._fitted_curve()
         if self.fit_model.type == "peak":
             popt = self.fit_result["opti"]
-            i = self._peak_position_index(popt)
+            i = self.fit_model.position_index(popt)
             self.set_x(popt[i], self._position_uncertainty(self.fit_result["cov"], i))
         else:
             # no fit, hence no uncertainty
@@ -458,16 +457,6 @@ class PressureGaugeDataObject:
         return np.column_stack((x, self.fit_model.func(x, *self.fit_result["opti"])))
 
     @staticmethod
-    def _peak_position_index(popt):
-        """Index of the fitted parameter used as the gauge position."""
-        # for now we use the number of args.... (crappy)
-        if len(popt) < 7:  # Samarium / Hydrogen (?)
-            return 2
-        # double peaks: the longer-wavelength one (R1 for ruby)
-        i, j = (2, 5) if len(popt) < 8 else (2, 6)   # Gaussian/Lorentzian or Voigt
-        return i if popt[i] >= popt[j] else j
-
-    @staticmethod
     def _position_uncertainty(cov, i):
         """Standard deviation of fitted parameter i, or None if it is not available."""
         if cov is None:
@@ -480,7 +469,7 @@ class PressureGaugeDataObject:
     def fit_procedure(self, model, x, y, guess_peak=None):
         if model.type == "peak":
             # a narrow fit range made curve_fit raise TypeError (or get_pinit IndexError)
-            n_params = len(getfullargspec(model.func).args) - 1     # minus x
+            n_params = model.n_params
             if len(x) <= n_params:
                 raise RuntimeError(f"{len(x)} points in the fit range, the {model.name} "
                                    f"model needs more than {n_params}.")

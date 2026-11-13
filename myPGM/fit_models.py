@@ -4,19 +4,38 @@ from scipy.signal import find_peaks
 from inspect import getfullargspec
 
 class GaugeFitModel():
-    ''' A general pressure gauge fitting model object '''
-    def __init__(self, name, func,type, color):
+    ''' A general pressure gauge fitting model object.
+        Peak models: func(x, c, *peaks), each peak given by params_per_peak values,
+        (a, x, sigma) or, for Voigt, (a, x, sigma, gamma). '''
+    def __init__(self, name, func, type, color, n_peaks=0, params_per_peak=0):
         self.name = name
         self.func = func
         self.type = type
         self.color = color  # color printed in calibration combobox
+        # declared, not guessed from the number of arguments (a triple Voigt has
+        # 12 peak parameters, which the old "% 3" rule took for 4 Gaussians)
+        self.n_peaks = n_peaks
+        self.params_per_peak = params_per_peak
+        if type == "peak" and len(getfullargspec(func).args) - 1 != self.n_params:
+            raise ValueError(f"{name}: {func.__name__} does not take x, c and "
+                             f"{n_peaks} x {params_per_peak} peak parameters")
+
+    @property
+    def n_params(self):
+        ''' Number of fitted parameters: offset c and the peak parameters. '''
+        return 1 + self.n_peaks * self.params_per_peak
+
+    def position_index(self, popt):
+        ''' Index in popt of the position used for the pressure: the peak at the
+            longest wavelength (R1 for ruby, the taller line of the doublet). '''
+        indices = [2 + k * self.params_per_peak for k in range(self.n_peaks)]
+        return max(indices, key=lambda i: popt[i])      # the first one if equal
 
     def get_pinit(self, x, y, guess_peak=None):
         ''' Initial parameters: offset c, then per peak height, position and
-            width(s): (a, x, sigma) or, for Voigt, (a, x, sigma, gamma). '''
-        n_params = len(getfullargspec(self.func).args) - 2   # minus x and c
-        params_per_peak = 3 if n_params % 3 == 0 else 4
-        peak_number = n_params // params_per_peak
+            width(s). '''
+        params_per_peak = self.params_per_peak
+        peak_number = self.n_peaks
 
         if guess_peak is None:
             xbin = x[1] - x[0] # nm/px or cm-1/px
@@ -95,32 +114,44 @@ def Double_Lorentzian(x, c, a1, x1, gamma1, a2, x2, gamma2):
 DoubleVoigt = GaugeFitModel(name = 'Double Voigt',
                                  func = Double_Voigt,
                                  type = 'peak',
-                                 color = 'firebrick')
+                                 color = 'firebrick',
+                                 n_peaks = 2,
+                                 params_per_peak = 4)
 
 DoubleGaussian = GaugeFitModel(name = 'Double Gaussian',
                                  func = Double_Gaussian,
                                  type = 'peak',
-                                 color = 'firebrick')
+                                 color = 'firebrick',
+                                 n_peaks = 2,
+                                 params_per_peak = 3)
 
 DoubleLorentzian = GaugeFitModel(name = 'Double Lorentzian',
                                  func = Double_Lorentzian,
                                  type = 'peak',
-                                 color = 'firebrick')
+                                 color = 'firebrick',
+                                 n_peaks = 2,
+                                 params_per_peak = 3)
 
 SingleLorentzian = GaugeFitModel(name = 'Single Lorentzian',
                                  func = Single_Lorentzian,
                                  type = 'peak',
-                                 color = 'mediumseagreen')
+                                 color = 'mediumseagreen',
+                                 n_peaks = 1,
+                                 params_per_peak = 3)
 
 SingleVoigt= GaugeFitModel(name = 'Single Voigt',
                                     func = Single_Voigt,
                                     type = 'peak',
-                                    color = 'mediumseagreen')
+                                    color = 'mediumseagreen',
+                                    n_peaks = 1,
+                                    params_per_peak = 4)
                 
 SingleGaussian = GaugeFitModel(name = 'Single Gaussian',
                                     func = Single_Gaussian,
                                     type = 'peak',
-                                    color = 'mediumseagreen')
+                                    color = 'mediumseagreen',
+                                    n_peaks = 1,
+                                    params_per_peak = 3)
 
 RamanEdge = GaugeFitModel(name = 'Raman Edge',
                                     func = None,

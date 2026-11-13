@@ -46,6 +46,10 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
   all-zero spectrum loaded as NaN; the latter is now refused with a clear message.
 - The automatic backup could read the file order while Move up/down was changing it.
 
+### Development
+- Fit models declare their number of peaks and parameters per peak (checked against the fit
+  function), instead of guessing them from the number of arguments.
+
 ## [1.0.0] - 2026-10-18
 
 First stable release. Compared with the previous `main` branch, it fixes several fitting and stability

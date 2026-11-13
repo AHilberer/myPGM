@@ -87,6 +87,34 @@ def test_too_narrow_fit_range_fails_cleanly(resources, n_points):
 
 # --- initial guess -------------------------------------------------------------
 
+def _triple_voigt(x, c, a1, x1, s1, g1, a2, x2, s2, g2, a3, x3, s3, g3):
+    return (F.Single_Voigt(x, c, a1, x1, s1, g1) + F.Single_Voigt(x, 0, a2, x2, s2, g2)
+            + F.Single_Voigt(x, 0, a3, x3, s3, g3))
+
+
+def test_peak_structure_is_declared_not_guessed():
+    # 12 peak parameters: the old "% 3" rule read a triple Voigt as 4 Gaussians
+    triple = F.GaugeFitModel("Triple Voigt", _triple_voigt, "peak", "grey",
+                             n_peaks=3, params_per_peak=4)
+    assert triple.n_params == 13
+    x = np.linspace(690, 700, 1001)
+    y = _triple_voigt(x, 0.1, 0.5, 694.9, 0.1, 0.1, 0.3, 693.4, 0.1, 0.1, 0.2, 697.0, 0.1, 0.1)
+    pinit = triple.get_pinit(x, y)
+    assert len(pinit) == 13
+    popt = np.array(pinit)
+    popt[[2, 6, 10]] = [694.9, 693.4, 697.0]
+    assert triple.position_index(popt) == 10              # longest wavelength
+    assert F.DoubleVoigt.position_index(popt[:9]) == 2
+    with pytest.raises(ValueError, match="peak parameters"):
+        F.GaugeFitModel("Wrong", _triple_voigt, "peak", "grey", n_peaks=3, params_per_peak=3)
+
+
+@pytest.mark.parametrize("model", [m for m in F.model_list if m.type == "peak"], ids=lambda m: m.name)
+def test_every_peak_model_declares_its_structure(model):
+    assert model.n_peaks in (1, 2) and model.params_per_peak in (3, 4)
+    assert ("Voigt" in model.name) == (model.params_per_peak == 4)
+
+
 def _two_gaussians(x):
     # both above the half-height detection threshold
     return (F.Single_Gaussian(x, 0, 1.0, 694.9, 0.15)      # tall, narrow

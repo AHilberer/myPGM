@@ -330,7 +330,7 @@ def test_fit_gives_position_and_pressure_uncertainty(ruby):
     assert 0 < ruby.x_err < 0.01                     # nm
     assert 0.0005 < ruby.P_err < 0.01                # GPa, statistical fit precision only
     assert ruby.P_err == pytest.approx(abs(_dP_dx(ruby)) * ruby.x_err, rel=1e-4)
-    i = PressureGaugeDataObject._peak_position_index(ruby.fit_result["opti"])
+    i = ruby.fit_model.position_index(ruby.fit_result["opti"])
     assert ruby.x == ruby.fit_result["opti"][i]      # R1, the longer-wavelength peak
 
 
