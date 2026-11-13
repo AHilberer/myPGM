@@ -125,8 +125,9 @@ def PEremets2023(nu, T, nu0, T0):
     B = 764 # GPa
     dnu = nu - nu0 
     p = A * (dnu/nu0) + B * (dnu/nu0)**2
-    return p 
+    return p
 
+# Hilberer et al., Nat Commun 17, 2644 (2026). https://doi.org/10.1038/s41467-026-69533-7
 def PHilberer2026(nu, T, nu0, T0):
     K0  = 576.521119539528 # GPa
     K0p = 3.2571168198326683
