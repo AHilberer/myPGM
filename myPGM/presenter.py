@@ -933,6 +933,8 @@ class Presenter(QObject):
         try:
             with open(file_path, "r", encoding="utf-8") as file_handle:
                 session = json.load(file_handle)
+            if not isinstance(session, dict):
+                raise ValueError("not a myPGM session file")
         except Exception as exc:
             self._show_error(f"Failed to load session: {exc}", title="Load error")
             return False
@@ -948,7 +950,7 @@ class Presenter(QObject):
             ]
         except Exception as exc:
             self._show_error(f"Failed to load session: {exc}", title="Load error")
-            return
+            return False
 
         self.model.clear()
         self.ordered_files_to_display = []
@@ -1099,20 +1101,24 @@ class Presenter(QObject):
 
     def offer_recovery(self):
         """At startup: offer to recover the newest backup left by a window that did
-        not close normally. Declined backups are kept as *.discarded.json."""
+        not close normally. Declined backups, and backups that cannot be loaded
+        (offered again at every start otherwise), are kept as *.discarded.json."""
         orphans = self._orphan_backups()
         if not orphans:
             return False
         path = orphans[0]
         when = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(path)))
+        discarded = os.path.splitext(path)[0] + ".discarded.json"
         if self.view.ask_recover_session(when):
             if self.load_session(path):
                 self._saved_fingerprint = None      # recovered work is not saved yet
                 os.remove(path)                     # now backed up by this window
                 logger.info("Session recovered from %s", path)
                 return True
+            os.replace(path, discarded)             # load_session showed the error
+            logger.warning("Session backup could not be loaded, kept as %s", discarded)
             return False
-        discarded = os.path.splitext(path)[0] + ".discarded.json"
         os.replace(path, discarded)
         logger.info("Session backup declined, kept as %s", discarded)
+        return False
         return False

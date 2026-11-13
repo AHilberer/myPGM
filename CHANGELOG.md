@@ -12,6 +12,8 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
 - "Add fit to table" ignored T, x0 and T0 edited in the pressure toolbox after the fit, so the table
   point did not have the pressure shown in the toolbox. They are now used; if the calibration,
   position or pressure was changed in the toolbox, the fit is not added and a message explains why.
+- A session backup that could not be loaded was offered for recovery at every start; it is now
+  kept aside as `.discarded.json`, like a declined backup.
 
 ## [1.0.0] - 2026-10-18
 

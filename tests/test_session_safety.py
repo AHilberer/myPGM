@@ -210,6 +210,20 @@ def test_declined_backup_is_kept_aside(app):
     dispose(view)
 
 
+@pytest.mark.parametrize("content", ["{not json", "[1, 2]"], ids=["invalid-json", "not-a-session"])
+def test_backup_that_cannot_be_loaded_is_offered_once(app, content):
+    _crashed_session(app)
+    crashed_backup = app.presenter.backup_path
+    with open(crashed_backup, "w") as f:       # e.g. damaged on disk
+        f.write(content)
+    view, presenter, asked = _new_app(app, answer=True)
+    assert not presenter.offer_recovery() and len(asked) == 1
+    assert not os.path.exists(crashed_backup)
+    assert os.path.exists(os.path.splitext(crashed_backup)[0] + ".discarded.json")
+    assert not presenter.offer_recovery() and len(asked) == 1      # not offered at every start
+    dispose(view)
+
+
 def test_backup_of_a_window_still_open_is_left_alone(app):
     # first window: unsaved work backed up, and still open (lock held)
     app.fit()
