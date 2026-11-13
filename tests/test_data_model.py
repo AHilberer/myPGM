@@ -42,6 +42,23 @@ def test_normalized_data_max_is_one(ruby):
     np.testing.assert_array_equal(ruby.normalized_data[:, 0], ruby.original_data[:, 0])
 
 
+def test_spectrum_without_positive_values_is_not_flipped():
+    # it was divided by its (negative) maximum: the peak became a dip
+    x = np.linspace(690, 700, 101)
+    y = -5 + np.exp(-(x - 695) ** 2)              # peak above a negative baseline
+    obj = PressureGaugeDataObject()
+    obj.original_data = np.column_stack((x, y))
+    obj.normalize_data()
+    np.testing.assert_allclose(obj.normalized_data[:, 1], y / 5)
+
+
+def test_all_zero_spectrum_is_rejected():
+    obj = PressureGaugeDataObject()
+    obj.original_data = np.column_stack((np.arange(10.0), np.zeros(10)))
+    with pytest.raises(ValueError, match="zero everywhere"):
+        obj.normalize_data()
+
+
 # --- pressure <-> x ---------------------------------------------------------------
 
 def test_set_x_then_P_are_consistent():

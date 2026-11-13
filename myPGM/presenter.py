@@ -47,6 +47,7 @@ class Presenter(QObject):
         self.current_selected_file = None
         self.current_directory = None
         self.corrected_spectro_x = None
+        self.corrected_spectro_name = None     # its file name, shown next to "Use"
         self.example_files = [
                 "Example_diam_Raman.asc",
                 "Example_Ruby_1.asc",
@@ -607,6 +608,7 @@ class Presenter(QObject):
             self._validate_spectro_calibration(corrected_spectro_x)
         except Exception as exc:
             self.corrected_spectro_x = None
+            self.corrected_spectro_name = None
             self.view.Spectro_filename_label.setText("None")
             self.view.Spectro_use_button.setChecked(False)
             self._show_error(
@@ -616,6 +618,7 @@ class Presenter(QObject):
             return
 
         self.corrected_spectro_x = corrected_spectro_x
+        self.corrected_spectro_name = file_name
         self.view.Spectro_filename_label.setText(file_name)
         logger.debug("Spectrometer calibration loaded from %s", selected_file)
 
@@ -890,12 +893,15 @@ class Presenter(QObject):
     def _session_dict(self):
         return {
             "app_version": self.app_version,
-            "ordered_files": self.ordered_files_to_display,
+            # a copy: autosave encodes this dict in a thread, and Move up/down
+            # swaps the items of the list in place
+            "ordered_files": list(self.ordered_files_to_display),
             "current_selected_file": self.current_selected_file,
             "buffer": self.buffer.to_dict(),
             "corrected_spectro_x": self.corrected_spectro_x.tolist()
             if self.corrected_spectro_x is not None
             else None,
+            "corrected_spectro_name": self.corrected_spectro_name,
             "spectro_use_enabled": self.view.Spectro_use_button.isChecked(),
             "files": [obj.to_dict() for obj in self.model.values()],
         }
@@ -978,6 +984,11 @@ class Presenter(QObject):
         corrected_spectro_x = session.get("corrected_spectro_x")
         if corrected_spectro_x is not None:
             self.corrected_spectro_x = np.asarray(corrected_spectro_x)
+            # sessions saved before the file name was stored
+            self.corrected_spectro_name = session.get("corrected_spectro_name") or "from session"
+        else:
+            self.corrected_spectro_name = None
+        self.view.Spectro_filename_label.setText(self.corrected_spectro_name or "None")
 
         self.view.Spectro_use_button.setChecked(
             session.get("spectro_use_enabled", False)

@@ -132,10 +132,18 @@ class PressureGaugeDataObject:
     def normalize_data(self):
         """Scale the intensity so that its maximum is 1. The baseline is kept on
         purpose: the fitted offset c absorbs it, and the fit starting values are
-        tuned for it (subtracting the minimum made some H2 fits diverge)."""
+        tuned for it (subtracting the minimum made some H2 fits diverge).
+        A spectrum with no positive value is scaled by its largest absolute value
+        (dividing by a negative maximum turned it upside down)."""
+        y = self.original_data[:, 1]
+        scale = np.max(y)
+        if not scale > 0:
+            scale = np.max(np.abs(y))
+        if not (np.isfinite(scale) and scale > 0):
+            raise ValueError("the spectrum intensity is zero everywhere (or not a number)")
         self.normalized_data = np.zeros(self.original_data.shape)
         self.normalized_data[:,0] = self.original_data[:,0]
-        self.normalized_data[:,1] = self.original_data[:,1] / max(self.original_data[:,1])
+        self.normalized_data[:,1] = y / scale
 
     def to_dict(self):
         return {

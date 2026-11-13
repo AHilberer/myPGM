@@ -251,6 +251,43 @@ def test_session_save_and_load(gui, tmp_path, monkeypatch):
     assert gui.presenter.current_selected_file == restored.id
 
 
+def test_session_restores_the_spectrometer_calibration_label(gui, resources, tmp_path, monkeypatch):
+    # the label kept showing the calibration file of the session open before
+    label = gui.view.Spectro_filename_label
+    gui.presenter.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))   # 1024 points
+    monkeypatch.setattr(gui.view, "get_file_via_dialog",
+                        lambda: [str(resources / "alternate_spectro_calib.asc")])
+    gui.presenter.load_spectro_calibration()
+    assert gui.presenter.corrected_spectro_x is not None
+    session = tmp_path / "session.json"
+    monkeypatch.setattr(gui.view, "get_save_session_filename_dialog", lambda: str(session))
+    monkeypatch.setattr(gui.view, "get_open_session_filename_dialog", lambda: str(session))
+    gui.presenter.save_session()
+
+    payload = json.loads(session.read_text())
+    no_calib = tmp_path / "no_calib.json"
+    no_calib.write_text(json.dumps(dict(payload, corrected_spectro_x=None, corrected_spectro_name=None)))
+    gui.presenter.load_session(str(no_calib))
+    assert label.text() == "None" and gui.presenter.corrected_spectro_x is None
+
+    gui.presenter.load_session()
+    assert label.text() == "alternate_spectro_calib.asc"
+
+    older = tmp_path / "older.json"                     # saved before the name was stored
+    del payload["corrected_spectro_name"]
+    older.write_text(json.dumps(payload))
+    gui.presenter.load_session(str(older))
+    assert label.text() == "from session"
+    assert gui.errors == []
+
+
+def test_session_dict_does_not_share_the_file_order(gui):
+    # autosave encodes this dict in a thread, while Move up/down swaps list items in place
+    order = gui.presenter.ordered_files_to_display
+    assert gui.presenter._session_dict()["ordered_files"] == order
+    assert gui.presenter._session_dict()["ordered_files"] is not order
+
+
 def test_corrupted_session_keeps_current_session(gui, tmp_path, monkeypatch):
     session = tmp_path / "broken.json"
     session.write_text(json.dumps({"files": [{"id": 1, "fit_result": "oops"}]}))

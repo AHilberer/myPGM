@@ -22,6 +22,11 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
   be loaded.
 - A single-column spectrometer calibration file with decimal commas (`690,01`) was read as two
   columns, giving a flat x axis (690, 690, ...) without any error.
+- Opening a session did not update the spectrometer calibration file name shown next to "Use";
+  sessions now store it.
+- A spectrum with no positive intensity was turned upside down by the normalisation, and an
+  all-zero spectrum loaded as NaN; the latter is now refused with a clear message.
+- The automatic backup could read the file order while Move up/down was changing it.
 
 ## [1.0.0] - 2026-10-18
 
