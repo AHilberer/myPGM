@@ -30,6 +30,15 @@ def dispose(view):
 
 
 @pytest.fixture(autouse=True)
+def isolated_settings(tmp_path):
+    """Settings (theme, font size, folders) in a temporary folder: tests must not
+    read or change the user's own settings."""
+    from PyQt5.QtCore import QSettings
+    QSettings.setPath(QSettings.IniFormat, QSettings.UserScope, str(tmp_path / "settings"))
+    return tmp_path / "settings"
+
+
+@pytest.fixture(autouse=True)
 def no_blocking_questions(monkeypatch):
     """Closing a window with unsaved changes asks Save/Discard/Cancel, and startup
     may offer to recover a backup: answer them in tests instead of blocking."""

@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
 
+from myPGM.settings import last_dir, remember_dir
 from myPGM.ui.PressureToolbox import PressureToolbox
 
 logger = logging.getLogger(__name__)
@@ -324,7 +325,7 @@ class HPTableWindow(QWidget):
         fileName, fileType = QFileDialog.getSaveFileName(
             self,
             "myPGM: Save data to csv",
-            "",
+            last_dir("exports"),
             "CSV Files (*.csv);;All Files (*)",
             options=options,
         )
@@ -332,6 +333,7 @@ class HPTableWindow(QWidget):
         # endswith: ".csv" anywhere in the path (e.g. a folder name) skipped the extension
         if fileType == "CSV Files (*.csv)" and fileName and not fileName.lower().endswith(".csv"):
             fileName += ".csv"
+        remember_dir("exports", fileName)
 
         if fileName:
             return fileName

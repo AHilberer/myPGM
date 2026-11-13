@@ -383,6 +383,68 @@ def _title(gui):
     return gui.view.data_widget.plotItem.titleLabel.text
 
 
+# --- settings kept between launches ---------------------------------------------------------
+
+def test_theme_is_remembered(gui, isolated_settings):
+    from myPGM.ui.main_ui import MainWindow
+    gui.view.switch_to_dark()
+    assert (isolated_settings / "myPGM" / "myPGM.ini").exists()
+    view = MainWindow()                                 # next launch
+    assert view.plot_label_color == "white"
+    dispose(view)
+    gui.view.switch_to_light()
+    view = MainWindow()
+    assert view.plot_label_color == "black"
+    dispose(view)
+
+
+def test_font_size_is_remembered(gui):
+    from myPGM.helpers import load_style
+    from myPGM.ui.main_ui import MainWindow
+    gui.view.show_font_size_window()
+    gui.view.font_size_window.slider.setValue(21)
+    gui.app.setStyleSheet(load_style("light-mode.qss"))   # as at a new launch
+    view = MainWindow()
+    assert view.plot_font_px == 21 and "font-size: 21px" in gui.app.styleSheet()
+    dispose(view)
+
+
+def test_dialogs_start_in_the_last_folder_used(gui, monkeypatch, resources, tmp_path):
+    from PyQt5.QtWidgets import QFileDialog
+    from myPGM.settings import last_dir, remember_dir
+    starts = []
+    monkeypatch.setattr(QFileDialog, "exec_",
+                        lambda self: starts.append(self.directory().absolutePath()) or 1)
+    monkeypatch.setattr(QFileDialog, "selectedFiles", lambda self: [str(resources / "Example_H2.txt")])
+    gui.view.get_file_via_dialog()
+    gui.view.get_file_via_dialog()
+    assert starts[1] == str(resources)
+
+    def static_dialog(answer):
+        return lambda parent, title, folder, *args, **kwargs: starts.append(folder) or answer
+    monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                        static_dialog((str(tmp_path / "s.json"), "Session Files (*.json)")))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", static_dialog(("", "")))
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", static_dialog(str(resources)))
+    starts.clear()
+    gui.view.get_save_session_filename_dialog()
+    gui.view.get_open_session_filename_dialog()            # cancelled: folder kept
+    gui.view.get_open_session_filename_dialog()
+    gui.view.select_directory_from_dialog()
+    gui.view.select_directory_from_dialog()
+    assert starts == ["", str(tmp_path), str(tmp_path), "", str(resources)]
+
+    monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                        static_dialog((str(tmp_path / "t.csv"), "CSV Files (*.csv)")))
+    starts.clear()
+    gui.view.PvPmTableWindow.get_save_filename_dialog()
+    gui.view.PvPmTableWindow.get_save_filename_dialog()
+    assert starts == ["", str(tmp_path)]
+
+    remember_dir("spectra", tmp_path / "gone" / "file.txt")    # folder removed since
+    assert last_dir("spectra") == ""
+
+
 def test_title_shows_fit_uncertainty(gui):
     obj = select_and_fit(gui, "Example_Ruby_1.asc")
     assert f"{obj.P:.3f} ± {obj.P_err:.3f} GPa" in _title(gui)

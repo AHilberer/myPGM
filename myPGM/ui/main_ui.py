@@ -32,7 +32,9 @@ from myPGM.helpers import (load_style,
                           SmartDoubleDialog,
                           FontSizeWindow,
                           set_app_theme,
+                          set_app_font_size,
                           current_app_font_px,)
+from myPGM.settings import app_settings, last_dir, remember_dir
 
 from myPGM.ui.PvPmPlot import PvPmPlotWindow
 from myPGM.ui.PvPmTable import HPTableWindow
@@ -293,6 +295,11 @@ class MainWindow(QMainWindow):
         self.plot_label_color = "black"
         # plots and the PvPm table use the app font size, kept in sync by set_font_size
         self.plot_font_px = current_app_font_px()
+        # font size chosen in a previous launch (the slider range)
+        saved_font_px = app_settings().value("font_size", 0, type=int)
+        if 8 <= saved_font_px <= 30:
+            set_app_font_size(saved_font_px)
+            self.plot_font_px = saved_font_px
         self.plot_title_size = f"{self.plot_font_px + 4}px"
         self.font_size_window = None
 
@@ -366,6 +373,10 @@ class MainWindow(QMainWindow):
         # set by the presenter: called on close, returns False to keep the window open
         self.close_guard = None
 
+        # theme chosen in a previous launch (light by default)
+        if app_settings().value("theme", "light", type=str) == "dark":
+            self.switch_to_dark()
+
     #####################################################################################
     # ? Main window methods
 
@@ -416,6 +427,7 @@ class MainWindow(QMainWindow):
         else:
             # app-wide, so that every window and dialog follows the theme
             set_app_theme(style)
+        app_settings().setValue("theme", "dark" if dark else "light")
         self.plot_label_color = label_color
 
         # pyqtgraph plots are not styled by the Qt stylesheet
@@ -515,9 +527,13 @@ class MainWindow(QMainWindow):
         file_dialog = QFileDialog(self)
         file_dialog.setFileMode(QFileDialog.ExistingFiles)
         file_dialog.setNameFilter("Text and ASC files (*.txt *.asc);;All Files (*)")
+        if last_dir("spectra"):
+            file_dialog.setDirectory(last_dir("spectra"))
 
         if file_dialog.exec_():
             selected_files = file_dialog.selectedFiles()
+            if selected_files:
+                remember_dir("spectra", selected_files[0])
             return selected_files
         else:
             return None
@@ -527,13 +543,14 @@ class MainWindow(QMainWindow):
         file_name, file_type = QFileDialog.getSaveFileName(
             self,
             "Save session",
-            "",
+            last_dir("sessions"),
             "Session Files (*.json);;All Files (*)",
             options=options,
         )
         if file_type == "Session Files (*.json)":
             if file_name and not file_name.endswith(".json"):
                 file_name += ".json"
+        remember_dir("sessions", file_name)
         return file_name or None
 
     def get_open_session_filename_dialog(self):
@@ -541,17 +558,21 @@ class MainWindow(QMainWindow):
         file_name, _ = QFileDialog.getOpenFileName(
             self,
             "Open session",
-            "",
+            last_dir("sessions"),
             "Session Files (*.json);;All Files (*)",
             options=options,
         )
+        remember_dir("sessions", file_name)
         return file_name or None
 
     def select_directory_from_dialog(self):
         options = QFileDialog.Options()
+        # starts in the last acquisition folder, which is not selected automatically:
+        # "Load latest" must not load from a previous experiment's folder
         dir_name = QFileDialog.getExistingDirectory(
-            self, "Select Directory", options=options
+            self, "Select Directory", last_dir("acquisition"), options=options
         )
+        remember_dir("acquisition", dir_name)
         if dir_name:
             self.dir_label.setText(f"Selected directory: {dir_name}")
         return dir_name
@@ -713,6 +734,8 @@ class MainWindow(QMainWindow):
         if self.font_size_window is None:
             self.font_size_window = FontSizeWindow(self.plot_font_px)
             self.font_size_window.font_size_changed.connect(self.set_font_size)
+            self.font_size_window.font_size_changed.connect(
+                lambda size: app_settings().setValue("font_size", size))
         self.font_size_window.show()
         self.font_size_window.raise_()
 

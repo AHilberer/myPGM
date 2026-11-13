@@ -8,6 +8,9 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
 - **Save session** writes to the session's own file (shown in the window title) and only asks for a
   file the first time; **Save session as...** always asks. Keyboard shortcuts: Ctrl+O, Ctrl+S,
   Ctrl+Shift+S and Ctrl+Q (Cmd on macOS).
+- The theme, font size and the folders last used in file dialogs are remembered between launches
+  (in `~/.config/myPGM/myPGM.ini`, or `%APPDATA%\myPGM\myPGM.ini` on Windows). Reference positions
+  (λ0, ν0) are not, on purpose: they are measured for each experiment.
 
 ### Changed
 - The fit error dialog gives the reason (e.g. too few points in the fit range); it was only in the log.

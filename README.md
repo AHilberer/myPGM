@@ -99,6 +99,10 @@ It loads the bundled example spectra, fits the three ruby spectra and the H2 vib
 
 When closing myPGM with unsaved changes (spectra, fits, processing or table points), it asks whether to save the session first. While you work, the session is also backed up automatically every 30 seconds in your user folder (next to the log file below). Each myPGM window has its own backup, so several windows can be open at the same time. If myPGM closes unexpectedly, it offers to recover that backup at the next start; a declined backup is kept aside with a `.discarded.json` extension.
 
+# Settings
+
+myPGM remembers the theme, the font size and the folders last used to open spectra, sessions, the acquisition directory and CSV exports. They are kept in `~/.config/myPGM/myPGM.ini` (Linux and macOS) or `%APPDATA%\myPGM\myPGM.ini` (Windows); delete this file to return to the defaults. The reference positions (λ0, ν0) are not remembered on purpose: they are measured for each experiment, and a value from a previous one would silently give wrong pressures.
+
 # Log file
 
 myPGM writes warnings and errors, including every error message shown in the app, to the terminal and to a log file in your user folder (the file is limited to 1 MB, with the last 3 files kept):
