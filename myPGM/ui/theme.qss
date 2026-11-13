@@ -500,3 +500,173 @@ QPushButton[role="close"] {
 QPushButton[role="close"]:hover {
   background-color: $hd;
 }
+
+/* --- center column: fitted pressure card and spectrum card (DESIGN.md section 1) ------- */
+
+QLabel#PressureValue {
+  font-family: $mono_font;
+  font-size: 40px;
+  font-weight: 600;
+}
+QLabel#PressureUnit {
+  font-size: 16px;
+  font-weight: 600;
+  padding-bottom: 4px;
+}
+QLabel#Pill {
+  background-color: $sf2;
+  color: $tx;
+  border-radius: 10px;
+  padding: 3px 9px;
+  font-size: 12px;
+}
+QLabel#Pill[mono="true"] {
+  font-family: $mono_font;
+}
+QLabel#Pill[muted="true"] {
+  color: $mu;
+}
+#PmField {
+  background-color: $sf2;
+  border: 1px solid $bd;
+  border-radius: 8px;
+}
+#PmField[focused="true"] {
+  border: 2px solid $ac;
+}
+#PmField QAbstractSpinBox {
+  background: transparent;
+  border: none;
+  padding: 0px;
+  font-size: 15px;
+}
+QLabel[role="dialog-title"] {
+  font-size: 15px;
+  font-weight: 600;
+}
+QLabel[role="muted-12"] {
+  color: $mu;
+  font-size: 12px;
+}
+QLabel[role="accent-12"] {
+  color: $act;
+  font-size: 12px;
+}
+
+#CardToolbar {
+  background-color: $hd;
+  border-bottom: 1px solid $bd;
+  border-top-left-radius: 11px;
+  border-top-right-radius: 11px;
+}
+QPushButton[role="soft-primary"] {
+  background-color: $acs;
+  color: $act;
+  border: 1px solid transparent;
+  font-weight: 600;
+  padding: 0px 12px;
+  min-height: 0px;
+}
+QPushButton[role="soft-primary"]:hover {
+  border-color: $ac;
+}
+QPushButton[role="split-left"] {
+  border-top-right-radius: 0px;
+  border-bottom-right-radius: 0px;
+  padding: 0px 12px;
+  min-height: 0px;
+}
+QPushButton[role="split-left"]:checked {
+  background-color: $sf;
+  border-color: $ac;
+  color: $act;
+}
+QPushButton[role="split-right"] {
+  border-top-left-radius: 0px;
+  border-bottom-left-radius: 0px;
+  border-left: none;
+  padding: 0px;
+  min-height: 0px;
+}
+QPushButton[role="split-right"]:enabled {
+  border-color: $ac;
+}
+QPushButton[role="split-right"]:checked {
+  background-color: $ac;
+  border-color: $ac;
+}
+QPushButton[role="split-right"]:disabled {
+  background-color: $sf;
+}
+#Segmented {
+  background-color: $sf2;
+  border-radius: 8px;
+}
+QPushButton[role="segment"] {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: $mu;
+  padding: 0px 12px;
+  min-height: 0px;
+}
+QPushButton[role="segment"]:hover {
+  color: $tx;
+}
+QPushButton[role="segment"]:checked {
+  background-color: $sf;
+  color: $tx;
+  font-weight: 500;
+}
+#Stepper {
+  background: transparent;
+  border: 1px solid $bd;
+  border-radius: 7px;
+}
+QPushButton[role="step"] {
+  background-color: $sf2;
+  border: none;
+  border-radius: 0px;
+  color: $tx;
+  padding: 0px;
+  min-height: 0px;
+}
+QPushButton[role="step"][side="left"] {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+QPushButton[role="step"][side="right"] {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+QPushButton[role="step"]:hover {
+  background-color: $bd;
+}
+QAbstractSpinBox#StepperValue {
+  background: transparent;
+  border: none;
+  border-radius: 0px;
+  padding: 0px;
+}
+QPushButton[role="pill"] {
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0px 10px;
+  min-height: 0px;
+}
+QPushButton[role="pill"]:checked {
+  background-color: $acs;
+  border-color: $ac;
+  color: $act;
+}
+QSplitter#PlotSplitter::handle {
+  background: transparent;
+  border-top: 1px dashed $bd;
+}
+QDialog#AddPointDialog {
+  background-color: $sf;
+}
+QDialog#AddPointDialog QLabel[role="field"] {
+  font-size: 12px;
+}

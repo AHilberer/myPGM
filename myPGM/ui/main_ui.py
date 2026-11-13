@@ -3,7 +3,6 @@ import logging
 import numpy as np
 from PyQt5.QtWidgets import (
     QMainWindow,
-    QLabel,
     QPushButton,
     QFileDialog,
     QWidget,
@@ -29,7 +28,6 @@ from PyQt5.QtGui import QColor, QGuiApplication, QKeySequence
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
 from myPGM.helpers import (get_app_icon,
-                          SmartDoubleDialog,
                           FontSizeWindow,
                           set_app_font_size,
                           current_app_font_px,)
@@ -42,7 +40,12 @@ from myPGM.ui.PressureToolbox import PressureToolbox
 from myPGM.ui.TopBar import TopBar
 from myPGM.ui.docks import MIN_HEIGHT as MIN_DOCK_HEIGHT, PanelDock
 from myPGM.ui import icons, theme
-from myPGM.ui.widgets import GAP, Card, ElidedLabel, button, hbox, label
+from myPGM.ui.widgets import (GAP, Button, Card, ElidedLabel, button, divider, hbox, label,
+                              x_symbol, x_unit)
+from myPGM.ui.center import (FitRangeEditOverlay, FitToolbar, LegendRow, PeakLabel, Pill,
+                             PressureCard, Segmented, SplitButton, Stepper,
+                             dashed_marker_pen, peak_name)
+from myPGM.ui.dialogs import AddPointDialog
 
 import pyqtgraph as pg
 
@@ -68,6 +71,7 @@ class MainWindow(QMainWindow):
     start_auto_fit_signal = pyqtSignal(object)
     subtract_ManualBg_signal = pyqtSignal(object)
     add_current_fit_signal = pyqtSignal(object)
+    add_point_requested = pyqtSignal()
     open_session_signal = pyqtSignal()
     save_session_signal = pyqtSignal()
     save_session_as_signal = pyqtSignal()
@@ -98,7 +102,6 @@ class MainWindow(QMainWindow):
         if 8 <= saved_font_px <= 30:
             set_app_font_size(saved_font_px)
             self.plot_font_px = saved_font_px
-        self.plot_title_size = f"{self.plot_font_px + 4}px"
         self.font_size_window = None
 
         self._create_fit_controls()
@@ -140,6 +143,7 @@ class MainWindow(QMainWindow):
         self.workspace_splitter.setStretchFactor(2, 0)
         self.workspace_splitter.setSizes([SIDEBAR_WIDTH, 1440 - SIDEBAR_WIDTH - INSPECTOR_WIDTH,
                                           INSPECTOR_WIDTH])
+        self._style_plots()
 
         #####################################################################################
         # #? Bottom panels: pressure log and P vs Pm plot, side by side in docks
@@ -218,22 +222,30 @@ class MainWindow(QMainWindow):
     def _create_fit_controls(self):
         """Buttons of the spectrum card, the fit model selector and the spectrometer
         calibration controls (placed by _build_center and _build_inspector)."""
-        self.fit_button = QPushButton("Fit", self)
-        self.fit_button.setProperty("primary", True)
+        self.fit_button = button("Fit", 32, role="soft-primary", icon_name="fit-peak",
+                                 icon_role="act",
+                                 tooltip="Fit the spectrum (in the fit range when it is on)")
         self.fit_button.clicked.connect(self.auto_fit)
 
-        self.click_fit_button = QPushButton("Click-to-fit", self)
+        self.click_fit_button = button("Click-to-fit", 32, icon_name="crosshair",
+                                       tooltip="Click near a peak on the spectrum to fit it")
         self.click_fit_button.setCheckable(True)
         self.click_fit_button.clicked.connect(self.toggle_click_fit)
         self.click_fit_enabled = False
 
-        self.fit_range_enable_button = QPushButton("Fit range", self)
+        # Fit range split button: use the range | edit it (DESIGN.md §1)
+        self.fit_range_enable_button = button("Fit range", 32, icon_name="fit-range",
+                                              tooltip="Restrict the fit to a range")
         self.fit_range_enable_button.setCheckable(True)
         self.fit_range_enable_button.clicked.connect(self.toggle_fit_range)
         self.fit_range_enabled = False
 
-        self.fit_range_edit_button = QPushButton("Edit", self)
+        self.fit_range_edit_button = Button(height=32, width=32)
+        icons.set_icon(self.fit_range_edit_button, "pencil", "tx", 14, on_role="onac")
+        self.fit_range_edit_button.setToolTip("Edit fit range (drag its edges on the plot)")
+        self.fit_range_edit_button.setAccessibleName("Edit fit range")
         self.fit_range_edit_button.setCheckable(True)
+        self.fit_range_edit_button.setEnabled(False)        # while the fit range is off
         self.fit_range_edit_button.clicked.connect(self.toggle_fit_range_edit)
         self.fit_range_edit_enabled = False
 
@@ -242,23 +254,38 @@ class MainWindow(QMainWindow):
         self.fit_model_combo.setMinimumWidth(100)
         self.fit_model_combo.setFixedHeight(36)
 
-        self.CHullBg_button = QPushButton("Auto Bg", self)
-
-        self.ManualBg_button = QPushButton("Manual Bg", self)
-        self.ManualBg_button.setCheckable(True)
+        # Background: Auto / Manual / None, an exclusive segmented control
+        self.CHullBg_button = Button("Auto", 28)
+        self.CHullBg_button.setToolTip("Subtract an automatic (convex hull) background")
+        self.CHullBg_button.clicked.connect(lambda: self._background_chosen("auto"))
+        self.ManualBg_button = Button("Manual", 28)
+        self.ManualBg_button.setToolTip(
+            "Click background points on the spectrum, then Manual again to subtract")
         self.ManualBg_button.clicked.connect(self.toggle_ManualBg)
         self.click_ManualBg_enabled = False
         self.ManualBg_points = []
         self.temp_bg = None
-
-        self.ResetBg_button = QPushButton("Reset Bg", self)
+        self.ResetBg_button = Button("None", 28)
+        self.ResetBg_button.setToolTip("Remove the subtracted background")
+        self.ResetBg_button.clicked.connect(lambda: self._background_chosen("none"))
+        self._bg_kinds = {}         # spectrum id -> "auto" / "manual", chosen in this session
+        self._bg_obj = None         # spectrum shown, and whether it has a background
+        self._bg_applied = False
 
         self.smoothing_factor = QSpinBox()      # smoothing window, in points
         self.smoothing_factor.setRange(1, 999)
         self.smoothing_factor.setValue(1)
+        self.smoothing_factor.setButtonSymbols(QSpinBox.NoButtons)
+        self.smoothing_factor.setToolTip("Smoothing window, in points")
+        self.smoothing_minus = Button("−", 30, 28)
+        self.smoothing_minus.setToolTip("Less smoothing")
+        self.smoothing_plus = Button("+", 30, 28)
+        self.smoothing_plus.setToolTip("More smoothing")
 
-        self.Derivative_button = QPushButton("dI/dx", self)
-        self.Derivative_button.setToolTip("Show the derivative under the spectrum")
+        # derivative pane toggle, a pill in the legend row
+        self.Derivative_button = button("dI/dλ", 28, role="pill", icon_name="derivative",
+                                        tooltip="Show the derivative under the spectrum")
+        self.Derivative_button.setCheckable(True)
         self.Derivative_button.clicked.connect(self.toggle_derivative)
         self.Derivative_enabled = False
 
@@ -270,23 +297,27 @@ class MainWindow(QMainWindow):
         self.Spectro_filename_label = ElidedLabel("No calibration file", self)
 
         # fit -> pressure log (center), and point from the parameters alone (inspector)
-        self.add_fitted_button = button("Add fit to log", 36, primary=True, icon_name="plus",
-                                        tooltip="Add the fitted point to the pressure log")
+        self.add_fitted_button = button("Add fit to log", 40, primary=True, icon_name="plus",
+                                        tooltip="Add the fitted point to the pressure log, "
+                                                "with the membrane pressure Pm")
         self.add_fitted_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.add_fitted_button.clicked.connect(self.add_current_fit)
 
         self.PToolbox_toTable_button = button(
             "Add point to log", 36, role="accent", icon_name="plus", icon_role="act",
             tooltip="Add a point from the λ, T and P values alone (no spectrum)")
+        self.PToolbox_toTable_button.clicked.connect(self.add_point_to_log)
 
     def _create_plots(self):
         self.splitter = QSplitter(Qt.Vertical)
+        self.splitter.setObjectName("PlotSplitter")
+        self.splitter.setHandleWidth(9)             # dashed line between spectrum and dI/dx
 
         # #? Actual spectral data
         self.data_widget = pg.PlotWidget()
         styles = self._label_styles()
         self.data_widget.setLabel("bottom", "Spectral unit", **styles)
-        self.data_widget.setLabel("left", "Intensity (a.u.)", **styles)
+        self.data_widget.setLabel("left", "Intensity", **styles)
         self.data_scatter = pg.ScatterPlotItem(symbol='o', size=3, pen=None)
         self.data_widget.addItem(self.data_scatter)
         self.data_fit_pen = pg.mkPen(color=self.fit_color, width=2)
@@ -294,7 +325,12 @@ class MainWindow(QMainWindow):
         self.data_bg_scatter = pg.ScatterPlotItem(symbol='s', size=8, brush='darkviolet')
         self.data_fit_line = pg.PlotDataItem(name='Fit',pen=self.data_fit_pen,)
         self.data_bg_line = pg.PlotDataItem(name='Bg',pen=self.data_bg_pen)
-        self.data_edge_marker = pg.InfiniteLine(pos=None, angle=90, pen=self.data_fit_pen, movable=False)
+        # dashed marker at the fitted peak or edge, with its label (no plot title:
+        # the pressure is in the card above)
+        self.data_edge_marker = pg.InfiniteLine(pos=None, angle=90, movable=False)
+        self.peak_label = PeakLabel()
+        self.data_widget.plotItem.vb.sigRangeChanged.connect(
+            lambda *_: self.peak_label.place(self.data_widget.plotItem.vb))
 
         self.data_widget.setMenuEnabled(False)
         self.data_scatter.scene().sigMouseClicked.connect(self.data_plot_click)
@@ -302,69 +338,66 @@ class MainWindow(QMainWindow):
         self.fit_range_selector = ResizeOnlyLinearRegion(movable=False)
         self.fit_range_selector_edited = False
         self.fit_range_selector.sigRegionChangeFinished.connect(self.fit_range_changed)
+        self.fit_range_overlay = FitRangeEditOverlay(self.data_widget, self.fit_range_selector)
 
         #####################################################################################
         # #? Setup derivative plotting section
         self.deriv_widget = pg.PlotWidget()
-        self.deriv_widget.setLabel("bottom", "Spectral unit", **styles)
-        self.deriv_widget.setLabel("left", "dI/dx", **styles)
+        # no axis titles (the spectrum's x title is just above): a small "dI/dλ" at the
+        # top left (mockup_light_derivative.png), and raw values without an SI prefix
+        self.deriv_widget.getAxis("left").enableAutoSIPrefix(False)
+        self._deriv_symbol = "x"
 
         self.deriv_scatter = pg.ScatterPlotItem(symbol='o', size=3, pen=None)
         self.deriv_widget.addItem(self.deriv_scatter)
-        self.deriv_edge_marker = pg.InfiniteLine(pos=None, angle=90, pen=self.data_fit_pen, movable=False)
-        self._style_plots()
+        self.deriv_zero_line = pg.InfiniteLine(pos=0, angle=0, movable=False)
+        self.deriv_widget.addItem(self.deriv_zero_line, ignoreBounds=True)
+        self.deriv_edge_marker = pg.InfiniteLine(pos=None, angle=90, movable=False)
 
         self.deriv_widget.setMenuEnabled(False)
         self.deriv_scatter.scene().sigMouseClicked.connect(self.deriv_plot_click)
 
         self.splitter.addWidget(self.data_widget)
         self.splitter.addWidget(self.deriv_widget)
-        self.splitter.setSizes([300, 200])
+        self.splitter.setSizes([300, 150])          # derivative ≈ 1/3 of the height
         self.splitter.widget(1).hide()
 
     def _build_center(self):
-        """Center column: the current spectrum with Pm and "Add fit to log" (the fitted
-        pressure card of step 4), then the spectrum card (fit toolbar and plots)."""
+        """Center column (DESIGN.md §1): the fitted pressure card, then the spectrum card
+        (fit toolbar, legend row, spectrum and derivative plots)."""
         center = QWidget()
         layout = QVBoxLayout(center)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(GAP)
 
-        # current spectrum, Pm and "Add fit to log"
-        fit_card = Card()
-        self.current_file_label = QLabel("No file selected", self)
-        self.current_file_label.setWordWrap(True)
-        self.current_file_label.setMinimumWidth(80)
-        self.current_file_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-        self.current_file_label.setObjectName("CurrentFile")
-        pm_box = QVBoxLayout()
-        pm_box.setSpacing(6)
-        pm_box.addWidget(label("Membrane pressure Pm", "field"))
-        self.ptoolbox.Pm_spinbox.setMinimumWidth(110)
-        pm_box.addLayout(hbox(self.ptoolbox.Pm_spinbox, label("bar", "muted"), spacing=6))
-        add_box = QVBoxLayout()
-        add_box.addStretch(1)
-        add_box.addWidget(self.add_fitted_button)
-        current = QVBoxLayout()
-        current.setSpacing(4)
-        current.addWidget(label("Current spectrum", "section"))
-        current.addWidget(self.current_file_label)
-        top_row = hbox(current, pm_box, add_box, spacing=12)
-        top_row.setStretch(0, 1)
-        fit_card.body.addLayout(top_row)
-        layout.addWidget(fit_card)
+        # file of the shown spectrum (and the file list messages), in the pills row
+        self.current_file_label = Pill("No file selected", muted=True)
+        self.pressure_card = PressureCard(self.ptoolbox.Pm_spinbox, self.add_fitted_button,
+                                          self.current_file_label)
+        layout.addWidget(self.pressure_card)
 
-        # spectrum card: fit toolbar, then the plots
-        spectrum_card = Card(spacing=10)
-        # two rows until the one-line toolbar of step 4 (DESIGN.md §1, spectrum card)
-        spectrum_card.body.addLayout(hbox(
-            self.fit_button, self.click_fit_button, self.fit_range_enable_button,
-            self.fit_range_edit_button, 1,
-            label("Smoothing", "muted"), self.smoothing_factor, spacing=6))
-        spectrum_card.body.addLayout(hbox(
-            label("Background", "muted"), self.CHullBg_button, self.ManualBg_button,
-            self.ResetBg_button, 1, self.Derivative_button, spacing=6))
-        spectrum_card.body.addWidget(self.splitter, 1)
+        spectrum_card = Card(spacing=0)
+        spectrum_card.body.setContentsMargins(0, 0, 0, 0)
+        self.background_label = label("Background", "caption")
+        self.smoothing_label = label("Smoothing", "caption")
+        self.bg_segment = Segmented([self.CHullBg_button, self.ManualBg_button,
+                                     self.ResetBg_button])
+        self.bg_segment.check(self.ResetBg_button)
+        stepper = Stepper(self.smoothing_factor, self.smoothing_minus, self.smoothing_plus)
+        self.fit_toolbar = FitToolbar(
+            [self.fit_button, self.click_fit_button,
+             SplitButton(self.fit_range_enable_button, self.fit_range_edit_button),
+             divider(length=22), self.background_label, self.bg_segment,
+             divider(length=22), self.smoothing_label, stepper, 1],
+            optional_labels=[self.background_label, self.smoothing_label])
+        spectrum_card.body.addWidget(self.fit_toolbar)
+        self.legend_row = LegendRow(self.Derivative_button)
+        spectrum_card.body.addWidget(self.legend_row)
+        plots = QWidget()
+        plots_layout = QVBoxLayout(plots)
+        plots_layout.setContentsMargins(4, 4, 12, 8)
+        plots_layout.addWidget(self.splitter)
+        spectrum_card.body.addWidget(plots, 1)
         layout.addWidget(spectrum_card, 1)
         return center
 
@@ -571,6 +604,7 @@ class MainWindow(QMainWindow):
         icons.refresh()
         self.top_bar.restyle()
         self.file_list_widget.restyle()
+        self.pressure_card.restyle()
         for dock in self._docks:
             dock.restyle()
 
@@ -596,19 +630,31 @@ class MainWindow(QMainWindow):
         hover = theme.qcolor(t["acs"])
         hover.setAlphaF(min(1.0, hover.alphaF() * 1.8))
         self.fit_range_selector.setHoverBrush(pg.mkBrush(hover))
-        for line in self.fit_range_selector.lines:
-            line.setPen(pg.mkPen(theme.qcolor(t["ac"]), width=1))
-            line.setHoverPen(pg.mkPen(theme.qcolor(t["ac"]), width=2))
+        self._style_fit_range()
+        self.fit_range_overlay.restyle()
+        # fitted peak / edge: dashed marker and label; derivative zero line
+        for marker in (self.data_edge_marker, self.deriv_edge_marker):
+            marker.setPen(dashed_marker_pen())
+        self.peak_label.restyle()
+        self.deriv_zero_line.setPen(pg.mkPen(theme.qcolor(t["grid"]), width=1))
+        self._set_deriv_title()
+        self.legend_row.restyle()
         self.update_plot_fonts()
         self._set_fit_color(self.fit_color)
+
+    def _style_fit_range(self):
+        """Band edges: 1 px, 2 px while they are edited (dragged)."""
+        accent = theme.qcolor(theme.tokens()["ac"])
+        width = 2 if self.fit_range_edit_enabled else 1
+        for line in self.fit_range_selector.lines:
+            line.setPen(pg.mkPen(accent, width=width))
+            line.setHoverPen(pg.mkPen(accent, width=width + 1))
 
     def _set_fit_color(self, color):
         self.fit_color = color
         self.data_fit_pen = pg.mkPen(color=color, width=2)
         self.data_fit_line.setPen(self.data_fit_pen)
-        marker_pen = pg.mkPen(color=color, width=1.5, style=Qt.DashLine)
-        self.data_edge_marker.setPen(marker_pen)
-        self.deriv_edge_marker.setPen(marker_pen)
+        self.legend_row.set_fit_color(color)
 
     def populate_fit_models_combo(self, model_dict):
         if model_dict is not None:
@@ -635,24 +681,43 @@ class MainWindow(QMainWindow):
         self.add_current_fit_signal.emit(None)
 
     def prompt_fit_pm(self, current_pm):
+        """Pm of a fit added to the log: the Pm field of the fitted pressure card, next
+        to "Add fit to log" (it replaced the Pm dialog)."""
+        self.ptoolbox.Pm_spinbox.interpretText()        # text typed without Enter
+        return self.ptoolbox.Pm_spinbox.value()
 
-        dialog = SmartDoubleDialog(valuename='Pm (bar):', parent=self)
-        dialog.setWindowTitle("Input Pm")
-        # start from the last Pm, selected: typing replaces it, Enter keeps it
-        if current_pm is not None:
-            dialog.spinbox.setValue(float(current_pm))
-        dialog.spinbox.selectAll()
-        dialog.spinbox.setFocus()
+    def add_point_to_log(self):
+        """"Add point to log" (Parameters card): asks for Pm, then the presenter adds
+        a point from the λ, T and P values alone (DESIGN.md §1)."""
+        toolbox = self.ptoolbox
+        calib = toolbox._calib
+        symbol, unit = x_symbol(calib), x_unit(calib)
+        summary = (f"{calib.name if calib is not None else ''} · "
+                   f"{symbol} {toolbox.x_spinbox.value():.3f} {unit} · "
+                   f"T {toolbox.T_spinbox.value():.1f} K → "
+                   f'<span style="font-family:{theme.mono_family()}; font-weight:600; '
+                   f'color:{theme.tokens()["tx"]}">P {toolbox.P_spinbox.value():.3f} GPa</span>')
+        pm = self.prompt_point_pm(summary, toolbox.Pm_spinbox.value())
+        if pm is None:
+            return
+        was_blocked = toolbox.Pm_spinbox.blockSignals(True)
+        toolbox.Pm_spinbox.setValue(pm)
+        toolbox.Pm_spinbox.blockSignals(was_blocked)
+        toolbox.PmChanged.emit(pm)              # the presenter's copy of the toolbox
+        self.add_point_requested.emit()
+
+    def prompt_point_pm(self, summary, current_pm):
+        """Pm of a point added from the parameters, None if cancelled."""
+        dialog = AddPointDialog(summary, current_pm, parent=self)
         if dialog.exec_():
             return dialog.value()
         return None
 
-    def toggle_derivative(self, checked):
-        if self.Derivative_enabled:
-            self.splitter.widget(1).hide()
-        else:
-            self.splitter.widget(1).show()
+    def toggle_derivative(self, checked=None):
+        """Show / hide the derivative under the spectrum (the dI/dλ pill)."""
         self.Derivative_enabled = not self.Derivative_enabled
+        self.splitter.widget(1).setVisible(self.Derivative_enabled)
+        self.Derivative_button.setChecked(self.Derivative_enabled)
 
     def toggle_fit_range(self):
         if self.fit_range_enabled:
@@ -664,6 +729,9 @@ class MainWindow(QMainWindow):
             # Do not let the selector item influence ViewBox auto-range.
             self.data_widget.addItem(self.fit_range_selector, ignoreBounds=True)
         self.fit_range_enabled = not self.fit_range_enabled
+        # editing needs the range: the pencil is disabled while it is off
+        self.fit_range_edit_button.setEnabled(self.fit_range_enabled)
+        self.legend_row.show_range(self.fit_range_enabled)
 
     def toggle_fit_range_edit(self):
         if self.fit_range_enabled:
@@ -674,16 +742,21 @@ class MainWindow(QMainWindow):
         else:
             self.fit_range_edit_button.setChecked(False)
             self.turn_off_fit_range_edit()
-    
+        self.fit_range_edit_button.setChecked(self.fit_range_edit_enabled)
+
     def turn_on_fit_range_edit(self):
         if self.fit_range_enabled:
             self.fit_range_selector.setMovable(True)
             self.fit_range_edit_enabled = True
-    
+            self.fit_range_overlay.show(True)
+            self._style_fit_range()
+
     def turn_off_fit_range_edit(self):
         if self.fit_range_enabled:
             self.fit_range_selector.setMovable(False)
             self.fit_range_edit_enabled = False
+        self.fit_range_overlay.show(False)
+        self._style_fit_range()
 
     def fit_range_changed(self):
         self.fit_range_selector_edited = True
@@ -742,25 +815,30 @@ class MainWindow(QMainWindow):
             self.file_list_widget.set_directory(dir_name)
         return dir_name
 
-    def plot_data(self, x, y, buffer, preserve_view=False):
-        self.data_widget.removeItem(self.data_edge_marker)
-        self.deriv_widget.removeItem(self.deriv_edge_marker)
-        self.data_widget.removeItem(self.data_fit_line)
-        self.data_fit_line.setData([],[])
-        self._set_plot_title('Not fitted')
+    def _set_deriv_title(self):
+        self.deriv_widget.setTitle(f"dI/d{self._deriv_symbol}", justify="left",
+                                   color=theme.qcolor(theme.tokens()["mu"]).name(), size="12px")
 
-        self.data_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
-        self.data_widget.setLabel("left", 'Intensity')
+    def plot_data(self, x, y, buffer, preserve_view=False):
+        self._clear_fit_items()
+        calib = buffer.calib
+        self._plot_calib = calib
+        symbol, unit = x_symbol(calib), x_unit(calib)
+        self.data_widget.setLabel("bottom", f"{symbol} ({unit})")
+        self.fit_range_overlay.unit = unit
+        self.Derivative_button.setText(f" dI/d{symbol}")
+        # not fitted until plot_fit: "—" in the fitted pressure card
+        self.pressure_card.clear(calib)
         # the fit line of this spectrum is drawn in its calibration's colour
-        self._set_fit_color(theme.calib_color(buffer.calib))
+        self._set_fit_color(theme.calib_color(calib))
 
         self.data_scatter.setData(x, y)
         if not preserve_view:
             self.data_widget.autoRange()
 
     # derivative data
-        self.deriv_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
-        self.deriv_widget.setLabel("left", 'dI/dx')
+        self._deriv_symbol = symbol
+        self._set_deriv_title()
 
         # along increasing x, as the Raman edge search (files can store x decreasing)
         order = np.argsort(x, kind="stable")
@@ -769,6 +847,14 @@ class MainWindow(QMainWindow):
         self.deriv_scatter.setData(x, dI)
         if not preserve_view:
             self.deriv_widget.autoRange()
+
+    def _clear_fit_items(self):
+        for widget, item in ((self.data_widget, self.data_edge_marker),
+                             (self.deriv_widget, self.deriv_edge_marker),
+                             (self.data_widget, self.data_fit_line),
+                             (self.data_widget, self.peak_label)):
+            widget.removeItem(item)
+        self.data_fit_line.setData([], [])
 
     def toggle_click_fit(self):
         self.click_fit_enabled = not self.click_fit_enabled
@@ -824,34 +910,45 @@ class MainWindow(QMainWindow):
             self.click_fit_button.setChecked(False)
 
     @staticmethod
-    def _pressure_title(P, P_err=None):
-        """Title with the statistical fit uncertainty, when there is one."""
-        if P_err is None:
-            return f"Fitted pressure : {P : > 10.3f} GPa"
-        err = f"{P_err:.3f}" if round(P_err, 3) > 0 else "<0.001"
-        return f"Fitted pressure : {P : > 10.3f} \u00b1 {err} GPa"
+    def _fitted_position(fit_model, fit_result):
+        """Fitted peak position (peak models) or edge position, None if unknown."""
+        opti = fit_result.get("opti") if fit_result is not None else None
+        if opti is None:
+            return None
+        if fit_model.type == "peak":
+            return float(opti[fit_model.position_index(opti)])
+        return float(np.ravel(opti)[0])
 
     def plot_fit(self, P, fit_model, fit_result, x, y, P_err=None):
-        self.data_widget.removeItem(self.data_edge_marker)
-        self.deriv_widget.removeItem(self.deriv_edge_marker)
-        self.data_widget.removeItem(self.data_fit_line)
+        """Fit line (peak models), dashed marker at the fitted peak / edge with its label,
+        and the value in the fitted pressure card (without the fit uncertainty,
+        DESIGN.md §5)."""
+        self._clear_fit_items()
 
         if fit_model.type == "peak":
             # drawn over the whole spectrum, not only the fitting range
             x = np.asarray(x)
             self.data_fit_line.setData(x, fit_model.func(x, *fit_result["opti"]))
             self.data_widget.addItem(self.data_fit_line)
-            self._set_plot_title(self._pressure_title(P, P_err))
-
-        elif fit_model.type == "edge":
-            self.data_edge_marker.setValue(fit_result["opti"])
-            self.data_widget.addItem(self.data_edge_marker)
-            self.deriv_edge_marker.setValue(fit_result["opti"])
-            self.deriv_widget.addItem(self.deriv_edge_marker)
-            self._set_plot_title(self._pressure_title(P, P_err))
-
-        else:
+        elif fit_model.type != "edge":
             logger.warning("Plot of fit type %r not implemented", fit_model.type)
+            return
+
+        calib = getattr(self, "_plot_calib", None)
+        symbol, unit = x_symbol(calib), x_unit(calib)
+        position = self._fitted_position(fit_model, fit_result)
+        position_text = f"{symbol} {position:.3f} {unit}" if position is not None else ""
+        if position is not None:
+            for widget, marker in ((self.data_widget, self.data_edge_marker),
+                                   (self.deriv_widget, self.deriv_edge_marker)):
+                marker.setValue(position)
+                widget.addItem(marker, ignoreBounds=True)
+            name = peak_name(calib, fit_model)
+            title = f"{name} · {position:.3f} {unit}" if name else position_text
+            self.peak_label.set_content(position, title, f"P {P:.3f} GPa")
+            self.data_widget.addItem(self.peak_label, ignoreBounds=True)
+            self.peak_label.place(self.data_widget.plotItem.vb)
+        self.pressure_card.set_fit(P, fit_model.name, position_text)
 
     def ask_save_changes(self):
         """'save', 'discard' or 'cancel'."""
@@ -907,38 +1004,72 @@ class MainWindow(QMainWindow):
     def _label_styles(self):
         return theme.label_styles(self.plot_label_color, self.plot_font_px)
 
-    def _set_plot_title(self, text):
-        self.data_widget.setTitle(text, color=theme.tokens()["tx"], size=self.plot_title_size)
-
     def update_plot_fonts(self):
         styles = self._label_styles()
         # numbers in the mono font (DESIGN.md §2)
         tick_font = theme.mono_font(self.plot_font_px)
         for widget in (self.data_widget, self.deriv_widget):
-            widget.setLabel("left", **styles)
-            widget.setLabel("bottom", **styles)
             for side in ("left", "bottom"):
-                widget.getAxis(side).setStyle(tickFont=tick_font)
-        self.plot_title_size = f"{self.plot_font_px + 4}px"
-        # re-apply the current title with the new size (none before the first plot)
-        if self.data_widget.plotItem.titleLabel.text:
-            self._set_plot_title(self.data_widget.plotItem.titleLabel.text)
+                axis = widget.getAxis(side)
+                # setLabel without a text would hide the label
+                widget.setLabel(side, axis.labelText, **styles)
+                axis.setStyle(tickFont=tick_font)
 
     def toggle_ManualBg(self):
-        if self.click_ManualBg_enabled and self.ManualBg_points != []:
-            self.subtract_ManualBg_signal.emit(self.temp_bg)
-            self.ManualBg_points = []
-            self.temp_bg = None
-            self.data_bg_line.setData([],[])
-            self.data_bg_scatter.setData([],[])
-            self.ManualBg_button.setText("Manual Bg")
-            self.data_widget.removeItem(self.data_bg_line)
-            self.data_widget.removeItem(self.data_bg_scatter)
-
-        else:
+        """Manual background: a first click starts picking points on the spectrum, a
+        second one subtracts the background through them (2 points or more)."""
+        if not self.click_ManualBg_enabled:
             self.data_widget.addItem(self.data_bg_line)
             self.data_widget.addItem(self.data_bg_scatter)
-        self.click_ManualBg_enabled = not self.click_ManualBg_enabled
+            self.click_ManualBg_enabled = True
+            self.legend_row.set_hint("Click background points, then Manual again to subtract")
+            return
+        bg = self.temp_bg if self.ManualBg_points else None
+        self._end_manual_bg()
+        if bg is not None:
+            if self._bg_obj is not None:
+                self._bg_kinds[self._bg_obj] = "manual"
+            self.subtract_ManualBg_signal.emit(bg)
+        else:
+            self._show_background_state()       # nothing subtracted
+
+    def _end_manual_bg(self):
+        """Leave point picking, without subtracting anything."""
+        if not self.click_ManualBg_enabled:
+            return
+        self.ManualBg_points = []
+        self.temp_bg = None
+        self.data_bg_line.setData([], [])
+        self.data_bg_scatter.setData([], [])
+        self.data_widget.removeItem(self.data_bg_line)
+        self.data_widget.removeItem(self.data_bg_scatter)
+        self.click_ManualBg_enabled = False
+        self.legend_row.set_hint("")
+
+    def _background_chosen(self, kind):
+        """Auto or None clicked (before the presenter subtracts or removes it)."""
+        self._end_manual_bg()
+        if self._bg_obj is not None and kind == "auto":
+            self._bg_kinds[self._bg_obj] = "auto"
+
+    def show_background(self, obj_id, applied):
+        """Background segment of the shown spectrum (set by the presenter): None when it
+        has no background, else the kind chosen for it (none checked if unknown, e.g.
+        from a session: backgrounds add up and their kind is not saved)."""
+        if obj_id != self._bg_obj:
+            self._end_manual_bg()
+        self._bg_obj, self._bg_applied = obj_id, applied
+        if not applied:
+            self._bg_kinds.pop(obj_id, None)
+        self._show_background_state()
+
+    def _show_background_state(self):
+        if not self._bg_applied:
+            self.bg_segment.check(self.ResetBg_button)
+            return
+        kind = self._bg_kinds.get(self._bg_obj)
+        self.bg_segment.check({"auto": self.CHullBg_button,
+                               "manual": self.ManualBg_button}.get(kind))
 
     def set_ManualBg(self, mouseClickEvent):
         if self.click_ManualBg_enabled:

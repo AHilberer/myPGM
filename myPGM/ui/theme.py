@@ -264,3 +264,6 @@ def style_axes(widget, t=None):
             axis.setTickPen(pg.mkPen(qcolor(t["grid"])))
     # without a tick pen (older pyqtgraph) the muted axis pen, faded
     widget.showGrid(x=False, y=True, alpha=1.0 if own_grid_pen else 0.15)
+    # the left axis draws the grid: under the plotted items (the view box is at -100),
+    # so that labels drawn over the plot hide it
+    widget.getAxis("left").setZValue(-101)

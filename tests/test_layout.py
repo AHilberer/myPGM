@@ -161,4 +161,4 @@ def test_icon_buttons_keep_their_size(gui):
     for widget in (sidebar.moveup_button, sidebar.delete_button, gui.view.top_bar.log_toggle):
         hint = widget.sizeHint()
         assert hint.width() == hint.height() == widget.maximumWidth()
-    assert gui.view.add_fitted_button.sizeHint().height() == 36
+    assert gui.view.add_fitted_button.sizeHint().height() == 40     # step 4: Pm field height

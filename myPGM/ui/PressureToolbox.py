@@ -13,11 +13,9 @@ from PyQt5.QtCore import pyqtSignal, Qt
 from myPGM.calibrations import HPCalibration
 from myPGM.helpers import SmartDoubleSpinBox
 from myPGM.ui import theme
-from myPGM.ui.widgets import GAP, Card, label
+from myPGM.ui.widgets import GAP, Card, label, x_symbol, x_unit
 
 INPUT_HEIGHT = 36
-# x names of the calibrations, as shown in the labels
-SYMBOLS = {"lambda": "λ", "nu": "ν"}
 
 class PressureToolbox(QWidget):
 
@@ -242,9 +240,9 @@ class PressureToolbox(QWidget):
         self._calib = newcalib
         self._style_calib_combo()
 
-        symbol = SYMBOLS.get(newcalib.xname, newcalib.xname)
-        self.x_label.setText(f"{symbol} ({newcalib.xunit})")
-        self.x0_label.setText(f"{symbol}₀ ({newcalib.xunit})")
+        symbol, unit = x_symbol(newcalib), x_unit(newcalib)
+        self.x_label.setText(f"{symbol} ({unit})")
+        self.x0_label.setText(f"{symbol}₀ ({unit})")
 
 #        Upon calib change by user :
 #        buffer.set_calibration(newcalib) is called from presenter

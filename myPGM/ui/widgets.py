@@ -158,3 +158,16 @@ def hbox(*items, spacing=8, margins=(0, 0, 0, 0)):
         else:
             layout.addLayout(item)
     return layout
+
+
+# x of a calibration as shown in labels: symbol and unit (λ, nm; ν, cm⁻¹)
+_SYMBOLS = {"lambda": "λ", "nu": "ν"}
+_UNITS = {"cm-1": "cm⁻¹"}
+
+
+def x_symbol(calib):
+    return _SYMBOLS.get(calib.xname, calib.xname) if calib is not None else "x"
+
+
+def x_unit(calib):
+    return _UNITS.get(calib.xunit, calib.xunit) if calib is not None else ""

@@ -50,22 +50,23 @@ def pixmap(name, color, size=16):
     return _render(_svg(name).replace("currentColor", color), size)
 
 
-def icon(name, role="tx", size=16):
+def icon(name, role="tx", size=16, on_role=None):
     """QIcon in the colour of a theme token (`role`): muted when disabled, accent text
-    when the button is checked."""
+    (or the `on_role` token) when the button is checked."""
     t = theme.tokens()
     result = QIcon()
     result.addPixmap(pixmap(name, theme.qcolor(t[role]).name(), size), QIcon.Normal, QIcon.Off)
-    on_role = "act" if role in ("tx", "mu") else role
+    if on_role is None:
+        on_role = "act" if role in ("tx", "mu") else role
     result.addPixmap(pixmap(name, theme.qcolor(t[on_role]).name(), size), QIcon.Normal, QIcon.On)
     result.addPixmap(pixmap(name, theme.qcolor(t["mu"]).name(), size), QIcon.Disabled, QIcon.Off)
     return result
 
 
-def set_icon(button, name, role="tx", size=16):
+def set_icon(button, name, role="tx", size=16, on_role=None):
     """Give a button an icon in a theme colour, redrawn by refresh()."""
-    button._theme_icon = (name, role, size)
-    button.setIcon(icon(name, role, size))
+    button._theme_icon = (name, role, size, on_role)
+    button.setIcon(icon(name, role, size, on_role))
     button.setIconSize(QSize(size, size))
     _buttons.add(button)
 
@@ -75,8 +76,8 @@ def refresh():
     for button in list(_buttons):
         if sip.isdeleted(button):
             continue
-        name, role, size = button._theme_icon
-        button.setIcon(icon(name, role, size))
+        name, role, size, *on_role = button._theme_icon     # docks set (name, role, size)
+        button.setIcon(icon(name, role, size, *on_role))
 
 
 def app_mark(size=26):

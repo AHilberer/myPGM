@@ -109,7 +109,7 @@ class Presenter(QObject):
         self.view.save_session_as_signal.connect(lambda: self.save_session(save_as=True))
         self.view.theme_switched.connect(self.on_theme_switched)
 
-        self.view.PToolbox_toTable_button.clicked.connect(self.add_current_PToolbox_to_table)
+        self.view.add_point_requested.connect(self.add_current_PToolbox_to_table)
 
         if self.test_mode or demo:
             self.initialize_example()
@@ -456,6 +456,7 @@ class Presenter(QObject):
             self.view.plot_data(x, y, units_source, preserve_view=preserve_view)
             if obj.fit_result is not None:
                 self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y, P_err=obj.P_err)
+            self.view.show_background(obj.id, obj.bg is not None)
 
             self.view.fit_range_selector.setBounds((x_min, x_max))
 

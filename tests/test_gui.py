@@ -113,16 +113,18 @@ def test_too_narrow_fit_range_shows_fit_error(gui):
 
 def test_dialogs_open_over_the_main_window(gui, monkeypatch):
     from PyQt5.QtWidgets import QFileDialog, QMessageBox
-    from myPGM.helpers import SmartDoubleDialog
     from myPGM.presenter import Presenter
+    from myPGM.ui.dialogs import AddPointDialog
     from myPGM.ui.main_ui import MainWindow
     parents = []
-    for dialog in (QMessageBox, QFileDialog, SmartDoubleDialog):
+    for dialog in (QMessageBox, QFileDialog, AddPointDialog):
         monkeypatch.setattr(dialog, "exec_", lambda self: parents.append(self.parent()) or 0)
     Presenter._error_dialog(gui.presenter, "text", "Error")    # the fixture replaces it
     MainWindow.fit_error_popup_window(gui.view, "reason")
     gui.view.get_file_via_dialog()
-    gui.view.prompt_fit_pm(1.0)
+    # step 4: the fit's Pm comes from the pressure card field, the Pm dialog is the
+    # one of "Add point to log"
+    gui.view.prompt_point_pm("summary", 1.0)
     assert parents == [gui.view] * 4
 
 
@@ -409,10 +411,17 @@ def test_font_size_applies_everywhere_and_survives_theme_change(gui):
     assert gui.view.font_size_window is window and window.slider.value() == 24
 
 
-# --- fit uncertainty display ------------------------------------------------------------
+# --- fitted pressure display ------------------------------------------------------------
+# Step 4 of the UI redesign: the plot title is replaced by the fitted pressure card (big
+# value without the uncertainty, DESIGN.md §1) and a label next to the fitted peak. The
+# uncertainty stays in the pressure log (test_table_plot_and_csv_show_uncertainty).
 
-def _title(gui):
-    return gui.view.data_widget.plotItem.titleLabel.text
+def _card_value(gui):
+    return gui.view.pressure_card.value_label.text()
+
+
+def _peak_label(gui):
+    return gui.view.peak_label.textItem.toPlainText()
 
 
 # --- settings kept between launches ---------------------------------------------------------
@@ -479,23 +488,21 @@ def test_dialogs_start_in_the_last_folder_used(gui, monkeypatch, resources, tmp_
     assert last_dir("spectra") == ""
 
 
-def test_title_shows_fit_uncertainty(gui):
+def test_card_and_peak_label_show_the_fitted_pressure(gui):
     obj = select_and_fit(gui, "Example_Ruby_1.asc")
-    assert f"{obj.P:.3f} ± {obj.P_err:.3f} GPa" in _title(gui)
+    position = obj.fit_result["opti"][obj.fit_model.position_index(obj.fit_result["opti"])]
+    assert _card_value(gui) == f"{obj.P:.3f}"
+    assert "R1 · " in _peak_label(gui) and f"P {obj.P:.3f} GPa" in _peak_label(gui)
+    assert gui.view.data_edge_marker.value() == pytest.approx(position)
 
 
-def test_title_without_uncertainty_for_raman_edge(gui):
+def test_card_and_peak_label_for_raman_edge(gui):
     gui.presenter.buffer.calib = C.Akahama2006
     gui.presenter.buffer.x0 = 1334
     gui.presenter.view.fit_range_enabled = False
-    select_and_fit(gui, "Example_diam_Raman.asc", F.RamanEdge)
-    assert "Fitted pressure" in _title(gui) and "±" not in _title(gui)
-
-
-def test_title_for_very_small_uncertainty():
-    from myPGM.ui.main_ui import MainWindow
-    assert MainWindow._pressure_title(1.0, 0.0002).endswith("± <0.001 GPa")
-    assert "±" not in MainWindow._pressure_title(1.0, None)
+    obj = select_and_fit(gui, "Example_diam_Raman.asc", F.RamanEdge)
+    assert _card_value(gui) == f"{obj.P:.3f}"
+    assert _peak_label(gui).startswith("Edge · ") and "cm⁻¹" in _peak_label(gui)
 
 
 def test_table_plot_and_csv_show_uncertainty(gui, tmp_path, monkeypatch):
@@ -651,9 +658,10 @@ def test_axis_units_follow_the_selected_spectrum(gui):
     select_and_fit(gui, "Example_Ruby_1.asc")
     gui.presenter.buffer.set_calibration(C.H2Vibron)
     select_and_fit(gui, "Example_H2.txt", F.SingleLorentzian)
-    assert "cm-1" in gui.view.data_widget.getAxis("bottom").labelText
+    # step 4: axis labels use the symbols of the mockups (ν, λ, cm⁻¹)
+    assert gui.view.data_widget.getAxis("bottom").labelText == "ν (cm⁻¹)"
     gui.presenter.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
-    assert gui.view.data_widget.getAxis("bottom").labelText == "lambda (nm)"
+    assert gui.view.data_widget.getAxis("bottom").labelText == "λ (nm)"
 
 
 # --- PvPm table layout --------------------------------------------------------------------
@@ -904,20 +912,22 @@ def test_load_latest_does_not_load_the_same_file_twice(gui, resources, tmp_path)
     assert gui.errors == []
 
 
-def test_pm_dialog_starts_from_the_last_pm(gui, monkeypatch):
-    from myPGM.helpers import SmartDoubleDialog
-    shown = []
-    monkeypatch.setattr(SmartDoubleDialog, "exec_",
-                        lambda self: shown.append(self.spinbox.value()) or True)
-    assert gui.view.prompt_fit_pm(15.0) == 15.0 and shown == [15.0]
-    # in the app: the Pm entered for a point is proposed for the next one
+def test_pm_starts_from_the_last_pm(gui, monkeypatch):
+    # step 4: "Add fit to log" takes Pm from the pressure card field (no dialog); the
+    # "Add point to log" dialog is prefilled with the last Pm
+    from myPGM.ui.dialogs import AddPointDialog
+    view = gui.view
     select_and_fit(gui, "Example_Ruby_1.asc")
-    monkeypatch.setattr(SmartDoubleDialog, "exec_",
-                        lambda self: shown.append(self.spinbox.value()) or self.spinbox.setValue(8.0) or True)
+    view.ptoolbox.Pm_spinbox.setValue(8.0)
     gui.presenter.add_current_fit_to_table()
     select_and_fit(gui, "Example_Ruby_2.asc")
-    gui.presenter.add_current_fit_to_table()
-    assert shown[-1] == 8.0
+    assert view.ptoolbox.Pm_spinbox.value() == 8.0
+    assert view.prompt_fit_pm(gui.presenter.buffer.Pm) == 8.0
+    shown = []
+    monkeypatch.setattr(AddPointDialog, "exec_",
+                        lambda self: shown.append(self.spinbox.value()) or 0)
+    view.PToolbox_toTable_button.click()
+    assert shown == [8.0]
 
 
 def _line_drawn(line):
