@@ -357,8 +357,9 @@ def test_light_mode_does_not_colour_T_at_room_temperature(gui):
 
 
 def test_consistent_font_size_at_startup(gui):
-    from PyQt5.QtGui import QFontInfo
-    app_px = QFontInfo(gui.view.fit_button.font()).pixelSize()
+    from myPGM.helpers import current_app_font_px
+    # (QFontInfo.pixelSize() can be -1, on Windows: the app converts the point size)
+    app_px = current_app_font_px()
     axis = gui.view.data_widget.getAxis("bottom")
     assert axis.labelStyle["font-size"] == f"{app_px}px"
     assert axis.style["tickFont"].pixelSize() == app_px
