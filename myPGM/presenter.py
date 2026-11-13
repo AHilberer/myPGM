@@ -743,23 +743,30 @@ class Presenter(QObject):
             obj = self.model.get(self.current_selected_file, None)
 
             try:
+                # The fit is done on a copy, kept only if it succeeds: a failed fit
+                # must not leave obj (possibly a table point) with the new calibration
+                # and its old position, i.e. a wrong pressure.
+                trial = deepcopy(obj)
                 # Set parameters from buffer :
                 # calibration first, as set_calibration resets x0/T0 to the calib defaults
                 # deepcopy more safe here also:
-                obj.set_calibration( deepcopy(self.buffer.calib) )
-                obj.set_Pm(self.buffer.Pm)
-                obj.set_T(self.buffer.T)
-                obj.set_x0(self.buffer.x0)
-                obj.set_T0(self.buffer.T0)
+                trial.set_calibration( deepcopy(self.buffer.calib) )
+                trial.set_Pm(self.buffer.Pm)
+                trial.set_T(self.buffer.T)
+                trial.set_x0(self.buffer.x0)
+                trial.set_T0(self.buffer.T0)
 
-                obj.set_fit_model(self.fit_mode)
+                trial.set_fit_model(self.fit_mode)
 
                 # the range is only used while "Fit range" is on
                 if self.view.fit_range_enabled:
-                    obj.fitting_range = self.view.fit_range_selector.getRegion()
+                    trial.fitting_range = self.view.fit_range_selector.getRegion()
                 else:
-                    obj.fitting_range = None
-                obj.fit_data(guess)
+                    trial.fitting_range = None
+                trial.fit_data(guess)
+
+                # same object kept in the model, with the fitted state
+                vars(obj).update(vars(trial))
 
                 # Copy the fitted obj into the buffer. It must be a deepcopy:
                 # otherwise self.buffer would be a reference to the last fitted

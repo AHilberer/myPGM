@@ -2,6 +2,12 @@
 
 All notable changes to myPGM are listed here. Versions follow [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+- A failed fit left the spectrum with the toolbox calibration but its previous position, so a
+  point already in the PvPm table could show a wrong pressure; a failed fit now changes nothing.
+
 ## [1.0.0] - 2026-10-18
 
 First stable release. Compared with the previous `main` branch, it fixes several fitting and stability

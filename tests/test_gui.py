@@ -79,6 +79,23 @@ def test_invalid_calibration_parameters_show_fit_error(gui):
     assert gui.errors == ["Fit error"]
 
 
+@pytest.mark.filterwarnings("ignore:divide by zero:RuntimeWarning")
+def test_failed_fit_leaves_the_spectrum_and_its_table_point_unchanged(gui):
+    obj = select_and_fit(gui, "Example_Ruby_1.asc")
+    gui.view.prompt_fit_pm = lambda current: 10.0
+    gui.presenter.add_current_fit_to_table()
+    P, x = obj.P, obj.x
+    # other calibration in the toolbox, and a fit that fails
+    gui.presenter.buffer.set_calibration(C.Akahama2006)   # divides by x0
+    gui.presenter.buffer.x0 = 0
+    gui.presenter.fit_current_file()
+    assert gui.errors == ["Fit error"]
+    assert obj.calib.name == "Ruby2020" and obj.x0 == 694.28
+    assert obj.P == P and obj.x == x
+    gui.presenter.update_PvPm_table()
+    assert table_rows(gui.view.PvPmTableWindow.table_widget)[0]["calibration"] == "Ruby2020"
+
+
 def test_add_fit_to_table(gui):
     select_and_fit(gui, "Example_Ruby_1.asc")
     gui.view.prompt_fit_pm = lambda current: 12.0
