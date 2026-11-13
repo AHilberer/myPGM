@@ -117,6 +117,48 @@ def test_saving_or_loading_clears_unsaved_changes(app):
     assert not app.presenter.has_unsaved_changes()
 
 
+def test_save_writes_to_the_session_file_and_save_as_asks(app, monkeypatch, tmp_path):
+    asked = []
+    other = tmp_path / "other.json"
+    monkeypatch.setattr(app.view, "get_save_session_filename_dialog",
+                        lambda: asked.append("file?") or str(app.session_file if len(asked) == 1 else other))
+    assert app.presenter.save_session() and asked == ["file?"]     # new session: asks
+    app.fit()
+    assert app.presenter.save_session() and asked == ["file?"]     # then its own file
+    assert app.view.windowTitle().endswith(" - saved.json")
+    assert app.presenter.save_session(save_as=True) and asked == ["file?", "file?"]
+    assert other.exists() and app.view.windowTitle().endswith(" - other.json")
+    app.view.save_session_as_signal.emit()                          # the menu action
+    assert len(asked) == 3
+
+
+def test_opened_session_is_saved_in_place(app, monkeypatch):
+    app.fit()
+    app.presenter.save_session()
+    app.presenter.load_session()
+    monkeypatch.setattr(app.view, "get_save_session_filename_dialog",
+                        lambda: pytest.fail("Save asked for a file"))
+    app.fit("Example_Ruby_2.asc")
+    assert app.presenter.save_session()
+    assert len(json.loads(app.session_file.read_text())["files"]) == 5
+
+
+def test_recovered_session_is_not_saved_into_the_backup(app):
+    _crashed_session(app)
+    view, presenter, _ = _new_app(app, answer=True)
+    assert presenter.offer_recovery()
+    assert presenter.session_path is None              # "Save" asks for a file
+    assert view.windowTitle().startswith("myPGM") and " - autosave" not in view.windowTitle()
+    dispose(view)
+
+
+def test_file_menu_shortcuts(app):
+    from PyQt5.QtGui import QKeySequence
+    assert app.view.open_session_action.shortcut() == QKeySequence(QKeySequence.Open)
+    assert app.view.save_session_action.shortcut() == QKeySequence(QKeySequence.Save)
+    assert app.view.save_session_as_action.shortcut() == QKeySequence(QKeySequence.SaveAs)
+
+
 def test_demo_session_starts_without_unsaved_changes(demo):
     presenter, _view, _ = demo
     assert not presenter.has_unsaved_changes()

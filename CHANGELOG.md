@@ -4,6 +4,11 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
 
 ## [Unreleased]
 
+### Added
+- **Save session** writes to the session's own file (shown in the window title) and only asks for a
+  file the first time; **Save session as...** always asks. Keyboard shortcuts: Ctrl+O, Ctrl+S,
+  Ctrl+Shift+S and Ctrl+Q (Cmd on macOS).
+
 ### Changed
 - The fit error dialog gives the reason (e.g. too few points in the fit range); it was only in the log.
 - Error dialogs, the Pm dialog and the file dialog open over the main window (they could open

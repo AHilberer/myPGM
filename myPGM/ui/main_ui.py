@@ -21,7 +21,7 @@ from PyQt5.QtCore import (
     Qt,
     pyqtSignal,
 )
-from PyQt5.QtGui import QColor, QFont, QGuiApplication
+from PyQt5.QtGui import QColor, QFont, QGuiApplication, QKeySequence
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -54,6 +54,7 @@ class MainWindow(QMainWindow):
     add_current_fit_signal = pyqtSignal(object)
     open_session_signal = pyqtSignal()
     save_session_signal = pyqtSignal()
+    save_session_as_signal = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -88,12 +89,19 @@ class MainWindow(QMainWindow):
         # #? Setup Files menu
         files_menu = menubar.addMenu("Files")
 
-        open_session_action = QAction("Open session", self)
-        save_session_action = QAction("Save session", self)
-        open_session_action.triggered.connect(self.open_session_signal.emit)
-        save_session_action.triggered.connect(self.save_session_signal.emit)
-        files_menu.addAction(open_session_action)
-        files_menu.addAction(save_session_action)
+        self.open_session_action = QAction("Open session...", self)
+        self.save_session_action = QAction("Save session", self)
+        self.save_session_as_action = QAction("Save session as...", self)
+        # Ctrl+O, Ctrl+S, Ctrl+Shift+S (Cmd on macOS)
+        self.open_session_action.setShortcut(QKeySequence.Open)
+        self.save_session_action.setShortcut(QKeySequence.Save)
+        self.save_session_as_action.setShortcut(QKeySequence.SaveAs)
+        self.open_session_action.triggered.connect(self.open_session_signal.emit)
+        self.save_session_action.triggered.connect(self.save_session_signal.emit)
+        self.save_session_as_action.triggered.connect(self.save_session_as_signal.emit)
+        files_menu.addAction(self.open_session_action)
+        files_menu.addAction(self.save_session_action)
+        files_menu.addAction(self.save_session_as_action)
         #####################################################################################
         # #? Setup Theme switch menu
         theme_menu = menubar.addMenu("Theme")
@@ -125,6 +133,7 @@ class MainWindow(QMainWindow):
         exit_menu = menubar.addMenu("Exit")
 
         exit_action = QAction(" Exit", self)
+        exit_action.setShortcut(QKeySequence.Quit)        # Ctrl+Q (Cmd+Q on macOS)
         exit_action.triggered.connect(self.close)
         exit_menu.addAction(exit_action)
 

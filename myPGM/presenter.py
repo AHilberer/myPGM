@@ -67,7 +67,8 @@ class Presenter(QObject):
         self.buffer = PressureGaugeDataObject()
         self.additional_buffer = PressureGaugeDataObject()
         self.app_version = get_app_version()
-        self.view.setWindowTitle(f"myPGM - Pressure Gauge Monitor v{self.app_version}")
+        self.session_path = None            # where "Save session" writes, None: asks
+        self._update_window_title()
 
         self.initialize_calibrations_menu()
         self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
@@ -105,6 +106,7 @@ class Presenter(QObject):
 
         self.view.open_session_signal.connect(self.load_session)
         self.view.save_session_signal.connect(self.save_session)
+        self.view.save_session_as_signal.connect(lambda: self.save_session(save_as=True))
         self.view.theme_switched.connect(self.on_theme_switched)
 
         self.view.PToolbox_toTable_button.clicked.connect(self.add_current_PToolbox_to_table)
@@ -916,9 +918,18 @@ class Presenter(QObject):
             json.dump(session, file_handle)
         os.replace(tmp_path, file_path)
 
-    def save_session(self):
-        """Ask for a file and save the session. Returns True if it was saved."""
-        file_path = self.view.get_save_session_filename_dialog()
+    def _update_window_title(self):
+        title = f"myPGM - Pressure Gauge Monitor v{self.app_version}"
+        if self.session_path:
+            title += f" - {os.path.basename(self.session_path)}"
+        self.view.setWindowTitle(title)
+
+    def save_session(self, save_as=False):
+        """Save the session to its file, asked for if it has none yet or with
+        save_as. Returns True if it was saved."""
+        file_path = None if save_as else self.session_path
+        if not file_path:
+            file_path = self.view.get_save_session_filename_dialog()
         if not file_path:
             return False
         try:
@@ -927,6 +938,8 @@ class Presenter(QObject):
             self._show_error(f"Failed to save session: {exc}", title="Save error")
             return False
         self._saved_fingerprint = self._content_fingerprint()
+        self.session_path = file_path
+        self._update_window_title()
         self._remove_backup()
         logger.debug("Session saved to %s (%d spectra)", file_path, len(self.model))
         return True
@@ -1004,6 +1017,8 @@ class Presenter(QObject):
 
         self.update_PvPm_table()
         self._saved_fingerprint = self._content_fingerprint()
+        self.session_path = file_path
+        self._update_window_title()
         logger.debug("Session loaded from %s (%d spectra)", file_path, len(self.model))
         return True
 
@@ -1125,6 +1140,8 @@ class Presenter(QObject):
         if self.view.ask_recover_session(when):
             if self.load_session(path):
                 self._saved_fingerprint = None      # recovered work is not saved yet
+                self.session_path = None            # "Save" asks: never into the backup
+                self._update_window_title()
                 os.remove(path)                     # now backed up by this window
                 logger.info("Session recovered from %s", path)
                 return True
