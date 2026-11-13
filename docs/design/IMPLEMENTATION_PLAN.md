@@ -33,8 +33,8 @@ Work on the `antoine_dev` branch, one step at a time: each step is reviewed, tes
    - Save and restore dock layout and window geometry with `saveState()` / `restoreState()` in `QSettings`. Replace `_arrange_windows` accordingly.
    - The "P vs Pm" button that toggled the separate windows becomes unnecessary (docks can be closed/reopened from the Settings menu or a View submenu).
 4. **Center panel**
-   - Fitted pressure card (big value, σ, pills, Pm field + Add to log). It replaces the plot title and the "Add fit to table" / "Add to table" buttons (keep one code path).
-   - Fit toolbar: Fit / Click-to-fit / Fit range (+ edit); Background as an exclusive `QButtonGroup` of checkable buttons (Auto / Manual / None); Smoothing stepper; Derivative checkbox; legend row.
+   - Fitted pressure card (big value, σ, pills, Pm field + Add fit to log). It replaces the plot title and the "Add fit to table" button (`add_fitted_button`, same code path). The manual "Add to table" of the pressure toolbox stays as "Add point to log" in the Parameters card (`PToolbox_toTable_button`).
+   - Fit toolbar: Fit / Click-to-fit / Fit range (+ edit); Background as an exclusive `QButtonGroup` of checkable buttons (Auto / Manual / None); Smoothing stepper; legend row with the dI/dλ pill toggle on its right (drives the existing derivative splitter pane). The toolbar must fit on one line at 1280 px.
 5. **Density and colors**
    - File list: `QStyledItemDelegate` for one-line 30 px rows (dot, name, fitted P), tooltip with calibration and model.
    - Pressure log: 26 px rows, mono numbers, highlighted current row, header strip style.

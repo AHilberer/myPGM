@@ -112,7 +112,7 @@ body{margin:0}
   <!-- Center: readout + spectrum -->
   <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
 
-    <section aria-label="Fitted pressure" style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 28px; background: var(--sf); border: 1px solid var(--bd); border-radius: 12px; box-shadow: var(--sh); padding: 16px 20px">
+    <section aria-label="Fitted pressure" style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; background: var(--sf); border: 1px solid var(--bd); border-radius: 12px; box-shadow: var(--sh); padding: 16px 20px">
       <div style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 320px">
         <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mu)">Fitted pressure</span>
         <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap">
@@ -136,7 +136,7 @@ body{margin:0}
           </div>
         </div>
         <button type="submit" style="display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: none; background: var(--ac); color: var(--onac); font: inherit; font-weight: 600; cursor: pointer">
-          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Add to log</button>
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Add fit to log</button>
       </form>
     </section>
 
@@ -172,8 +172,6 @@ body{margin:0}
             <button type="button" aria-label="More smoothing" style="width: 28px; height: 30px; border: none; background: var(--sf2); color: var(--tx); font: inherit; cursor: pointer">+</button>
           </div>
         </div>
-        <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--mu); cursor: pointer">
-          <input type="checkbox" style="width: 15px; height: 15px; accent-color: var(--ac); margin: 0">Derivative</label>
       </div>
 
       <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 10px 16px 0; font-size: 12px; color: var(--mu)">
@@ -181,6 +179,9 @@ body{margin:0}
         <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 16px; height: 2px; background: var(--ru)"></span>Fit</span>
         <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 14px; height: 10px; background: var(--acs); border-left: 1px solid var(--ac); border-right: 1px solid var(--ac)"></span>Fit range</span>
         <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace">χ²ᵣ 1.04</span>
+        <span style="width: 1px; height: 18px; background: var(--bd)"></span>
+        <button type="button" aria-pressed="{{derivOn}}" onClick="{{toggleDeriv}}" title="Show the derivative dI/dλ under the spectrum" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid {{derivBorder}}; background: {{derivBg}}; color: {{derivColor}}; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer">
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"></rect><path d="M3 13h18"></path><path d="M6 10c2 0 2.5-4 4-4s2 4 4 4 2-3 4-3"></path><path d="M6 17c1.5 0 2 1.5 3.5 1.5S11 16 12.5 16s2 2 5.5 2"></path></svg>dI/dλ</button>
       </div>
       <div style="padding: 4px 12px 8px 4px; flex: 1 1 auto">
         <svg viewBox="-40 -6 850 330" role="img" aria-label="Ruby fluorescence spectrum with double Voigt fit, R1 at 696.224 nm" style="width: 100%; height: auto; display: block">
@@ -219,6 +220,21 @@ body{margin:0}
           </g>
         </svg>
       </div>
+      <sc-if value="{{derivOn}}" hint-placeholder-val="{{ false }}">
+      <div style="border-top: 1px dashed var(--bd); padding: 6px 12px 8px 4px">
+        <svg viewBox="-40 -4 850 150" role="img" aria-label="Derivative of the spectrum, dI/dλ" style="width: 100%; height: auto; display: block">
+          <line x1="0" y1="62" x2="800" y2="62" style="stroke: var(--grid)" stroke-width="1"></line>
+          <line x1="0" y1="124" x2="800" y2="124" style="stroke: var(--mu)" stroke-width="1"></line>
+          <line x1="498.5" y1="0" x2="498.5" y2="124" style="stroke: var(--tx)" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"></line>
+          <g style="fill: var(--mu)" font-size="11" font-family="JetBrains Mono, monospace" text-anchor="end"><text x="-8" y="66">0</text></g>
+          <text x="-8" y="14" text-anchor="end" font-size="11" style="fill: var(--mu)">dI/dλ</text>
+          <g style="fill: var(--mu)" font-size="11" font-family="JetBrains Mono, monospace" text-anchor="middle">
+            <text x="28.6" y="141">688</text><text x="142.9" y="141">690</text><text x="257.1" y="141">692</text><text x="371.4" y="141">694</text><text x="485.7" y="141">696</text><text x="600" y="141">698</text><text x="714.3" y="141">700</text>
+          </g>
+          <path d="M28.6,64.1h0 M30.9,63.6h0 M33.2,61.5h0 M35.4,62.0h0 M37.7,62.3h0 M40.0,62.9h0 M42.3,61.9h0 M44.6,60.2h0 M46.9,59.1h0 M49.2,61.2h0 M51.5,64.1h0 M53.8,63.4h0 M56.1,62.6h0 M58.4,62.4h0 M60.7,61.5h0 M63.0,60.8h0 M65.3,61.3h0 M67.5,61.5h0 M69.8,62.0h0 M72.1,62.0h0 M74.4,61.0h0 M76.7,61.7h0 M79.0,63.3h0 M81.3,62.6h0 M83.6,61.0h0 M85.9,60.6h0 M88.2,62.4h0 M90.5,63.2h0 M92.8,62.0h0 M95.1,62.4h0 M97.4,62.4h0 M99.6,60.9h0 M101.9,61.1h0 M104.2,62.2h0 M106.5,62.9h0 M108.8,63.7h0 M111.1,62.1h0 M113.4,61.4h0 M115.7,62.7h0 M118.0,61.2h0 M120.3,60.4h0 M122.6,62.2h0 M124.9,63.0h0 M127.2,61.8h0 M129.4,60.8h0 M131.7,60.5h0 M134.0,61.3h0 M136.3,62.4h0 M138.6,62.2h0 M140.9,62.7h0 M143.2,63.1h0 M145.5,61.6h0 M147.8,61.0h0 M150.1,62.4h0 M152.4,62.9h0 M154.7,62.5h0 M157.0,62.7h0 M159.3,61.3h0 M161.5,60.5h0 M163.8,62.7h0 M166.1,62.5h0 M168.4,61.5h0 M170.7,61.6h0 M173.0,62.8h0 M175.3,62.4h0 M177.6,60.1h0 M179.9,60.7h0 M182.2,63.5h0 M184.5,63.0h0 M186.8,60.8h0 M189.1,61.0h0 M191.4,61.2h0 M193.6,62.3h0 M195.9,62.7h0 M198.2,61.8h0 M200.5,61.0h0 M202.8,61.5h0 M205.1,63.1h0 M207.4,62.8h0 M209.7,60.4h0 M212.0,60.0h0 M214.3,61.6h0 M216.6,62.0h0 M218.9,62.6h0 M221.2,63.5h0 M223.4,63.1h0 M225.7,61.7h0 M228.0,60.7h0 M230.3,62.2h0 M232.6,62.9h0 M234.9,61.4h0 M237.2,60.8h0 M239.5,61.4h0 M241.8,63.1h0 M244.1,63.3h0 M246.4,60.8h0 M248.7,59.4h0 M251.0,60.7h0 M253.3,62.4h0 M255.5,62.7h0 M257.8,62.0h0 M260.1,61.6h0 M262.4,61.6h0 M264.7,62.1h0 M267.0,62.1h0 M269.3,61.4h0 M271.6,61.1h0 M273.9,60.7h0 M276.2,59.9h0 M278.5,60.7h0 M280.8,63.0h0 M283.1,64.7h0 M285.3,63.5h0 M287.6,61.1h0 M289.9,61.1h0 M292.2,62.1h0 M294.5,60.7h0 M296.8,60.0h0 M299.1,62.8h0 M301.4,63.3h0 M303.7,61.5h0 M306.0,60.3h0 M308.3,59.7h0 M310.6,59.9h0 M312.9,61.7h0 M315.2,62.2h0 M317.4,61.2h0 M319.7,60.4h0 M322.0,60.7h0 M324.3,61.8h0 M326.6,62.9h0 M328.9,62.5h0 M331.2,60.8h0 M333.5,59.5h0 M335.8,60.0h0 M338.1,61.8h0 M340.4,61.7h0 M342.7,60.6h0 M345.0,60.8h0 M347.3,60.9h0 M349.5,58.9h0 M351.8,57.8h0 M354.1,60.2h0 M356.4,62.0h0 M358.7,61.1h0 M361.0,59.5h0 M363.3,57.4h0 M365.6,56.8h0 M367.9,57.9h0 M370.2,58.0h0 M372.5,57.3h0 M374.8,57.0h0 M377.1,56.9h0 M379.3,55.2h0 M381.6,52.9h0 M383.9,52.3h0 M386.2,51.2h0 M388.5,49.0h0 M390.8,46.2h0 M393.1,42.9h0 M395.4,40.6h0 M397.7,37.4h0 M400.0,32.2h0 M402.3,27.5h0 M404.6,24.3h0 M406.9,22.9h0 M409.2,21.3h0 M411.4,23.0h0 M413.7,31.3h0 M416.0,43.6h0 M418.3,59.5h0 M420.6,76.2h0 M422.9,89.6h0 M425.2,97.1h0 M427.5,100.5h0 M429.8,99.9h0 M432.1,95.4h0 M434.4,90.8h0 M436.7,85.3h0 M439.0,80.7h0 M441.3,78.0h0 M443.5,75.9h0 M445.8,73.3h0 M448.1,69.0h0 M450.4,65.7h0 M452.7,64.2h0 M455.0,62.0h0 M457.3,59.1h0 M459.6,56.8h0 M461.9,55.6h0 M464.2,53.5h0 M466.5,51.0h0 M468.8,48.6h0 M471.1,44.5h0 M473.3,39.8h0 M475.6,34.2h0 M477.9,28.6h0 M480.2,24.3h0 M482.5,19.2h0 M484.8,13.9h0 M487.1,11.8h0 M489.4,12.9h0 M491.7,17.9h0 M494.0,28.6h0 M496.3,43.8h0 M498.6,63.4h0 M500.9,82.7h0 M503.2,98.1h0 M505.4,109.2h0 M507.7,115.1h0 M510.0,116.0h0 M512.3,112.0h0 M514.6,106.9h0 M516.9,101.8h0 M519.2,96.2h0 M521.5,91.5h0 M523.8,87.7h0 M526.1,84.3h0 M528.4,81.2h0 M530.7,78.9h0 M533.0,75.9h0 M535.2,73.0h0 M537.5,70.8h0 M539.8,70.0h0 M542.1,71.6h0 M544.4,70.1h0 M546.7,67.8h0 M549.0,67.7h0 M551.3,66.7h0 M553.6,66.6h0 M555.9,67.2h0 M558.2,65.6h0 M560.5,64.1h0 M562.8,64.5h0 M565.1,65.0h0 M567.3,63.9h0 M569.6,63.4h0 M571.9,65.0h0 M574.2,64.9h0 M576.5,63.4h0 M578.8,62.8h0 M581.1,62.1h0 M583.4,63.2h0 M585.7,65.1h0 M588.0,64.2h0 M590.3,62.0h0 M592.6,60.9h0 M594.9,62.7h0 M597.2,64.1h0 M599.4,63.0h0 M601.7,62.3h0 M604.0,61.8h0 M606.3,62.9h0 M608.6,63.6h0 M610.9,62.7h0 M613.2,62.9h0 M615.5,63.1h0 M617.8,61.9h0 M620.1,62.0h0 M622.4,63.5h0 M624.7,63.6h0 M627.0,62.7h0 M629.2,61.2h0 M631.5,60.8h0 M633.8,61.6h0 M636.1,62.1h0 M638.4,62.6h0 M640.7,63.0h0 M643.0,62.4h0 M645.3,62.2h0 M647.6,62.6h0 M649.9,62.0h0 M652.2,61.5h0 M654.5,62.6h0 M656.8,63.1h0 M659.1,61.7h0 M661.3,60.8h0 M663.6,62.6h0 M665.9,63.4h0 M668.2,62.2h0 M670.5,61.5h0 M672.8,62.7h0 M675.1,61.9h0 M677.4,60.3h0 M679.7,61.4h0 M682.0,61.2h0 M684.3,61.1h0 M686.6,62.5h0 M688.9,62.5h0 M691.2,62.4h0 M693.4,61.4h0 M695.7,59.8h0 M698.0,61.1h0 M700.3,61.7h0 M702.6,61.8h0 M704.9,62.6h0 M707.2,63.4h0 M709.5,64.7h0 M711.8,63.2h0 M714.1,61.5h0 M716.4,62.8h0 M718.7,63.4h0 M721.0,62.0h0 M723.2,62.4h0 M725.5,63.7h0 M727.8,62.4h0 M730.1,60.8h0 M732.4,61.5h0 M734.7,61.6h0 M737.0,61.3h0 M739.3,63.1h0 M741.6,64.5h0 M743.9,63.4h0 M746.2,61.2h0 M748.5,60.3h0 M750.8,61.3h0 M753.1,62.3h0 M755.3,62.7h0 M757.6,62.4h0 M759.9,62.4h0 M762.2,62.7h0 M764.5,63.1h0 M766.8,62.9h0 M769.1,61.7h0 M771.4,61.6h0 M773.7,61.6h0 M776.0,60.6h0 M778.3,60.2h0 M780.6,59.5h0 M782.9,60.3h0" fill="none" style="stroke: var(--dot)" stroke-width="3" stroke-linecap="round"></path>
+        </svg>
+      </div>
+      </sc-if>
     </section>
   </main>
 
@@ -266,6 +282,10 @@ body{margin:0}
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--acs)">
         <label for="p-out" style="font-size: 12px; font-weight: 600; color: var(--act)">P (GPa)</label>
         <input id="p-out" type="text" inputmode="decimal" value="5.319" style="width: 90px; border: none; outline: none; background: transparent; color: var(--act); font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; text-align: right">
+      </div>
+      <div style="display: flex; padding-top: 2px">
+        <button type="button" onClick="{{openPmDialog}}" aria-haspopup="dialog" title="Add a point to the log from these values, without a spectrum or fit" style="flex: 1 1 auto; justify-content: center; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--ac); background: var(--sf); color: var(--act); font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Add point to log</button>
       </div>
     </section>
 
@@ -363,6 +383,29 @@ body{margin:0}
   </sc-if>
 </div>
 
+<!-- Pm prompt for a manual point -->
+<sc-if value="{{pmDialogOpen}}" hint-placeholder-val="{{ false }}">
+  <div style="position: absolute; inset: 0; z-index: 30; background: rgba(10,14,22,0.35); display: flex; align-items: center; justify-content: center; padding: 16px">
+    <form role="dialog" aria-modal="true" aria-labelledby="pm-dlg-title" style="width: min(360px, 100%); background: var(--sf); border: 1px solid var(--bd); border-radius: 12px; box-shadow: 0 24px 48px rgba(10,14,22,0.3); padding: 18px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h2 id="pm-dlg-title" style="margin: 0; font-size: 15px; font-weight: 600">Add point to log</h2>
+        <p style="margin: 0; font-size: 12px; color: var(--mu)">Ruby2020 · λ 696.224 nm · T 298.0 K → <span style="font-family: 'JetBrains Mono', monospace; color: var(--tx); font-weight: 600">P 5.319 GPa</span></p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label for="pm-dlg" style="font-size: 12px; color: var(--mu)">Membrane pressure Pm</label>
+        <div style="display: flex; align-items: center; height: 40px; border: 2px solid var(--ac); border-radius: 8px; background: var(--sf2); padding: 0 10px; gap: 6px">
+          <input id="pm-dlg" type="text" inputmode="decimal" value="24.00" style="flex: 1 1 auto; min-width: 0; border: none; outline: none; background: transparent; color: var(--tx); font-family: 'JetBrains Mono', monospace; font-size: 15px">
+          <span style="color: var(--mu)">bar</span>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px">
+        <button type="button" onClick="{{closePmDialog}}" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--bd); background: var(--sf); color: var(--tx); font: inherit; font-weight: 500; cursor: pointer">Cancel</button>
+        <button type="button" onClick="{{closePmDialog}}" style="height: 36px; padding: 0 14px; border-radius: 8px; border: none; background: var(--ac); color: var(--onac); font: inherit; font-weight: 600; cursor: pointer">Add to log</button>
+      </div>
+    </form>
+  </div>
+</sc-if>
+
 <!-- Floating (undocked) windows -->
 <sc-if value="{{tableFloating}}" hint-placeholder-val="{{ false }}">
   <section role="dialog" aria-label="Pressure log window" style="position: absolute; left: 300px; top: 520px; width: min(660px, calc(100% - 40px)); z-index: 5; display: flex; flex-direction: column; background: var(--sf); border: 1px solid var(--bd); border-radius: 10px; box-shadow: 0 24px 48px rgba(10,14,22,0.28), 0 4px 12px rgba(10,14,22,0.12); overflow: hidden">
@@ -433,7 +476,7 @@ body{margin:0}
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"tableUndocked":{"editor":"boolean","default":false},"fitRangeEditing":{"editor":"boolean","default":false},"plotUndocked":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#2450D6","options":["#2450D6","#0F7B6C","#7A4BD1","#C2410C"]},"$preview":{"width":1440,"height":1010}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"tableUndocked":{"editor":"boolean","default":false},"fitRangeEditing":{"editor":"boolean","default":false},"pmDialog":{"editor":"boolean","default":false},"derivative":{"editor":"boolean","default":false},"plotUndocked":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#2450D6","options":["#2450D6","#0F7B6C","#7A4BD1","#C2410C"]},"$preview":{"width":1440,"height":1010}}'>
 class Component extends DCLogic {
   renderVals() {
     const st = this.state || {};
@@ -455,6 +498,7 @@ class Component extends DCLogic {
     light.acs = rgba(light.ac, 0.09); light.sel = rgba(light.ac, 0.07);
     night.acs = rgba(night.ac, 0.15); night.sel = rgba(night.ac, 0.11);
     const t = dark ? night : light;
+    const derivOn = st.deriv != null ? st.deriv : !!this.props.derivative;
     const rangeOn = st.rangeOn != null ? st.rangeOn : true;
     const rangeEdit = rangeOn && (st.rangeEdit != null ? st.rangeEdit : !!this.props.fitRangeEditing);
     const calName = st.calib || 'Ruby2020';
@@ -496,6 +540,14 @@ class Component extends DCLogic {
       edgeWidth: rangeEdit ? 2 : 1,
       toggleRange: () => this.setState({ rangeOn: !rangeOn, rangeEdit: false }),
       toggleEdit: () => this.setState({ rangeEdit: !rangeEdit }),
+      pmDialogOpen: st.pmDialog != null ? st.pmDialog : !!this.props.pmDialog,
+      openPmDialog: () => this.setState({ pmDialog: true }),
+      closePmDialog: () => this.setState({ pmDialog: false }),
+      derivOn: derivOn,
+      derivBg: derivOn ? t.acs : t.sf,
+      derivBorder: derivOn ? t.ac : t.bd,
+      derivColor: derivOn ? t.act : t.tx,
+      toggleDeriv: () => this.setState({ deriv: !derivOn }),
       settingsOpen: !!st.settingsOpen,
       settingsBg: st.settingsOpen ? t.acs : t.sf2,
       settingsBorder: st.settingsOpen ? t.ac : t.bd,
