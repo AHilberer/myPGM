@@ -12,12 +12,12 @@ from conftest import dispose
 def app(qapp, tmp_path, monkeypatch):
     """Main window + presenter with the example files and a backup folder.
     app.answers: what the 'Save changes?' question returns, in order."""
-    from myPGM.helpers import load_style
+    from myPGM.ui import theme
     from myPGM.ui.main_ui import MainWindow
     from myPGM.data_model import PressureGaugeDataManager
     from myPGM.presenter import Presenter
 
-    qapp.setStyleSheet(load_style("light-mode.qss"))
+    qapp.setStyleSheet(theme.stylesheet(dark=False))
     view = MainWindow()
     backup_dir = tmp_path / "appdata"
     backup_dir.mkdir()

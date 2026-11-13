@@ -417,24 +417,25 @@ def _title(gui):
 # --- settings kept between launches ---------------------------------------------------------
 
 def test_theme_is_remembered(gui, isolated_settings):
+    from myPGM.ui import theme
     from myPGM.ui.main_ui import MainWindow
     gui.view.switch_to_dark()
     assert (isolated_settings / "myPGM" / "myPGM.ini").exists()
     view = MainWindow()                                 # next launch
-    assert view.plot_label_color == "white"
+    assert theme.is_dark() and view.plot_label_color == theme.DARK["mu"]
     dispose(view)
     gui.view.switch_to_light()
     view = MainWindow()
-    assert view.plot_label_color == "black"
+    assert not theme.is_dark() and view.plot_label_color == theme.LIGHT["mu"]
     dispose(view)
 
 
 def test_font_size_is_remembered(gui):
-    from myPGM.helpers import load_style
+    from myPGM.ui import theme
     from myPGM.ui.main_ui import MainWindow
     gui.view.show_font_size_window()
     gui.view.font_size_window.slider.setValue(21)
-    gui.app.setStyleSheet(load_style("light-mode.qss"))   # as at a new launch
+    gui.app.setStyleSheet(theme.stylesheet(dark=False))   # as at a new launch
     view = MainWindow()
     assert view.plot_font_px == 21 and "font-size: 21px" in gui.app.styleSheet()
     dispose(view)

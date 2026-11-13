@@ -9,6 +9,7 @@ from PyQt5.QtCore import pyqtSignal, Qt
 
 from myPGM.calibrations import HPCalibration
 from myPGM.helpers import MyVSeparator, SmartDoubleSpinBox
+from myPGM.ui import theme
 
 class PressureToolbox(QWidget):
 
@@ -20,15 +21,16 @@ class PressureToolbox(QWidget):
     x0Changed = pyqtSignal(float)
     T0Changed = pyqtSignal(float)
 
-    GREEN = LIGHTMODEGREEN = "#ccffcc"
-    RED = LIGHTMODERED = "#ee6b6e"
-    BLUE = LIGHTMODEBLUE = "#c1d9ff"
-    ORANGE = LIGHTMODEORANGE = "#ff8a54"
+    # field backgrounds: valid / invalid pressure, T not at room temperature, Pm
+    GREEN = LIGHTMODEGREEN = theme.LIGHT["ok"]
+    RED = LIGHTMODERED = theme.LIGHT["bad"]
+    BLUE = LIGHTMODEBLUE = theme.LIGHT["info"]
+    ORANGE = LIGHTMODEORANGE = theme.LIGHT["warn"]
 
-    DARKMODEGREEN = "#3b8132"
-    DARKMODERED = "#c30010"
-    DARKMODEBLUE = "#0077b6"
-    DARKMODEORANGE = "#c23c02"
+    DARKMODEGREEN = theme.DARK["ok"]
+    DARKMODERED = theme.DARK["bad"]
+    DARKMODEBLUE = theme.DARK["info"]
+    DARKMODEORANGE = theme.DARK["warn"]
 
     def __init__(self):
         super().__init__()
@@ -58,14 +60,14 @@ class PressureToolbox(QWidget):
         self.x_spinbox.setDecimals(3)
         self.x_spinbox.setSingleStep(0.01)
         self.x_spinbox.setRange(-np.inf, +np.inf)
-        self.x_spinbox.setMinimumWidth(100)
+        self.x_spinbox.setMinimumWidth(112)     # 3 decimals in the mono font
 
         self.x0_spinbox = SmartDoubleSpinBox()
         self.x0_spinbox.setObjectName("x0_spinbox")
         self.x0_spinbox.setDecimals(3)
         self.x0_spinbox.setSingleStep(0.01)
         self.x0_spinbox.setRange(-np.inf, +np.inf)
-        self.x0_spinbox.setMinimumWidth(100)
+        self.x0_spinbox.setMinimumWidth(112)     # 3 decimals in the mono font
 
         self.T_spinbox = SmartDoubleSpinBox()
         self.T_spinbox.setObjectName("T_spinbox")
@@ -83,6 +85,7 @@ class PressureToolbox(QWidget):
 
         self._xP_bgcolor = None
         self._T_bgcolor = None
+        self._calib = None              # current calibration, gives the selector colour
 
         self.calibration_combo = QComboBox()
         self.calibration_combo.setObjectName("calibration_combo")
@@ -142,11 +145,29 @@ class PressureToolbox(QWidget):
         if self.calibrations is not None:
             self.calibration_combo.addItems(self.calibrations.keys())
 
-            for k, v in self.calibrations.items():
-                ind = self.calibration_combo.findText(k)
-                self.calibration_combo.model().item(ind).setBackground(QColor(v.color))
+            self._color_calib_items()
         else:
             raise ImportError('Error loading calibrations.')
+
+    def _color_calib_items(self):
+        """Each calibration of the list on its family colour (DESIGN.md §3)."""
+        on_calib = QColor(theme.tokens()["on_calib"])
+        # changing the current item's data emits currentTextChanged, which would be
+        # taken for a calibration change (and reset the toolbox values)
+        was_blocked = self.calibration_combo.blockSignals(True)
+        for k, v in self.calibrations.items():
+            item = self.calibration_combo.model().item(self.calibration_combo.findText(k))
+            item.setBackground(QColor(theme.calib_color(v)))
+            item.setForeground(on_calib)
+        self.calibration_combo.blockSignals(was_blocked)
+
+    def _style_calib_combo(self):
+        if self._calib is None:
+            return
+        self.calibration_combo.setStyleSheet(
+            "QComboBox {{ background-color: {}; color: {}; border-color: {}; font-weight: 600; }}"
+            .format(theme.calib_color(self._calib), theme.tokens()["on_calib"],
+                    theme.calib_color(self._calib)))
 
     def calib_changed(self, newcalib_name):
         newcalib = self.calibrations[newcalib_name]
@@ -190,8 +211,8 @@ class PressureToolbox(QWidget):
 
         self.Tcor_Label.setText(newcalib.Tcor_name)
 
-        self.calibration_combo.setStyleSheet(
-            "background-color: {};".format(newcalib.color))
+        self._calib = newcalib
+        self._style_calib_combo()
 
         self.x_label.setText(
             "{} ({})".format(newcalib.xname, newcalib.xunit)
@@ -270,6 +291,12 @@ class PressureToolbox(QWidget):
             self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
 
         self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
+        self._restyle_calibrations()
+
+    def _restyle_calibrations(self):
+        if getattr(self, "calibrations", None):
+            self._color_calib_items()
+        self._style_calib_combo()
 
     def set_light_mode(self):
         PressureToolbox.GREEN = PressureToolbox.LIGHTMODEGREEN
@@ -284,3 +311,4 @@ class PressureToolbox(QWidget):
         self.update_T_spinbox_style(self.T_spinbox.value())
 
         self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
+        self._restyle_calibrations()

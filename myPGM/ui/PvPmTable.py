@@ -19,6 +19,7 @@ from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
 
 from myPGM.settings import last_dir, remember_dir
 from myPGM.ui.PressureToolbox import PressureToolbox
+from myPGM.ui import theme
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,10 @@ def _colour_dot(colour, size=12):
     painter.setPen(Qt.NoPen)
     painter.drawEllipse(1, 1, size - 2, size - 2)
     painter.end()
-    return QIcon(pixmap)
+    icon = QIcon(pixmap)
+    # not tinted by the selection colour in the selected row
+    icon.addPixmap(pixmap, QIcon.Selected)
+    return icon
 
 
 class SortableItem(QTableWidgetItem):
@@ -98,6 +102,7 @@ class HPTableWidget(QTableWidget):
 
         self.data_manager = None
         self.user_column_visibility = {}   # columns shown/hidden from the header menu
+        self.font_px = 18
 
         self.set_font_size(18)
         self.setColumnCount(len(COLUMNS))
@@ -125,6 +130,7 @@ class HPTableWidget(QTableWidget):
         self.data_manager = data_manager
 
     def set_font_size(self, size):
+        self.font_px = size
         # this widget stylesheet overrides the app-wide font size, so it is set here
         self.setStyleSheet(
             f"QTableWidget {{ font-size: {size}px; }}"
@@ -134,6 +140,8 @@ class HPTableWidget(QTableWidget):
         # rows were fixed at 18 px high, which clipped larger fonts
         self.verticalHeader().setDefaultSectionSize(size + 6)
         self.setIconSize(QSize(size - 4, size - 4))
+        if self.data_manager is not None:
+            self.updatetable()          # numbers are drawn in a mono font of this size
 
     # --- content -----------------------------------------------------------------------
 
@@ -158,6 +166,7 @@ class HPTableWidget(QTableWidget):
 
     def updatetable(self):
         entries = self.data_manager.table_entries() if self.data_manager is not None else []
+        mono = theme.mono_font(self.font_px)        # numbers in the mono font (DESIGN.md §2)
         # filling a sorted table moves rows while they are filled: sort afterwards
         self.setSortingEnabled(False)
         self.setRowCount(len(entries))
@@ -171,6 +180,7 @@ class HPTableWidget(QTableWidget):
                 item.setData(SORT_ROLE, sort_value)
                 if COLUMNS[col][2]:
                     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                    item.setFont(mono)
                 self.setItem(row, col, item)
             self._decorate_row(row, obj)
         self.setSortingEnabled(True)
@@ -180,7 +190,7 @@ class HPTableWidget(QTableWidget):
         self.item(row, COLUMN_INDEX["#"]).setData(ID_ROLE, obj.id)
         if obj.calib is not None:
             calib_item = self.item(row, COLUMN_INDEX["calib"])
-            calib_item.setIcon(_colour_dot(obj.calib.color))
+            calib_item.setIcon(_colour_dot(theme.calib_color(obj.calib)))
             calib_item.setToolTip(obj.calib.name)
         if obj.full_path:
             self.item(row, COLUMN_INDEX["file"]).setToolTip(obj.full_path)

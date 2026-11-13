@@ -68,7 +68,6 @@ class Presenter(QObject):
         self._update_window_title()
 
         self.initialize_calibrations_menu()
-        self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
         self.initialize_fit_models_menu()
         self.initialize_buffer()
         self.view.PvPmTableWindow.set_data_manager(self.model)

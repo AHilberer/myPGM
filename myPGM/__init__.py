@@ -6,8 +6,9 @@ import time
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import QLocale, QLoggingCategory
 
-from myPGM.helpers import load_style, get_app_icon
+from myPGM.helpers import get_app_icon
 from myPGM.ui.main_ui import MainWindow
+from myPGM.ui import theme
 from myPGM.data_model import PressureGaugeDataManager
 from myPGM.presenter import Presenter
 from myPGM import log_setup
@@ -80,10 +81,10 @@ def main():
         app.setWindowIcon(app_icon)
 
     try:
-        style = load_style('light-mode.qss')
-        app.setStyleSheet(style)
+        # light theme and bundled fonts; MainWindow switches to a saved dark theme
+        theme.apply_theme(app, dark=False)
     except Exception as exc:
-        logger.warning("Could not load the light-mode stylesheet: %s", exc)
+        logger.warning("Could not load the theme stylesheet: %s", exc)
     model = PressureGaugeDataManager()
     view = MainWindow()
     if not app_icon.isNull():

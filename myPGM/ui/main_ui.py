@@ -21,17 +21,15 @@ from PyQt5.QtCore import (
     Qt,
     pyqtSignal,
 )
-from PyQt5.QtGui import QColor, QFont, QGuiApplication, QKeySequence
+from PyQt5.QtGui import QColor, QGuiApplication, QKeySequence
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
-from myPGM.helpers import (load_style, 
-                          get_app_icon, 
+from myPGM.helpers import (get_app_icon,
                           MyHSeparator, 
                           MyVSeparator, 
                           SmartDoubleDialog,
                           FontSizeWindow,
-                          set_app_theme,
                           set_app_font_size,
                           current_app_font_px,)
 from myPGM.settings import app_settings, last_dir, remember_dir
@@ -40,6 +38,7 @@ from myPGM.ui.PvPmPlot import PvPmPlotWindow
 from myPGM.ui.PvPmTable import HPTableWindow
 from myPGM.ui.FileListViewerWidget import FileListViewerWidget
 from myPGM.ui.PressureToolbox import PressureToolbox
+from myPGM.ui import theme
 
 import pyqtgraph as pg
 
@@ -199,6 +198,7 @@ class MainWindow(QMainWindow):
         FitButtonsBox = QGridLayout()
 
         self.fit_button = QPushButton("Fit", self)
+        self.fit_button.setProperty("primary", True)
         self.fit_button.clicked.connect(self.auto_fit)
 
         FitButtonsBox.addWidget(self.fit_button, 0, 0)
@@ -292,7 +292,10 @@ class MainWindow(QMainWindow):
         # #? Setup data plotting section
         PlotLayout = QVBoxLayout()
         self.splitter = QSplitter(Qt.Vertical)
-        self.plot_label_color = "black"
+        # the theme recorded at startup, before a saved dark theme is applied below
+        theme.set_current(False)
+        self.plot_label_color = theme.tokens()["mu"]
+        self.fit_color = theme.calib_color(None)      # set from the plotted calibration
         # plots and the PvPm table use the app font size, kept in sync by set_font_size
         self.plot_font_px = current_app_font_px()
         # font size chosen in a previous launch (the slider range)
@@ -305,13 +308,12 @@ class MainWindow(QMainWindow):
 
         # #? Actual spectral data
         self.data_widget = pg.PlotWidget()
-        self.data_widget.setBackground("white")
         styles = self._label_styles()
         self.data_widget.setLabel("bottom", "Spectral unit", **styles)
         self.data_widget.setLabel("left", "Intensity (a.u.)", **styles)
-        self.data_scatter = pg.ScatterPlotItem(symbol='o', size=4, brush='grey')
+        self.data_scatter = pg.ScatterPlotItem(symbol='o', size=3, pen=None)
         self.data_widget.addItem(self.data_scatter)
-        self.data_fit_pen = pg.mkPen(color='red', width=3)
+        self.data_fit_pen = pg.mkPen(color=self.fit_color, width=2)
         self.data_bg_pen = pg.mkPen(color='darkviolet', width=3)
         self.data_bg_scatter = pg.ScatterPlotItem(symbol='s', size=8, brush='darkviolet')
         self.data_fit_line = pg.PlotDataItem(name='Fit',pen=self.data_fit_pen,)
@@ -328,13 +330,13 @@ class MainWindow(QMainWindow):
         #####################################################################################
         # #? Setup derivative plotting section
         self.deriv_widget = pg.PlotWidget()
-        self.deriv_widget.setBackground("white")
         self.deriv_widget.setLabel("bottom", "Spectral unit", **styles)
         self.deriv_widget.setLabel("left", "dI/dx", **styles)
 
-        self.deriv_scatter = pg.ScatterPlotItem(symbol='o', size=4, brush='grey')
+        self.deriv_scatter = pg.ScatterPlotItem(symbol='o', size=3, pen=None)
         self.deriv_widget.addItem(self.deriv_scatter)
         self.deriv_edge_marker = pg.InfiniteLine(pos=None, angle=90, pen=self.data_fit_pen, movable=False)
+        self._style_plots()
 
         self.deriv_widget.setMenuEnabled(False)
         self.deriv_scatter.scene().sigMouseClicked.connect(self.deriv_plot_click)
@@ -349,6 +351,7 @@ class MainWindow(QMainWindow):
 
         self.table_interactions = QHBoxLayout()
         self.add_fitted_button = QPushButton("Add fit to table")
+        self.add_fitted_button.setProperty("primary", True)
         self.add_fitted_button.clicked.connect(self.add_current_fit)
         self.table_interactions.addWidget(self.add_fitted_button, stretch=3)
 
@@ -424,28 +427,22 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
     def switch_to_dark(self):
-        self._apply_theme('dark-mode.qss', label_color="white", plot_background="#202020", dark=True)
+        self._apply_theme(dark=True)
 
     def switch_to_light(self):
-        self._apply_theme('light-mode.qss', label_color="black", plot_background="white", dark=False)
+        self._apply_theme(dark=False)
 
-    def _apply_theme(self, qss_file, label_color, plot_background, dark):
+    def _apply_theme(self, dark):
         try:
-            style = load_style(qss_file)
-        except OSError as exc:
-            logger.warning("Could not load stylesheet %s: %s", qss_file, exc)
-        else:
             # app-wide, so that every window and dialog follows the theme
-            set_app_theme(style)
+            theme.apply_theme(dark=dark)
+        except OSError as exc:
+            logger.warning("Could not load the theme stylesheet: %s", exc)
+            theme.set_current(dark)
         app_settings().setValue("theme", "dark" if dark else "light")
-        self.plot_label_color = label_color
 
         # pyqtgraph plots are not styled by the Qt stylesheet
-        styles = self._label_styles()
-        for widget in (self.data_widget, self.deriv_widget):
-            widget.setBackground(plot_background)
-            widget.setLabel("left", **styles)
-            widget.setLabel("bottom", **styles)
+        self._style_plots()
 
         for themed in (self.ptoolbox, self.additional_toolbox_window, self.PvPmPlotWindow):
             if dark:
@@ -454,6 +451,34 @@ class MainWindow(QMainWindow):
                 themed.set_light_mode()
 
         self.theme_switched.emit()
+
+    def _style_plots(self):
+        """Colours of the spectrum and derivative plots from the theme tokens
+        (DESIGN.md §6). The fit line and markers follow the plotted calibration."""
+        t = theme.tokens()
+        self.plot_label_color = t["mu"]
+        for widget, scatter in ((self.data_widget, self.data_scatter),
+                                (self.deriv_widget, self.deriv_scatter)):
+            scatter.setBrush(pg.mkBrush(theme.qcolor(t["dot"])))
+            theme.style_axes(widget, t)
+        # fit range: soft accent band with accent edges
+        self.fit_range_selector.setBrush(pg.mkBrush(theme.qcolor(t["acs"])))
+        hover = theme.qcolor(t["acs"])
+        hover.setAlphaF(min(1.0, hover.alphaF() * 1.8))
+        self.fit_range_selector.setHoverBrush(pg.mkBrush(hover))
+        for line in self.fit_range_selector.lines:
+            line.setPen(pg.mkPen(theme.qcolor(t["ac"]), width=1))
+            line.setHoverPen(pg.mkPen(theme.qcolor(t["ac"]), width=2))
+        self.update_plot_fonts()
+        self._set_fit_color(self.fit_color)
+
+    def _set_fit_color(self, color):
+        self.fit_color = color
+        self.data_fit_pen = pg.mkPen(color=color, width=2)
+        self.data_fit_line.setPen(self.data_fit_pen)
+        marker_pen = pg.mkPen(color=color, width=1.5, style=Qt.DashLine)
+        self.data_edge_marker.setPen(marker_pen)
+        self.deriv_edge_marker.setPen(marker_pen)
 
     def populate_fit_models_combo(self, model_dict):
         if model_dict is not None:
@@ -596,6 +621,8 @@ class MainWindow(QMainWindow):
 
         self.data_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
         self.data_widget.setLabel("left", 'Intensity')
+        # the fit line of this spectrum is drawn in its calibration's colour
+        self._set_fit_color(theme.calib_color(buffer.calib))
 
         self.data_scatter.setData(x, y)
         if not preserve_view:
@@ -756,15 +783,15 @@ class MainWindow(QMainWindow):
         self.PvPmPlotWindow.set_font_size(size)
 
     def _label_styles(self):
-        return {"color": self.plot_label_color, "font-size": f"{self.plot_font_px}px"}
+        return theme.label_styles(self.plot_label_color, self.plot_font_px)
 
     def _set_plot_title(self, text):
-        self.data_widget.setTitle(text, color=self.plot_label_color, size=self.plot_title_size)
+        self.data_widget.setTitle(text, color=theme.tokens()["tx"], size=self.plot_title_size)
 
     def update_plot_fonts(self):
         styles = self._label_styles()
-        tick_font = QFont()
-        tick_font.setPixelSize(self.plot_font_px)
+        # numbers in the mono font (DESIGN.md §2)
+        tick_font = theme.mono_font(self.plot_font_px)
         for widget in (self.data_widget, self.deriv_widget):
             widget.setLabel("left", **styles)
             widget.setLabel("bottom", **styles)

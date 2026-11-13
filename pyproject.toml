@@ -47,7 +47,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 
 [tool.setuptools.package-data]
-"myPGM" = ["ui/*.qss", "resources/*", "resources/icons/*"]
+"myPGM" = ["ui/*.qss", "resources/*", "resources/icons/*", "resources/fonts/*"]
 
 [tool.ruff.lint]
 # pyflakes and pycodestyle errors, plus tab indentation

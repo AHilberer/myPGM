@@ -30,6 +30,30 @@ def dispose(view):
 
 
 @pytest.fixture(autouse=True)
+def delete_leftover_windows():
+    """Delete the top-level widgets a test leaves behind. Disposing a main window does
+    not delete everything: pyqtgraph's plot option panels and menus stay alive as
+    parentless widgets (about 2000 per window). Each later stylesheet change restyles
+    all of them, and the tests got slower and slower (6 s per window at the end)."""
+    from PyQt5 import sip
+    from PyQt5.QtCore import QEvent
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance()
+    before = ({sip.unwrapinstance(w) for w in app.topLevelWidgets()}
+              if app is not None else set())
+    yield
+    app = QApplication.instance()
+    if app is None:
+        return
+    for widget in app.topLevelWidgets():
+        # a top-level widget with a parent (combo box popup, submenu) belongs to it
+        if (sip.unwrapinstance(widget) not in before and not sip.isdeleted(widget)
+                and widget.parent() is None):
+            widget.deleteLater()
+    QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+
+
+@pytest.fixture(autouse=True)
 def isolated_settings(tmp_path):
     """Settings (theme, font size, folders) in a temporary folder: tests must not
     read or change the user's own settings."""
@@ -61,12 +85,12 @@ def gui(qapp):
 
     Error popups are recorded in gui.errors instead of being shown.
     """
-    from myPGM.helpers import load_style
+    from myPGM.ui import theme
     from myPGM.ui.main_ui import MainWindow
     from myPGM.data_model import PressureGaugeDataManager
     from myPGM.presenter import Presenter
 
-    qapp.setStyleSheet(load_style("light-mode.qss"))
+    qapp.setStyleSheet(theme.stylesheet(dark=False))
     view = MainWindow()
     presenter = Presenter(PressureGaugeDataManager(), view, test_mode=True)
 
@@ -91,11 +115,11 @@ def gui(qapp):
 
 @pytest.fixture
 def demo(qapp):
-    from myPGM.helpers import load_style
+    from myPGM.ui import theme
     from myPGM.ui.main_ui import MainWindow
     from myPGM.data_model import PressureGaugeDataManager
     from myPGM.presenter import Presenter
-    qapp.setStyleSheet(load_style("light-mode.qss"))
+    qapp.setStyleSheet(theme.stylesheet(dark=False))
     view = MainWindow()
     errors = []
     # record error popups instead of showing them, before the demo is built

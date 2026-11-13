@@ -1,12 +1,14 @@
 import numpy as np
 import pyqtgraph as pg
 
-from PyQt5.QtGui import QFont
-
 from PyQt5.QtWidgets import (QMainWindow,
                              QWidget,
                              QVBoxLayout,
                              QAction,)
+
+from myPGM.ui import theme
+
+LINE_OPACITY = 0.6      # line joining the points, DESIGN.md §6
 
 class PvPmPlotWindow(QMainWindow):
     def __init__(self):
@@ -24,16 +26,13 @@ class PvPmPlotWindow(QMainWindow):
 
         self.setCentralWidget(central_widget)
         self.pens = {}
-        self.calib_colors = None
+        self.calibs = {}            # calibration of each series: gives its colour
         self.font_px = 18
-        self.label_color = "black"
-        self.plot_graph.setBackground("white")
-        self._update_labels()
         self.legend = self.plot_graph.addLegend()
-        self.plot_graph.showGrid(x=True, y=True)
 
         self.lines = {}
         self.error_bars = {}
+        self._restyle()
         
         # 'Display lines' in the plot's right-click menu
         self.lines_action = QAction('Display lines', self)
@@ -50,14 +49,38 @@ class PvPmPlotWindow(QMainWindow):
         self.data_manager = data_manager
 
     def set_dark_mode(self):
-        self.label_color = "white"
-        self.plot_graph.setBackground("#202020")
-        self._update_labels()
+        self._restyle()
 
     def set_light_mode(self):
-        self.label_color = "black"
-        self.plot_graph.setBackground("white")
+        self._restyle()
+
+    def _restyle(self):
+        """Colours of the current theme (theme.tokens()): plot, axes, legend and
+        the series, drawn in their calibration's colour."""
+        t = theme.tokens()
+        self.label_color = t["mu"]
+        theme.style_axes(self.plot_graph, t)
+        self.legend.setLabelTextColor(theme.qcolor(t["tx"]))
         self._update_labels()
+        for group in self.lines:
+            self._style_series(group)
+        self._update_legend_font()
+
+    def _series_color(self, group):
+        return theme.qcolor(theme.calib_color(self.calibs.get(group)))
+
+    def _style_series(self, group):
+        color = self._series_color(group)
+        line_color = theme.qcolor(color.name())
+        line_color.setAlphaF(LINE_OPACITY)
+        self.pens[group] = pg.mkPen(color=line_color, width=1.5)
+        line = self.lines[group]
+        line.setPen(self.pens[group] if self.lines_action.isChecked() else None)
+        line.setSymbolBrush(pg.mkBrush(color))
+        line.setSymbolPen(None)
+        line.setSymbolSize(10)
+        if group in self.error_bars:
+            self.error_bars[group].setData(pen=pg.mkPen(color=line_color, width=1))
 
     def set_font_size(self, size):
         self.font_px = size
@@ -65,11 +88,10 @@ class PvPmPlotWindow(QMainWindow):
         self._update_legend_font()
 
     def _update_labels(self):
-        styles = {"color": self.label_color, "font-size": f"{self.font_px}px"}
+        styles = theme.label_styles(self.label_color, self.font_px)
         self.plot_graph.setLabel("left", "P (GPa)", **styles)
         self.plot_graph.setLabel("bottom", "Pm (bar)", **styles)
-        tick_font = QFont()
-        tick_font.setPixelSize(self.font_px)
+        tick_font = theme.mono_font(self.font_px)
         for side in ("left", "bottom"):
             self.plot_graph.getAxis(side).setStyle(tickFont=tick_font)
 
@@ -91,6 +113,7 @@ class PvPmPlotWindow(QMainWindow):
                     "P": float(obj.P),
                     "P_err": getattr(obj, "P_err", None),
                     "calib": obj.calib.name if obj.calib is not None else "unknown",
+                    "calib_obj": obj.calib,
                     "label": obj.calib.short_name if obj.calib is not None else "unknown",
                 }
             )
@@ -109,6 +132,7 @@ class PvPmPlotWindow(QMainWindow):
                 self.plot_graph.removeItem(self.lines[stale_group])
                 del self.lines[stale_group]
                 self.pens.pop(stale_group, None)
+                self.calibs.pop(stale_group, None)
                 if stale_group in self.error_bars:
                     self.plot_graph.removeItem(self.error_bars.pop(stale_group))
 
@@ -119,21 +143,14 @@ class PvPmPlotWindow(QMainWindow):
             if g in list(self.lines.keys()):
                 self.lines[g].setData(pm_values, p_values)
             else:
-                if self.calib_colors is None:
-                    color = pg.intColor(len(self.lines))
-                else:
-                    color = self.calib_colors.get(g, pg.intColor(len(self.lines)))
-
-                self.pens[g] = pg.mkPen(color=color)
+                self.calibs[g] = subdata[0]["calib_obj"]
                 self.lines[g] = self.plot_graph.plot(
                     pm_values,
                     p_values,
                     name=subdata[0].get("label", g),   # short name, as in the table
-                    # a series added while lines are hidden starts hidden too
-                    pen=self.pens[g] if self.lines_action.isChecked() else None,
-                    symbol="o",
-                    symbolSize=14,
-                    symbolBrush=color)
+                    symbol="o")
+                # pen (none while lines are hidden), markers in the calibration colour
+                self._style_series(g)
 
             self._update_error_bars(g, subdata)
 
@@ -146,7 +163,7 @@ class PvPmPlotWindow(QMainWindow):
         err = np.array([item.get("P_err") or 0.0 for item in subdata], dtype=float)
         if group not in self.error_bars:
             # not given a name, so it stays out of the legend
-            self.error_bars[group] = pg.ErrorBarItem(beam=0, pen=self.pens[group])
+            self.error_bars[group] = pg.ErrorBarItem(beam=0, pen=pg.mkPen(self.pens[group].color(), width=1))
             self.plot_graph.addItem(self.error_bars[group])
         self.error_bars[group].setData(x=pm, y=p, top=err, bottom=err)
 
