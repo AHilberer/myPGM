@@ -117,6 +117,46 @@ def test_add_fit_to_table(gui):
     assert rows[0]["#"] == "1" and rows[0]["Pm (bar)"] == "12.00"
 
 
+def test_toolbox_temperature_edited_after_the_fit_is_used_in_the_table(gui, monkeypatch):
+    # editing x0 also sets the calibration's x0default: restored after the test
+    monkeypatch.setattr(C.Ruby2020, "x0default", C.Ruby2020.x0default)
+    obj = select_and_fit(gui, "Example_Ruby_2.asc")
+    gui.view.ptoolbox.T_spinbox.setValue(500.0)
+    gui.view.ptoolbox.x0_spinbox.setValue(694.20)
+    shown_P = gui.view.ptoolbox.P_spinbox.value()
+    gui.view.prompt_fit_pm = lambda current: 10.0
+    gui.presenter.add_current_fit_to_table()
+    assert obj.T == 500.0 and obj.x0 == pytest.approx(694.20)
+    assert obj.P == pytest.approx(shown_P, abs=1e-3)           # was added at 298 K
+    assert obj.P_err is not None                                # still a fitted point
+    assert table_rows(gui.view.PvPmTableWindow.table_widget)[0]["P (GPa)"].startswith(
+        f"{shown_P:.3f}")
+    assert gui.errors == []
+
+
+def test_fit_changed_in_the_toolbox_is_not_added_to_the_table(gui):
+    obj = select_and_fit(gui, "Example_Ruby_2.asc")
+    P = obj.P
+    gui.view.ptoolbox.P_spinbox.setValue(10.0)                 # the toolbox no longer shows the fit
+    gui.view.prompt_fit_pm = lambda current: 10.0
+    gui.presenter.add_current_fit_to_table()
+    assert gui.errors == ["Toolbox changed"]
+    assert not obj.include_in_table and obj.P == P
+    # selecting the file again restores its fit in the toolbox
+    gui.presenter.file_selected_from_file_list(obj.id)
+    gui.presenter.add_current_fit_to_table()
+    assert obj.include_in_table and obj.P == P
+
+
+def test_cancelling_the_pm_dialog_changes_nothing(gui):
+    obj = select_and_fit(gui, "Example_Ruby_2.asc")
+    P = obj.P
+    gui.view.ptoolbox.T_spinbox.setValue(500.0)
+    gui.view.prompt_fit_pm = lambda current: None
+    gui.presenter.add_current_fit_to_table()
+    assert not obj.include_in_table and obj.T == 298 and obj.P == P
+
+
 # --- files --------------------------------------------------------------------------
 
 def test_unreadable_file_shows_error_and_adds_nothing(gui, tmp_path):

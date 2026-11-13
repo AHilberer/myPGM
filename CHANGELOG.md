@@ -9,6 +9,9 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
   point already in the PvPm table could show a wrong pressure; a failed fit now changes nothing.
 - A fit range with too few points for the model gave an "Unexpected error" instead of the fit error.
 - Manual Bg with a single click subtracted the previous manual background a second time.
+- "Add fit to table" ignored T, x0 and T0 edited in the pressure toolbox after the fit, so the table
+  point did not have the pressure shown in the toolbox. They are now used; if the calibration,
+  position or pressure was changed in the toolbox, the fit is not added and a message explains why.
 
 ## [1.0.0] - 2026-10-18
 

@@ -791,9 +791,13 @@ class Presenter(QObject):
         if self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
             if obj.fit_result is not None:
+                trial = self._with_toolbox_conditions(obj)
+                if trial is None:
+                    return
                 pm_value = self.view.prompt_fit_pm(self.buffer.Pm)
                 if pm_value is None:
                     return
+                vars(obj).update(vars(trial))
                 obj.set_Pm(pm_value)
                 self.buffer.set_Pm(pm_value)
                 self.view.ptoolbox.set_Pmval(pm_value)
@@ -803,6 +807,30 @@ class Presenter(QObject):
                 self._show_error("No fit result to add to table.")
         else:
             self._show_error("No file selected.")
+
+    def _with_toolbox_conditions(self, obj):
+        """Copy of the fitted obj with the T, x0 and T0 of the pressure toolbox, which
+        shows a copy of this fit (self.buffer) and may have been edited since: the
+        table point then has the pressure shown in the toolbox. None (error shown) if
+        the toolbox no longer shows this fit (calibration, position or pressure changed)."""
+        trial = deepcopy(obj)
+        if self.buffer.id != obj.id:
+            return trial                # the toolbox does not show this spectrum
+        if (self.buffer.calib is None or obj.calib is None
+                or self.buffer.calib.name != obj.calib.name or self.buffer.x != obj.x):
+            self._show_error(
+                "The pressure toolbox no longer shows this fit (calibration or position "
+                "changed). Fit the spectrum again, or select it again in the file list, "
+                "before adding it to the table.", title="Toolbox changed")
+            return None
+        try:
+            trial.set_T(self.buffer.T)
+            trial.set_x0(self.buffer.x0)
+            trial.set_T0(self.buffer.T0)
+        except PressureCalculationFailed as exc:
+            self._show_error(f"Cannot add this fit to the table: {exc}", title="Pressure error")
+            return None
+        return trial
 
     def update_PvPm_table(self):
         self.view.PvPmTableWindow.table_widget.updatetable()
