@@ -49,6 +49,8 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
 ### Development
 - Fit models declare their number of peaks and parameters per peak (checked against the fit
   function), instead of guessing them from the number of arguments.
+- Each window works on its own copies of the calibrations: editing x0 or T0 no longer changes the
+  module-level calibration objects (which leaked between tests).
 
 ## [1.0.0] - 2026-10-18
 

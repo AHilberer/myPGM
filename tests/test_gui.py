@@ -144,9 +144,7 @@ def test_add_fit_to_table(gui):
     assert rows[0]["#"] == "1" and rows[0]["Pm (bar)"] == "12.00"
 
 
-def test_toolbox_temperature_edited_after_the_fit_is_used_in_the_table(gui, monkeypatch):
-    # editing x0 also sets the calibration's x0default: restored after the test
-    monkeypatch.setattr(C.Ruby2020, "x0default", C.Ruby2020.x0default)
+def test_toolbox_temperature_edited_after_the_fit_is_used_in_the_table(gui):
     obj = select_and_fit(gui, "Example_Ruby_2.asc")
     gui.view.ptoolbox.T_spinbox.setValue(500.0)
     gui.view.ptoolbox.x0_spinbox.setValue(694.20)
@@ -159,6 +157,20 @@ def test_toolbox_temperature_edited_after_the_fit_is_used_in_the_table(gui, monk
     assert table_rows(gui.view.PvPmTableWindow.table_widget)[0]["P (GPa)"].startswith(
         f"{shown_P:.3f}")
     assert gui.errors == []
+
+
+def test_x0_edited_in_the_toolbox_stays_in_this_window(gui, qapp):
+    from myPGM.ui.main_ui import MainWindow
+    from myPGM.data_model import PressureGaugeDataManager
+    from myPGM.presenter import Presenter
+    gui.view.ptoolbox.x0_spinbox.setValue(694.20)
+    assert gui.view.ptoolbox.calibrations["Ruby2020"].x0default == pytest.approx(694.20)
+    assert C.Ruby2020.x0default == 694.28                       # module object unchanged
+    other = MainWindow()
+    Presenter(PressureGaugeDataManager(), other)
+    assert other.ptoolbox.calibrations["Ruby2020"].x0default == 694.28
+    assert other.ptoolbox.x0_spinbox.value() == pytest.approx(694.28)
+    dispose(other)
 
 
 def test_fit_changed_in_the_toolbox_is_not_added_to_the_table(gui):

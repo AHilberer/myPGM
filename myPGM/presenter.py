@@ -146,7 +146,10 @@ class Presenter(QObject):
         #? Methods 
 
     def initialize_calibrations_menu(self):
-        calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
+        # copies owned by this window: editing x0 or T0 updates the calibration's
+        # default (on_x0_edited), which must not change the module objects shared
+        # by every window
+        calib_dict = {a.name: deepcopy(a) for a in myPGM.calibrations.calib_list}
         self.view.ptoolbox.initialize(calib_dict)
         self.view.additional_toolbox_window.initialize(calib_dict)
 
@@ -203,8 +206,7 @@ class Presenter(QObject):
 
     def initialize_buffer(self):
         # Default state at opening 
-        calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
-        self.buffer.calib = calib_dict["Ruby2020"]
+        self.buffer.calib = self.view.ptoolbox.calibrations["Ruby2020"]
         self.buffer.Pm = 0
         self.buffer.T = 298
         self.buffer.x0 = 694.28
