@@ -6,6 +6,8 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
 
 ### Changed
 - The fit error dialog gives the reason (e.g. too few points in the fit range); it was only in the log.
+- Error dialogs, the Pm dialog and the file dialog open over the main window (they could open
+  behind it).
 
 ### Fixed
 - A failed fit left the spectrum with the toolbox calibration but its previous position, so a

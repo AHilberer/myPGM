@@ -52,7 +52,7 @@ def _install_excepthook():
                 text += f"\n\nDetails were saved in the log file:\n{log_setup.log_file_path}"
             state["dialog_open"] = True
             try:
-                QMessageBox.critical(None, "Unexpected error", text)
+                QMessageBox.critical(QApplication.activeWindow(), "Unexpected error", text)
             finally:
                 state["dialog_open"] = False
                 state["closed_at"][key] = time.monotonic()

@@ -154,7 +154,8 @@ class Presenter(QObject):
         self._error_dialog(text, title)
 
     def _error_dialog(self, text, title):
-        msg = QMessageBox()
+        # over the main window (without a parent it could open behind it)
+        msg = QMessageBox(self.view)
         msg.setIcon(QMessageBox.Critical)
         msg.setText(text)
         msg.setWindowTitle(title)

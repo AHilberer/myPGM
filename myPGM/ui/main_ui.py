@@ -450,7 +450,7 @@ class MainWindow(QMainWindow):
 
     def prompt_fit_pm(self, current_pm):
 
-        dialog = SmartDoubleDialog(valuename='Pm (bar):')
+        dialog = SmartDoubleDialog(valuename='Pm (bar):', parent=self)
         dialog.setWindowTitle("Input Pm")
         # start from the last Pm, selected: typing replaces it, Enter keeps it
         if current_pm is not None:
@@ -503,7 +503,7 @@ class MainWindow(QMainWindow):
         self.fit_range_selector_edited = True
 
     def get_file_via_dialog(self):
-        file_dialog = QFileDialog()
+        file_dialog = QFileDialog(self)
         file_dialog.setFileMode(QFileDialog.ExistingFiles)
         file_dialog.setNameFilter("Text and ASC files (*.txt *.asc);;All Files (*)")
 
@@ -677,7 +677,7 @@ class MainWindow(QMainWindow):
         return answer == QMessageBox.Yes
 
     def fit_error_popup_window(self, reason=""):
-        msg = QMessageBox()
+        msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Critical)
         msg.setText("The fit failed.")
         # why, e.g. not enough points in the fit range (it was only in the log)

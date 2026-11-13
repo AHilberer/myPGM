@@ -110,6 +110,21 @@ def test_too_narrow_fit_range_shows_fit_error(gui):
     assert gui.presenter.model[fid].fit_result is None
 
 
+def test_dialogs_open_over_the_main_window(gui, monkeypatch):
+    from PyQt5.QtWidgets import QFileDialog, QMessageBox
+    from myPGM.helpers import SmartDoubleDialog
+    from myPGM.presenter import Presenter
+    from myPGM.ui.main_ui import MainWindow
+    parents = []
+    for dialog in (QMessageBox, QFileDialog, SmartDoubleDialog):
+        monkeypatch.setattr(dialog, "exec_", lambda self: parents.append(self.parent()) or 0)
+    Presenter._error_dialog(gui.presenter, "text", "Error")    # the fixture replaces it
+    MainWindow.fit_error_popup_window(gui.view, "reason")
+    gui.view.get_file_via_dialog()
+    gui.view.prompt_fit_pm(1.0)
+    assert parents == [gui.view] * 4
+
+
 def test_fit_error_dialog_shows_the_reason(gui, monkeypatch):
     from PyQt5.QtWidgets import QMessageBox
     shown = []
