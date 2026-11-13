@@ -14,6 +14,8 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
   position or pressure was changed in the toolbox, the fit is not added and a message explains why.
 - A session backup that could not be loaded was offered for recovery at every start; it is now
   kept aside as `.discarded.json`, like a declined backup.
+- Auto Bg left out the last point of the spectrum: after the last but one anchor the background
+  stayed flat, so a sloped baseline was only partly removed at the high-x end.
 
 ## [1.0.0] - 2026-10-18
 

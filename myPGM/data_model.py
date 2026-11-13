@@ -363,7 +363,9 @@ class PressureGaugeDataObject:
         x, y = self.get_data_to_process()
         v = ConvexHull(np.column_stack((x, y))).vertices
         v = np.roll(v, -v.argmin())
-        anchors = v[: v.argmax()]
+        # lower hull: from the first point to the last one, included (without it
+        # the baseline stayed flat after the last but one anchor)
+        anchors = v[: v.argmax() + 1]
         self._add_bg(np.interp(x, x[anchors], y[anchors]))
 
     def reset_bg(self):

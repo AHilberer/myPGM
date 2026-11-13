@@ -188,6 +188,25 @@ def test_backgrounds_add_up(ruby):
     np.testing.assert_allclose(y, ruby.normalized_data[:, 1] - 0.05)
 
 
+def _spectrum(x, y):
+    obj = PressureGaugeDataObject()
+    obj.original_data = np.column_stack((x, y))
+    obj.normalized_data = obj.original_data.copy()
+    return obj
+
+
+def test_auto_background_removes_a_sloped_baseline():
+    # the last point of the hull was left out: only a constant was removed here,
+    # leaving 0.5 of baseline at the right end
+    x = np.linspace(690, 700, 201)
+    obj = _spectrum(x, 0.2 + 0.05 * (x - 690) + np.exp(-(x - 695) ** 2 / 0.1))
+    obj.convexhull_bg()
+    _, y = obj.get_data_to_process()
+    far = np.abs(x - 695) > 1.5
+    np.testing.assert_allclose(y[far], 0, atol=1e-6)
+    assert y.max() == pytest.approx(1.0, abs=1e-6)
+
+
 def test_no_processing_means_raw_normalized_data(ruby, resources):
     ruby.spectro_recalib(_calib_x(resources))
     ruby.smoothen(5)
