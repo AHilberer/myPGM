@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77.0"]   # SPDX license expression (PEP 639)
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,14 +7,14 @@ name = "myPGM"
 version = "1.0.0"
 description = "Fit spectroscopic pressure gauges and follow pressure in high-pressure experiments"
 readme = "README.md"
-license = { text = "GNU General Public License v3 (GPLv3), see LICENSE" }
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 authors = [
     { name = "Antoine Hilberer", email = "antoine.hilberer@cea.fr" },
     { name = "Alexis Forestier", email = "alexis.forestier@cea.fr" },
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics",
     "Environment :: X11 Applications :: Qt",
