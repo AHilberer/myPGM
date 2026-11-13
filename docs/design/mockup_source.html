@@ -147,8 +147,12 @@ body{margin:0}
             <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18c4 0 5-12 9-12s5 12 9 12"></path></svg>Fit</button>
           <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--bd); background: var(--sf); color: var(--tx); font: inherit; cursor: pointer">
             <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="7"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path></svg>Click-to-fit</button>
-          <button type="button" aria-pressed="true" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--ac); background: var(--sf); color: var(--act); font: inherit; cursor: pointer">
-            <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 4v16M19 4v16M8 12h8"></path></svg>Fit range</button>
+          <div role="group" aria-label="Fit range" style="display: inline-flex">
+            <button type="button" aria-pressed="{{rangeOn}}" onClick="{{toggleRange}}" title="Restrict the fit to a wavelength range" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 7px 0 0 7px; border: 1px solid {{rangeBorder}}; background: var(--sf); color: {{rangeColor}}; font: inherit; cursor: pointer; position: relative; z-index: 1">
+              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 4v16M19 4v16M8 12h8"></path></svg>Fit range</button>
+            <button type="button" aria-label="Edit fit range" title="Edit fit range (drag its edges on the plot)" aria-pressed="{{rangeEdit}}" disabled="{{editDisabled}}" onClick="{{toggleEdit}}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-left: -1px; border-radius: 0 7px 7px 0; border: 1px solid {{rangeBorder}}; background: {{editBg}}; color: {{editColor}}; cursor: pointer; opacity: {{editOpacity}}">
+              <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"></path><path d="m13.5 6.5 4 4"></path></svg></button>
+          </div>
         </div>
         <div style="width: 1px; height: 22px; background: var(--bd)"></div>
         <div style="display: flex; align-items: center; gap: 8px">
@@ -180,9 +184,20 @@ body{margin:0}
       </div>
       <div style="padding: 4px 12px 8px 4px; flex: 1 1 auto">
         <svg viewBox="-40 -6 850 330" role="img" aria-label="Ruby fluorescence spectrum with double Voigt fit, R1 at 696.224 nm" style="width: 100%; height: auto; display: block">
+          <sc-if value="{{rangeOn}}" hint-placeholder-val="{{ true }}">
           <rect x="200" y="0" width="542.9" height="288" style="fill: var(--acs)" opacity="0.6"></rect>
-          <line x1="200" y1="0" x2="200" y2="288" style="stroke: var(--ac)" stroke-width="1"></line>
-          <line x1="742.9" y1="0" x2="742.9" y2="288" style="stroke: var(--ac)" stroke-width="1"></line>
+          <line x1="200" y1="0" x2="200" y2="288" style="stroke: var(--ac)" stroke-width="{{edgeWidth}}"></line>
+          <line x1="742.9" y1="0" x2="742.9" y2="288" style="stroke: var(--ac)" stroke-width="{{edgeWidth}}"></line>
+          </sc-if>
+          <sc-if value="{{rangeEdit}}" hint-placeholder-val="{{ false }}">
+          <g>
+            <rect x="194" y="126" width="12" height="36" rx="4" style="fill: var(--ac)"></rect>
+            <rect x="736.9" y="126" width="12" height="36" rx="4" style="fill: var(--ac)"></rect>
+            <g style="stroke: var(--onac)" stroke-width="1.2" stroke-linecap="round"><line x1="198.5" y1="137" x2="198.5" y2="151"></line><line x1="201.5" y1="137" x2="201.5" y2="151"></line><line x1="741.4" y1="137" x2="741.4" y2="151"></line><line x1="744.4" y1="137" x2="744.4" y2="151"></line></g>
+            <rect x="210" y="8" width="214" height="24" rx="5" style="fill: var(--ac)"></rect>
+            <text x="220" y="24" font-size="11" font-weight="600" style="fill: var(--onac)">Drag the edges · 691.0 – 700.5 nm</text>
+          </g>
+          </sc-if>
           <g style="stroke: var(--grid)" stroke-width="1">
             <line x1="0" y1="224.1" x2="800" y2="224.1"></line><line x1="0" y1="160.2" x2="800" y2="160.2"></line><line x1="0" y1="96.3" x2="800" y2="96.3"></line><line x1="0" y1="32.4" x2="800" y2="32.4"></line>
           </g>
@@ -418,7 +433,7 @@ body{margin:0}
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"tableUndocked":{"editor":"boolean","default":false},"plotUndocked":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#2450D6","options":["#2450D6","#0F7B6C","#7A4BD1","#C2410C"]},"$preview":{"width":1440,"height":1010}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"tableUndocked":{"editor":"boolean","default":false},"fitRangeEditing":{"editor":"boolean","default":false},"plotUndocked":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#2450D6","options":["#2450D6","#0F7B6C","#7A4BD1","#C2410C"]},"$preview":{"width":1440,"height":1010}}'>
 class Component extends DCLogic {
   renderVals() {
     const st = this.state || {};
@@ -440,6 +455,8 @@ class Component extends DCLogic {
     light.acs = rgba(light.ac, 0.09); light.sel = rgba(light.ac, 0.07);
     night.acs = rgba(night.ac, 0.15); night.sel = rgba(night.ac, 0.11);
     const t = dark ? night : light;
+    const rangeOn = st.rangeOn != null ? st.rangeOn : true;
+    const rangeEdit = rangeOn && (st.rangeEdit != null ? st.rangeEdit : !!this.props.fitRangeEditing);
     const calName = st.calib || 'Ruby2020';
     const fam = /^Sm/.test(calName) ? 'sm' : /^H2/.test(calName) ? 'h2' : /^Diamond/.test(calName) ? 'dia' : 'ruby';
     const calPal = {
@@ -470,6 +487,15 @@ class Component extends DCLogic {
     ].map((r) => ({ ...r, bg: r.current ? t.sel : 'transparent' }));
     return {
       t, files, params, rows, cal, calName,
+      rangeOn: rangeOn, rangeEdit: rangeEdit, editDisabled: !rangeOn,
+      rangeBorder: rangeOn ? t.ac : t.bd,
+      rangeColor: rangeOn ? t.act : t.tx,
+      editBg: rangeEdit ? t.ac : t.sf,
+      editColor: rangeEdit ? t.onac : (rangeOn ? t.act : t.mu),
+      editOpacity: rangeOn ? 1 : 0.5,
+      edgeWidth: rangeEdit ? 2 : 1,
+      toggleRange: () => this.setState({ rangeOn: !rangeOn, rangeEdit: false }),
+      toggleEdit: () => this.setState({ rangeEdit: !rangeEdit }),
       settingsOpen: !!st.settingsOpen,
       settingsBg: st.settingsOpen ? t.acs : t.sf2,
       settingsBorder: st.settingsOpen ? t.ac : t.bd,

@@ -6,6 +6,7 @@ Reference for the redesign of the myPGM main window. It goes with:
 |---|---|
 | `mockup_light.png` | Main window, light theme, everything docked |
 | `mockup_dark_plot_undocked.png` | Dark theme, P vs Pm plot undocked into its own window |
+| `mockup_light_fit_range_editing.png` | Fit range on and in edit mode (pencil part of the split button active, draggable edges) |
 | `mockup_light_settings_menu.png` | Settings menu open (gear button, top right) |
 | `mockup_light_table_undocked_samarium.png` | Pressure log undocked; Sm calibration selected (selector colors follow the calibration) |
 | `mockup_source.html` | HTML source of the mockup: exact sizes, paddings and colors when a PNG is ambiguous. Holes like `{{t.bg}}` are filled from the palette in its `<script>` block. |
@@ -26,7 +27,11 @@ One main window instead of three. From top to bottom:
    - **Spectra sidebar** (≈ 240 px): header "SPECTRA" + "+" add button; an acquisition-folder box (folder name or "No acquisition folder", "Select…" link, full-width primary **Load latest** button); the file list; at the bottom move up / move down / delete icon buttons.
    - **Center** (takes the extra width):
      - **Fitted pressure card**: label "FITTED PRESSURE"; the value in very large mono (52 px, semibold) + "GPa" (20 px semibold) + "± σ" (16 px mono, muted); a row of pills: calibration (with its colored dot), fit model, "λ 696.224 nm · σ 0.002", file name. On the right: "Membrane pressure Pm" field (mono, "bar" suffix) and the primary **Add to log** button.
-     - **Spectrum card**: one toolbar row (Fit [accent-soft, primary] · Click-to-fit · Fit range [toggle, accent border when on] | Background: segmented Auto / Manual / None | Smoothing − n + | Derivative checkbox), a small legend row (Data · Fit · Fit range, χ²ᵣ on the right), then the pyqtgraph plot. The fit range is a light accent band with accent edges; the fitted peak gets a dashed vertical marker and a small label "R1 · 696.224 nm / P 5.319 ± 0.003". The plot title text is gone (the pressure is in the card above).
+     - **Spectrum card**: one toolbar row (Fit [accent-soft, primary] · Click-to-fit · Fit range split button [see below] | Background: segmented Auto / Manual / None | Smoothing − n + | Derivative checkbox), a small legend row (Data · Fit · Fit range, χ²ᵣ on the right), then the pyqtgraph plot. The fit range is a light accent band with accent edges; the fitted peak gets a dashed vertical marker and a small label "R1 · 696.224 nm / P 5.319 ± 0.003". The plot title text is gone (the pressure is in the card above).
+     - **Fit range split button** (`mockup_light_fit_range_editing.png`), two joined buttons sharing one border:
+       - left part "Fit range" toggles the use of a fit range (today's `fit_range_enable_button`); on = accent border and accent text, off = neutral, and the band disappears from the plot;
+       - right part, a pencil icon (32 × 32, tooltip "Edit fit range"), toggles editing (today's `fit_range_edit_button`, keep both attribute names); it is disabled while the fit range is off and turning the range off also ends editing;
+       - while editing, the pencil part is solid accent with `onac` icon, the band edges get 2 px lines and grab handles (12 × 36 px accent pills with two grip lines) at mid height, and a small accent label at the top of the band shows "Drag the edges · 691.0 – 700.5 nm" with the live bounds. Keep the existing `ResizeOnlyLinearRegion` (`fit_range_selector`); only its look changes.
    - **Inspector** (≈ 300 px), three cards:
      - "PRESSURE GAUGE": Calibration selector (solid calibration color, see §3), "T correction · Datchi 2007" caption, Fit model selector (tinted calibration color).
      - "PARAMETERS" ("λ ⇄ P linked" on the right): 2 × 2 grid λ, λ₀, T, T₀ (mono inputs; the fitted one has an accent border and a small "fit" suffix), then a highlighted P (GPa) row (accent-soft background, 18 px semibold mono).
