@@ -441,7 +441,8 @@ class MainWindow(QMainWindow):
     def _dropped_paths(mime):
         if not mime.hasUrls():
             return []
-        return [url.toLocalFile() for url in mime.urls()
+        # Qt gives '/' separators on Windows too: native paths, as from the file dialog
+        return [os.path.normpath(url.toLocalFile()) for url in mime.urls()
                 if url.isLocalFile() and os.path.isfile(url.toLocalFile())]
 
     def dragEnterEvent(self, event):
