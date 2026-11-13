@@ -105,7 +105,19 @@ def test_too_narrow_fit_range_shows_fit_error(gui):
     gui.presenter.fit_mode = F.DoubleVoigt
     gui.presenter.fit_current_file()
     assert gui.errors == ["Fit error"]
+    assert gui.fit_error_reasons == [
+        "Example_Ruby_1.asc: 3 points in the fit range, the Double Voigt model needs more than 9."]
     assert gui.presenter.model[fid].fit_result is None
+
+
+def test_fit_error_dialog_shows_the_reason(gui, monkeypatch):
+    from PyQt5.QtWidgets import QMessageBox
+    shown = []
+    monkeypatch.setattr(QMessageBox, "exec_", lambda self: shown.append(
+        (self.windowTitle(), self.text(), self.informativeText())))
+    from myPGM.ui.main_ui import MainWindow
+    MainWindow.fit_error_popup_window(gui.view, "Ruby_1.asc: 3 points in the fit range")
+    assert shown == [("Fit error", "The fit failed.", "Ruby_1.asc: 3 points in the fit range")]
 
 
 def test_add_fit_to_table(gui):

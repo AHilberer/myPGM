@@ -788,7 +788,7 @@ class Presenter(QObject):
 
     def fit_error_popup(self, reason=""):
         logger.warning("Fit error: %s", reason)
-        self.view.fit_error_popup_window()
+        self.view.fit_error_popup_window(reason)
 
     def add_current_fit_to_table(self, _=None):
         if self.current_selected_file is not None:

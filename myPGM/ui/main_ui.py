@@ -676,10 +676,12 @@ class MainWindow(QMainWindow):
             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
         return answer == QMessageBox.Yes
 
-    def fit_error_popup_window(self):
+    def fit_error_popup_window(self, reason=""):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Critical)
-        msg.setText("Attempted fit couldn't converge.")
+        msg.setText("The fit failed.")
+        # why, e.g. not enough points in the fit range (it was only in the log)
+        msg.setInformativeText(reason)
         msg.setWindowTitle("Fit error")
         msg.exec_()
 

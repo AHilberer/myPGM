@@ -4,6 +4,9 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
 
 ## [Unreleased]
 
+### Changed
+- The fit error dialog gives the reason (e.g. too few points in the fit range); it was only in the log.
+
 ### Fixed
 - A failed fit left the spectrum with the toolbox calibration but its previous position, so a
   point already in the PvPm table could show a wrong pressure; a failed fit now changes nothing.
