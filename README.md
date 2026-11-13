@@ -71,7 +71,7 @@ deactivate
 
 ### 3) Install myPGM and its dependencies:
 
-myPGM requires Python 3.10 or newer. It is used and tested on macOS, and its automated tests run on Linux; Windows is expected to work but has not been tested yet.
+myPGM requires Python 3.10 or newer. It is used and tested on macOS, and its automated tests run on Linux, and also on macOS and Windows (not yet required to pass there); Windows has not been tested by hand yet.
 
 ```bash
 python3 -m pip install -e .
