@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "myPGM"
-version = "1.0.0"
+version = "1.1.0"
 description = "Fit spectroscopic pressure gauges and follow pressure in high-pressure experiments"
 readme = "README.md"
 license = "GPL-3.0-only"

@@ -2,7 +2,11 @@
 
 All notable changes to myPGM are listed here. Versions follow [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [1.1.0] - 2026-11-13
+
+Fixes found in a review of the whole code (fits that could corrupt table points, background
+subtraction, file parsing, session recovery), saving in place with Save / Save as, settings kept
+between launches and smaller session files. Sessions are compatible both ways with 1.0.
 
 ### Added
 - **Save session** writes to the session's own file (shown in the window title) and only asks for a
@@ -18,6 +22,7 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
   behind it).
 - Session files are about 2.3x smaller: compact JSON, without the fitted curve (rebuilt when the
   session is opened). Older sessions still open, and new ones open in myPGM 1.0.
+- The Hilberer 2026 diamond Raman edge calibration cites its paper (Nat Commun 17, 2644 (2026)).
 
 ### Fixed
 - Exporting the table to a file that cannot be written (no permission, file open elsewhere) gave an
@@ -55,6 +60,17 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
   to `myPGM/session_backup.py`.
 - ruff checks the code (`ruff check .`, also run on GitHub); tab indentation converted to spaces.
 - The tests also run on macOS and Windows on GitHub (reported, not yet required to pass).
+- Package metadata: SPDX license expression `GPL-3.0-only` (building needs setuptools >= 77).
+
+### Known limitations
+- Ruby temperature correction (under review): the Datchi 2007 polynomial for 296-900 K is used at
+  every temperature. Below room temperature it likely overestimates the ruby shift, hence the
+  pressure (by several GPa at cryogenic temperatures).
+- σx and σP are the statistical precision of the fit only, and are underestimated when the spectrum
+  is smoothed (smoothed points are not independent).
+- The Raman edge model needs a fit range around the edge: on the whole spectrum it can pick an
+  unrelated feature.
+- No standalone executables yet.
 
 ## [1.0.0] - 2026-10-18
 
