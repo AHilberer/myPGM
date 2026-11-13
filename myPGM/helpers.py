@@ -138,7 +138,7 @@ def pressure_valid(func):
             else:
                 self.view.ptoolbox.set_valid_colors(True)
             return res
-        except PressureCalculationFailed as err:
+        except PressureCalculationFailed:
             if hasattr(self, "_get_toolbox_context") and hasattr(self, "sender"):
                 toolbox, _ = self._get_toolbox_context(self.sender())
                 toolbox.set_valid_colors(False)

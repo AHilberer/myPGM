@@ -128,6 +128,12 @@ python3 -m pip install -e ".[test]"
 python3 -m pytest
 ```
 
+The code is also checked with [ruff](https://docs.astral.sh/ruff/) (installed with the test dependencies; the rules are in `pyproject.toml`):
+
+```bash
+ruff check .
+```
+
 A test marked `xfail` describes a known bug that is not fixed yet. The tests also run on GitHub for every push and pull request.
 
 # Executables

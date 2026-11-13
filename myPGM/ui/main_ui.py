@@ -651,8 +651,7 @@ class MainWindow(QMainWindow):
                 return
             click_point = vb.mapSceneToView(scene_coords)
 
-            x_click, y_click = click_point.x(), click_point.y()
-            self.fit_from_click_signal.emit(x_click)
+            self.fit_from_click_signal.emit(click_point.x())
 
             self.toggle_click_fit()
             self.click_fit_button.setChecked(False)

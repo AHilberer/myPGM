@@ -84,7 +84,6 @@ def PrubyDO2007(l, T, l0, T0):
 
 #  F. Datchi, High Pressure Research, 27:4, 447-463, DOI: 10.1080/08957950701659593 
 def PsamDatchi1997(l, T, l0, T0):
-    dT = T - T0
     #dlcorr = -8.7e-5 * dT + 4.62e-6 * dT**2 -2.38e-9 * dT**3    # Datchi HPR 2007 : error here.
     if T >= 500:
         dlcorr = 1.06e-4 * (T-500) + 1.5e-7 * (T-500)**2    #   J. Appl. Phys. 81, 3333 (1997); doi: 10.1063/1.365025 

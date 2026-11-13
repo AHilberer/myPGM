@@ -36,7 +36,7 @@ Issues = "https://github.com/AHilberer/myPGM/issues"
 mypgm = "myPGM:main"
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["pytest", "ruff"]
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -48,3 +48,13 @@ pythonpath = ["."]
 
 [tool.setuptools.package-data]
 "myPGM" = ["ui/*.qss", "resources/*", "resources/icons/*"]
+
+[tool.ruff.lint]
+# pyflakes and pycodestyle errors, plus tab indentation
+select = ["E4", "E7", "E9", "F", "W191", "E101"]
+# l, l0 (wavelength) are the usual names in the calibration formulas
+ignore = ["E741"]
+
+[tool.ruff.lint.per-file-ignores]
+# short lambdas and one-line statements keep some tests compact
+"tests/*" = ["E731", "E702"]
