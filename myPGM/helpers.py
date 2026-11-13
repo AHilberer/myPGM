@@ -22,9 +22,17 @@ def set_app_theme(style):
     _, marker, font_rule = app.styleSheet().partition(FONT_RULE_MARKER)
     app.setStyleSheet(style + marker + font_rule)
 
+DEFAULT_FONT_PX = 15
+
 def current_app_font_px():
-    """Pixel size of the font currently used by the application widgets."""
-    return QFontInfo(QApplication.font()).pixelSize()
+    """Pixel size of the font currently used by the application widgets. Qt gives
+    -1 when it cannot resolve one (seen on Windows): the point size is then
+    converted, and DEFAULT_FONT_PX used as a last resort (-1 px fonts were set)."""
+    font = QApplication.font()
+    size = QFontInfo(font).pixelSize()
+    if size <= 0 and font.pointSizeF() > 0:
+        size = round(font.pointSizeF() * QApplication.primaryScreen().logicalDotsPerInch() / 72)
+    return size if size > 0 else DEFAULT_FONT_PX
 
 def set_app_font_size(size):
     """Set the global font size, keeping the current theme stylesheet."""
@@ -37,7 +45,7 @@ class FontSizeWindow(QWidget):
     # widgets drawn outside of Qt stylesheets (plots, table) listen to this
     font_size_changed = pyqtSignal(int)
 
-    def __init__(self, current_size=15):
+    def __init__(self, current_size=DEFAULT_FONT_PX):
         super().__init__()
 
         self.setObjectName("FontSizeWindow")

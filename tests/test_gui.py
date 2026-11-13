@@ -364,6 +364,21 @@ def test_consistent_font_size_at_startup(gui):
     assert f"font-size: {app_px}px" in gui.view.PvPmTableWindow.table_widget.styleSheet()
 
 
+@pytest.mark.parametrize("point_size", [9.0, -1.0])
+def test_font_size_without_a_pixel_size_from_qt(qapp, monkeypatch, point_size):
+    # Qt gave -1 on Windows CI, and "font-size: -1px" was applied everywhere
+    from PyQt5.QtGui import QFont, QFontInfo
+    from myPGM.helpers import DEFAULT_FONT_PX, current_app_font_px
+    monkeypatch.setattr(QFontInfo, "pixelSize", lambda self: -1)
+    monkeypatch.setattr(QFont, "pointSizeF", lambda self: point_size)
+    size = current_app_font_px()
+    if point_size > 0:
+        dpi = qapp.primaryScreen().logicalDotsPerInch()
+        assert size == round(9.0 * dpi / 72) > 0
+    else:
+        assert size == DEFAULT_FONT_PX
+
+
 def test_font_window_starts_from_current_size_without_changes(gui):
     css_before = gui.app.styleSheet()
     gui.view.show_font_size_window()

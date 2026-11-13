@@ -50,6 +50,8 @@ between launches and smaller session files. Sessions are compatible both ways wi
 - A spectrum with no positive intensity was turned upside down by the normalisation, and an
   all-zero spectrum loaded as NaN; the latter is now refused with a clear message.
 - The automatic backup could read the file order while Move up/down was changing it.
+- When Qt reports no pixel size for the system font (seen on Windows), the plots and the table got a
+  font size of -1 px; the point size is now converted instead.
 
 ### Development
 - Fit models declare their number of peaks and parameters per peak (checked against the fit
