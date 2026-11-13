@@ -570,8 +570,42 @@ def test_windows_open_within_the_screen(gui):
     from PyQt5.QtGui import QGuiApplication
     area = QGuiApplication.primaryScreen().availableGeometry()
     for window in (gui.view, gui.view.PvPmTableWindow, gui.view.PvPmPlotWindow):
-        assert area.contains(window.geometry()), (window.windowTitle(), window.geometry(), area,
-                                                  window.minimumSizeHint(), window.minimumSize())
+        geometry = window.frameGeometry()  # title bar and borders included
+        minimum = window.minimumSizeHint().expandedTo(window.minimumSize())
+        info = (window.windowTitle(), geometry, area, minimum)
+        # a window whose minimum size is larger than the screen (800 x 600 on Windows
+        # CI, with its larger fonts) cannot fit: it must then start at the screen edge
+        if minimum.width() <= area.width():
+            assert area.left() <= geometry.left() and geometry.right() <= area.right(), info
+        else:
+            assert geometry.left() == area.left() and geometry.width() >= minimum.width(), info
+        if minimum.height() <= area.height():
+            assert area.top() <= geometry.top() and geometry.bottom() <= area.bottom(), info
+        else:
+            assert geometry.top() == area.top() and geometry.height() >= minimum.height(), info
+
+
+def test_window_wider_than_the_screen_starts_at_its_edge(qapp, monkeypatch):
+    # a window whose layout cannot shrink to the screen was placed with its usual
+    # width, next to the main window; Qt then widened it to its minimum when showing
+    # it, and it ran off the right edge (Windows CI, 800 px screen: the table needed
+    # 823 px, with the Windows fonts)
+    from PyQt5.QtGui import QGuiApplication
+    from myPGM.ui import PvPmTable
+    from myPGM.ui.main_ui import MainWindow
+    area = QGuiApplication.primaryScreen().availableGeometry()
+    table_init = PvPmTable.HPTableWindow.__init__
+
+    def wide_table_init(self, *args, **kwargs):
+        table_init(self, *args, **kwargs)
+        self.table_widget.setMinimumWidth(area.width() + 23)
+    monkeypatch.setattr(PvPmTable.HPTableWindow, "__init__", wide_table_init)
+    view = MainWindow()
+    qapp.processEvents()
+    table = view.PvPmTableWindow
+    assert table.frameGeometry().left() == area.left()  # geometry() excludes the frame
+    assert table.width() > area.width()
+    view.close()
 
 
 # --- demo session -------------------------------------------------------------------------

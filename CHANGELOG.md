@@ -52,6 +52,9 @@ between launches and smaller session files. Sessions are compatible both ways wi
 - The automatic backup could read the file order while Move up/down was changing it.
 - When Qt reports no pixel size for the system font (seen on Windows), the plots and the table got a
   font size of -1 px; the point size is now converted instead.
+- A PvPm window that cannot shrink to fit a small screen (large fonts) opened partly off its right
+  edge. The windows are now placed once shown, at their real minimum size and with their title bar
+  and borders inside the screen.
 
 ### Development
 - Fit models declare their number of peaks and parameters per peak (checked against the fit

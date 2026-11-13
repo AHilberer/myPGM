@@ -362,9 +362,11 @@ class MainWindow(QMainWindow):
 
         self.PvPmTableWindow = HPTableWindow()
         self.PvPmPlotWindow = PvPmPlotWindow()
-        self._arrange_windows()
         self.PvPmTableWindow.show()
         self.PvPmPlotWindow.show()
+        # placed once shown: showing polishes the widgets, which can enlarge the
+        # windows' minimum size (to 823 px for the table on Windows CI)
+        self._arrange_windows()
 
         self.set_font_size(self.plot_font_px)
 
@@ -390,16 +392,24 @@ class MainWindow(QMainWindow):
         gap = 10
 
         def fit(widget, x, y):
-            width = min(widget.width(), area.width())
-            height = min(widget.height(), area.height())
-            x = max(area.left(), min(x, area.right() - width))
-            y = max(area.top(), min(y, area.bottom() - height))
-            widget.setGeometry(x, y, width, height)
+            """Place the window frame (title bar and borders included) at x, y, moved
+            back inside the screen if needed."""
+            frame, inner = widget.frameGeometry(), widget.geometry()
+            frame_w, frame_h = frame.width() - inner.width(), frame.height() - inner.height()
+            # never below the minimum size of the window's layout, which Qt applies
+            # anyway: a window that cannot shrink to the screen starts at its edge
+            minimum = widget.minimumSizeHint().expandedTo(widget.minimumSize())
+            width = max(min(inner.width(), area.width() - frame_w), minimum.width())
+            height = max(min(inner.height(), area.height() - frame_h), minimum.height())
+            x = max(area.left(), min(x, area.right() + 1 - width - frame_w))
+            y = max(area.top(), min(y, area.bottom() + 1 - height - frame_h))
+            widget.setGeometry(x + inner.left() - frame.left(), y + inner.top() - frame.top(),
+                               width, height)
 
         fit(self, area.left() + 100, area.top() + 100)
-        side_x = self.geometry().right() + gap
-        fit(self.PvPmTableWindow, side_x, self.geometry().top())
-        fit(self.PvPmPlotWindow, side_x, self.PvPmTableWindow.geometry().bottom() + gap)
+        side_x = self.frameGeometry().right() + gap
+        fit(self.PvPmTableWindow, side_x, self.frameGeometry().top())
+        fit(self.PvPmPlotWindow, side_x, self.PvPmTableWindow.frameGeometry().bottom() + gap)
 
     def closeEvent(self, event):
         if self.close_guard is not None and not self.close_guard():
