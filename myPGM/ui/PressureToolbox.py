@@ -1,15 +1,23 @@
 import numpy as np
 from PyQt5.QtWidgets import (QWidget,
+                             QAbstractSpinBox,
                              QComboBox,
+                             QFrame,
+                             QGridLayout,
                              QLabel,
                              QHBoxLayout,
-                             QFormLayout,)
+                             QVBoxLayout,)
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import pyqtSignal, Qt
 
 from myPGM.calibrations import HPCalibration
-from myPGM.helpers import MyVSeparator, SmartDoubleSpinBox
+from myPGM.helpers import SmartDoubleSpinBox
 from myPGM.ui import theme
+from myPGM.ui.widgets import GAP, Card, label
+
+INPUT_HEIGHT = 36
+# x names of the calibrations, as shown in the labels
+SYMBOLS = {"lambda": "λ", "nu": "ν"}
 
 class PressureToolbox(QWidget):
 
@@ -32,98 +40,118 @@ class PressureToolbox(QWidget):
     DARKMODEBLUE = theme.DARK["info"]
     DARKMODEORANGE = theme.DARK["warn"]
 
-    def __init__(self):
+    def __init__(self, inspector=False):
+        """inspector: laid out as the main window's inspector cards (stacked, no Pm
+        field: the window shows Pm next to "Add fit to log"). Otherwise a standalone
+        window (the additional toolbox) with the cards side by side and a Pm field."""
         super().__init__()
 
         self.setObjectName("PressureToolbox")
         self.setAttribute(Qt.WA_StyledBackground, True)
+        self.inspector = inspector
+        if not inspector:
+            self.setWindowTitle("myPGM - Additional pressure toolbox")
 
-        Toolboxlayout = QHBoxLayout()
+        self.Pm_spinbox = self._spinbox("Pm_spinbox", decimals=2, step=0.1)
+        self.P_spinbox = self._spinbox("P_spinbox", decimals=3, step=0.1)
+        self.P_spinbox.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.x_spinbox = self._spinbox("x_spinbox", decimals=3, step=0.01)
+        self.x0_spinbox = self._spinbox("x0_spinbox", decimals=3, step=0.01)
+        self.T_spinbox = self._spinbox("T_spinbox", decimals=1, step=1)
+        self.T0_spinbox = self._spinbox("T0_spinbox", decimals=1, step=1)
 
-        self.Pm_spinbox = SmartDoubleSpinBox()
-        self.Pm_spinbox.setObjectName("Pm_spinbox")
-        self.Pm_spinbox.setDecimals(2)
-        self.Pm_spinbox.setRange(-np.inf, np.inf)
-        self.Pm_spinbox.setSingleStep(0.1)
-        self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
-        self.Pm_spinbox.setMinimumWidth(100)
-
-        self.P_spinbox = SmartDoubleSpinBox()
-        self.P_spinbox.setObjectName("P_spinbox")
-        self.P_spinbox.setDecimals(3)
-        self.P_spinbox.setRange(-np.inf, np.inf)
-        self.P_spinbox.setSingleStep(0.1)
-        self.P_spinbox.setMinimumWidth(100)
-
-        self.x_spinbox = SmartDoubleSpinBox()
-        self.x_spinbox.setObjectName("x_spinbox")
-        self.x_spinbox.setDecimals(3)
-        self.x_spinbox.setSingleStep(0.01)
-        self.x_spinbox.setRange(-np.inf, +np.inf)
-        self.x_spinbox.setMinimumWidth(112)     # 3 decimals in the mono font
-
-        self.x0_spinbox = SmartDoubleSpinBox()
-        self.x0_spinbox.setObjectName("x0_spinbox")
-        self.x0_spinbox.setDecimals(3)
-        self.x0_spinbox.setSingleStep(0.01)
-        self.x0_spinbox.setRange(-np.inf, +np.inf)
-        self.x0_spinbox.setMinimumWidth(112)     # 3 decimals in the mono font
-
-        self.T_spinbox = SmartDoubleSpinBox()
-        self.T_spinbox.setObjectName("T_spinbox")
-        self.T_spinbox.setDecimals(1)
-        self.T_spinbox.setRange(-np.inf, +np.inf)
-        self.T_spinbox.setSingleStep(1)
-        self.T_spinbox.setMinimumWidth(100)
-
-        self.T0_spinbox = SmartDoubleSpinBox()
-        self.T0_spinbox.setObjectName("T0_spinbox")
-        self.T0_spinbox.setDecimals(1)
-        self.T0_spinbox.setRange(-np.inf, +np.inf)
-        self.T0_spinbox.setSingleStep(1)
-        self.T0_spinbox.setMinimumWidth(100)
-
-        self._xP_bgcolor = None
+        self._valid = True
         self._T_bgcolor = None
         self._calib = None              # current calibration, gives the selector colour
 
+        # --- PRESSURE GAUGE card -------------------------------------------------------
+        self.gauge_card = Card("Pressure gauge", spacing=6)
         self.calibration_combo = QComboBox()
         self.calibration_combo.setObjectName("calibration_combo")
         self.calibration_combo.setMinimumWidth(160)
-
-        self.x_label = QLabel("lambda (nm)")
-        self.x0_label = QLabel("lambda0 (nm)")
-
-        pressure_form = QFormLayout()
-        pressure_form.addRow(QLabel("Pm (bar)"), self.Pm_spinbox)
-        pressure_form.addRow(QLabel("P (GPa)"), self.P_spinbox)
-
-        # Calib params form
-        param_form = QHBoxLayout()
-        form_x = QFormLayout()
-        form_x.addRow(self.x_label, self.x_spinbox)
-        form_x.addRow(self.x0_label, self.x0_spinbox)
-        form_T = QFormLayout()
-        form_T.addRow(QLabel("T (K)"), self.T_spinbox)
-        form_T.addRow(QLabel("T0 (K)"), self.T0_spinbox)
-        param_form.addLayout(form_x)
-        param_form.addLayout(form_T)
-
-        calibration_form = QFormLayout()
-        calibration_form.addRow(QLabel("Calibration: "), self.calibration_combo)
-
+        self.calibration_combo.setFixedHeight(INPUT_HEIGHT)
+        self.gauge_card.body.addSpacing(4)
+        self.gauge_card.body.addWidget(label("Calibration", "field"))
+        self.gauge_card.body.addWidget(self.calibration_combo)
         self.Tcor_Label = QLabel("NA")
-        calibration_form.addRow(QLabel("T correction: "), self.Tcor_Label)
+        self.Tcor_Label.setProperty("role", "caption")
+        self.gauge_card.body.addWidget(self.Tcor_Label)
+        # the main window puts the fit model selector here
+        self.fit_model_slot = QVBoxLayout()
+        self.fit_model_slot.setContentsMargins(0, 6, 0, 0)
+        self.fit_model_slot.setSpacing(6)
+        self.gauge_card.body.addLayout(self.fit_model_slot)
 
-        Toolboxlayout.addLayout(calibration_form, stretch=2)
-        Toolboxlayout.addWidget(MyVSeparator())
+        # --- PARAMETERS card -----------------------------------------------------------
+        self.params_card = Card("Parameters", spacing=10)
+        self.params_card.header.addWidget(label("λ ⇄ P linked", "caption"))
+        self.x_label = label("λ (nm)", "field")
+        self.x0_label = label("λ₀ (nm)", "field")
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(6)
+        for column, (field_label, spinbox) in enumerate(
+                ((self.x_label, self.x_spinbox), (self.x0_label, self.x0_spinbox))):
+            grid.addWidget(field_label, 0, column)
+            grid.addWidget(spinbox, 1, column)
+        grid.setRowMinimumHeight(2, 4)
+        for column, (text, spinbox) in enumerate(
+                (("T (K)", self.T_spinbox), ("T₀ (K)", self.T0_spinbox))):
+            grid.addWidget(label(text, "field"), 3, column)
+            grid.addWidget(spinbox, 4, column)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+        self.params_card.body.addLayout(grid)
 
-        Toolboxlayout.addLayout(param_form, stretch=2)
-        Toolboxlayout.addWidget(MyVSeparator())
+        # highlighted pressure row
+        pressure_row = QFrame()
+        pressure_row.setObjectName("PressureRow")
+        pressure_row.setAttribute(Qt.WA_StyledBackground, True)
+        row_layout = QHBoxLayout(pressure_row)
+        row_layout.setContentsMargins(14, 6, 6, 6)
+        row_layout.setSpacing(8)
+        p_label = QLabel("P (GPa)")
+        p_label.setObjectName("PressureLabel")
+        row_layout.addWidget(p_label)
+        row_layout.addWidget(self.P_spinbox, 1)
+        self.params_card.body.addWidget(pressure_row)
 
-        Toolboxlayout.addLayout(pressure_form, stretch=2)
+        if not inspector:
+            pm_row = QHBoxLayout()
+            pm_row.setSpacing(8)
+            pm_row.addWidget(label("Membrane pressure Pm", "field"))
+            pm_row.addWidget(self.Pm_spinbox, 1)
+            pm_row.addWidget(label("bar", "muted"))
+            self.params_card.body.addLayout(pm_row)
 
-        self.setLayout(Toolboxlayout)
+        # the main window puts its "Add point to log" button here
+        self.add_point_slot = QVBoxLayout()
+        self.add_point_slot.setContentsMargins(0, 2, 0, 0)
+        self.params_card.body.addLayout(self.add_point_slot)
+
+        if inspector:
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(0, 0, 0, 0)
+        else:
+            layout = QHBoxLayout(self)
+            layout.setContentsMargins(GAP, GAP, GAP, GAP)
+            self.gauge_card.body.addStretch(1)
+        layout.setSpacing(GAP)
+        layout.addWidget(self.gauge_card)
+        layout.addWidget(self.params_card)
+
+    @staticmethod
+    def _spinbox(name, decimals, step):
+        spinbox = SmartDoubleSpinBox()
+        spinbox.setObjectName(name)
+        spinbox.setDecimals(decimals)
+        spinbox.setRange(-np.inf, np.inf)
+        spinbox.setSingleStep(step)
+        # arrows and the mouse wheel still step the value; no spin buttons (DESIGN.md)
+        spinbox.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        spinbox.setFixedHeight(INPUT_HEIGHT)
+        spinbox.setMinimumWidth(96)
+        return spinbox
 
     def initialize(self, calib_dict):
         self.calibrations = calib_dict
@@ -209,17 +237,14 @@ class PressureToolbox(QWidget):
 
     def set_calib(self, newcalib):
 
-        self.Tcor_Label.setText(newcalib.Tcor_name)
+        self.Tcor_Label.setText(f"T correction · {newcalib.Tcor_name}")
 
         self._calib = newcalib
         self._style_calib_combo()
 
-        self.x_label.setText(
-            "{} ({})".format(newcalib.xname, newcalib.xunit)
-        )
-        self.x0_label.setText(
-            "{}0 ({})".format(newcalib.xname, newcalib.xunit)
-        )
+        symbol = SYMBOLS.get(newcalib.xname, newcalib.xname)
+        self.x_label.setText(f"{symbol} ({newcalib.xunit})")
+        self.x0_label.setText(f"{symbol}₀ ({newcalib.xunit})")
 
 #        Upon calib change by user :
 #        buffer.set_calibration(newcalib) is called from presenter
@@ -258,16 +283,12 @@ class PressureToolbox(QWidget):
         self.set_calib(buffer.calib)
 
     def set_valid_colors(self, valid):
-        if valid:
-            # green
-            self.P_spinbox.setStyleSheet(f"background: {PressureToolbox.GREEN};")
-            self.x_spinbox.setStyleSheet(f"background: {PressureToolbox.GREEN};")
-            self._xP_bgcolor = PressureToolbox.GREEN
-        else:
-            # red
-            self.P_spinbox.setStyleSheet(f"background: {PressureToolbox.RED};")
-            self.x_spinbox.setStyleSheet(f"background: {PressureToolbox.RED};")
-            self._xP_bgcolor = PressureToolbox.RED
+        """No colour while x and P are valid (the P row is always highlighted); a red
+        background on both when the calibration cannot give a pressure."""
+        self._valid = valid
+        style = "" if valid else f"background: {PressureToolbox.RED};"
+        self.P_spinbox.setStyleSheet(style)
+        self.x_spinbox.setStyleSheet(style)
 
     def update_T_spinbox_style(self, T):
         if T > 298:
@@ -277,38 +298,23 @@ class PressureToolbox(QWidget):
             self.T_spinbox.setStyleSheet("")
             self._T_bgcolor = None
 
-    def set_dark_mode(self):
-        PressureToolbox.GREEN = PressureToolbox.DARKMODEGREEN
-        PressureToolbox.RED = PressureToolbox.DARKMODERED
-        PressureToolbox.BLUE = PressureToolbox.DARKMODEBLUE
-        PressureToolbox.ORANGE = PressureToolbox.DARKMODEORANGE
-
-        if self._xP_bgcolor == PressureToolbox.LIGHTMODEGREEN:
-            self.set_valid_colors(True)
-        elif self._xP_bgcolor == PressureToolbox.LIGHTMODERED:
-            self.set_valid_colors(False)
-        if self._T_bgcolor == PressureToolbox.LIGHTMODEORANGE:
-            self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
-
-        self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
+    def _set_mode_colors(self, dark):
+        PressureToolbox.GREEN = PressureToolbox.DARKMODEGREEN if dark else PressureToolbox.LIGHTMODEGREEN
+        PressureToolbox.RED = PressureToolbox.DARKMODERED if dark else PressureToolbox.LIGHTMODERED
+        PressureToolbox.BLUE = PressureToolbox.DARKMODEBLUE if dark else PressureToolbox.LIGHTMODEBLUE
+        PressureToolbox.ORANGE = (PressureToolbox.DARKMODEORANGE if dark
+                                  else PressureToolbox.LIGHTMODEORANGE)
+        self.set_valid_colors(self._valid)
+        self.update_T_spinbox_style(self.T_spinbox.value())
         self._restyle_calibrations()
+
+    def set_dark_mode(self):
+        self._set_mode_colors(dark=True)
+
+    def set_light_mode(self):
+        self._set_mode_colors(dark=False)
 
     def _restyle_calibrations(self):
         if getattr(self, "calibrations", None):
             self._color_calib_items()
         self._style_calib_combo()
-
-    def set_light_mode(self):
-        PressureToolbox.GREEN = PressureToolbox.LIGHTMODEGREEN
-        PressureToolbox.RED = PressureToolbox.LIGHTMODERED
-        PressureToolbox.BLUE = PressureToolbox.LIGHTMODEBLUE
-        PressureToolbox.ORANGE = PressureToolbox.LIGHTMODEORANGE
-
-        if self._xP_bgcolor == PressureToolbox.DARKMODEGREEN:
-            self.set_valid_colors(True)
-        elif self._xP_bgcolor == PressureToolbox.DARKMODERED:
-            self.set_valid_colors(False)
-        self.update_T_spinbox_style(self.T_spinbox.value())
-
-        self.Pm_spinbox.setStyleSheet(f"background: {PressureToolbox.BLUE};")
-        self._restyle_calibrations()

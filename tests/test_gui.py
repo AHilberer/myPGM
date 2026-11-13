@@ -312,7 +312,8 @@ def test_session_restores_the_spectrometer_calibration_label(gui, resources, tmp
     no_calib = tmp_path / "no_calib.json"
     no_calib.write_text(json.dumps(dict(payload, corrected_spectro_x=None, corrected_spectro_name=None)))
     gui.presenter.load_session(str(no_calib))
-    assert label.text() == "None" and gui.presenter.corrected_spectro_x is None
+    # "No calibration file" (was "None"): the Spectrometer card text of DESIGN.md
+    assert label.text() == "No calibration file" and gui.presenter.corrected_spectro_x is None
 
     gui.presenter.load_session()
     assert label.text() == "alternate_spectro_calib.asc"

@@ -14,7 +14,7 @@ HPTableWindow, PvPmPlotWindow {
 }
 
 PressureToolbox {
-  background-color: $sf;
+  background-color: $bg;
 }
 
 QGroupBox {
@@ -44,6 +44,26 @@ QLabel:disabled {
 QCheckBox {
   color: $tx;
   background: transparent;
+  spacing: 8px;
+}
+QCheckBox::indicator {
+  width: 16px;
+  height: 16px;
+  border: 1px solid $mu;
+  border-radius: 4px;
+  background-color: $sf;
+}
+QCheckBox::indicator:hover {
+  border-color: $ac;
+}
+QCheckBox::indicator:checked {
+  background-color: $ac;
+  border-color: $ac;
+  image: url($check_icon);
+}
+QCheckBox::indicator:disabled {
+  background-color: $sf2;
+  border-color: $bd;
 }
 
 MyVSeparator {
@@ -279,4 +299,140 @@ QSlider::handle:horizontal {
   height: 14px;
   margin: -6px 0px;
   border-radius: 7px;
+}
+
+/* --- main window layout (DESIGN.md section 1) -------------------------------------------- */
+
+#TopBar {
+  background-color: $sf;
+  border-bottom: 1px solid $bd;
+}
+QLabel#AppName {
+  font-size: 15px;
+  font-weight: 700;
+}
+QLabel#AppSubtitle {
+  font-size: 11px;
+  color: $mu;
+}
+QLabel#CurrentFile {
+  font-size: 15px;
+  font-weight: 600;
+}
+QLabel#SessionName {
+  font-weight: 600;
+}
+QLabel#SavePill {
+  background-color: $hd;
+  color: $mu;
+  border-radius: 11px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+#Card {
+  background-color: $sf;
+  border: 1px solid $bd;
+  border-radius: 12px;
+}
+#Divider {
+  background-color: $bd;
+  border: none;
+}
+#FolderBox {
+  background-color: $hd;
+  border-radius: 9px;
+}
+#InspectorScroll, #Inspector {
+  background: transparent;
+  border: none;
+}
+QListWidget#FileList {
+  background: transparent;
+  border: none;
+  padding: 0px;
+}
+QListWidget#FileList::item {
+  padding: 6px 8px;
+  border-radius: 7px;
+}
+
+QLabel[role="section"] {
+  color: $mu;
+  font-size: 12px;
+  font-weight: 600;
+}
+QLabel[role="field"] {
+  color: $mu;
+  font-size: 13px;
+}
+QLabel[role="caption"], QLabel[role="caption-12"] {
+  color: $mu;
+  font-size: 12px;
+}
+QLabel[role="muted"] {
+  color: $mu;
+}
+QLabel[role="muted-13"] {
+  color: $mu;
+  font-size: 13px;
+}
+QLabel[role="folder"] {
+  color: $tx;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* highlighted pressure row of the Parameters card */
+#PressureRow {
+  background-color: $acs;
+  border-radius: 9px;
+}
+QLabel#PressureLabel {
+  color: $act;
+  font-weight: 600;
+}
+QAbstractSpinBox#P_spinbox {
+  background: transparent;
+  border: 1px solid transparent;
+  color: $act;
+  font-size: 18px;
+  font-weight: 600;
+}
+QAbstractSpinBox#P_spinbox:focus {
+  border-color: $ac;
+}
+
+QPushButton[role="link"] {
+  background: transparent;
+  border: none;
+  color: $act;
+  padding: 0px 2px;
+  min-height: 0px;
+  font-size: 13px;
+  font-weight: 500;
+}
+QPushButton[role="link"]:hover {
+  text-decoration: underline;
+}
+QPushButton[role="icon"], QPushButton[role="quiet-icon"] {
+  padding: 0px;
+  min-height: 0px;
+}
+QPushButton[role="quiet-icon"] {
+  background-color: $hd;
+}
+QPushButton[role="toolbar"] {
+  padding: 0px 14px;
+  min-height: 0px;
+  font-weight: 500;
+}
+QPushButton[role="accent"] {
+  background-color: $sf;
+  border: 1px solid $ac;
+  color: $act;
+  font-weight: 600;
+}
+QPushButton[role="accent"]:hover {
+  background-color: $acs;
 }

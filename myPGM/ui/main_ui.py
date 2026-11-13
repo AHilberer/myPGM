@@ -7,17 +7,19 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QFileDialog,
     QWidget,
+    QCheckBox,
     QComboBox,
+    QFrame,
     QVBoxLayout,
-    QHBoxLayout,
-    QGroupBox,
     QMessageBox,
     QAction,
-    QGridLayout,
+    QScrollArea,
+    QSizePolicy,
     QSplitter,
     QSpinBox,
 )
 from PyQt5.QtCore import (
+    QEvent,
     Qt,
     pyqtSignal,
 )
@@ -26,8 +28,6 @@ from PyQt5.QtGui import QColor, QGuiApplication, QKeySequence
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
 from myPGM.helpers import (get_app_icon,
-                          MyHSeparator, 
-                          MyVSeparator, 
                           SmartDoubleDialog,
                           FontSizeWindow,
                           set_app_font_size,
@@ -38,9 +38,16 @@ from myPGM.ui.PvPmPlot import PvPmPlotWindow
 from myPGM.ui.PvPmTable import HPTableWindow
 from myPGM.ui.FileListViewerWidget import FileListViewerWidget
 from myPGM.ui.PressureToolbox import PressureToolbox
-from myPGM.ui import theme
+from myPGM.ui.TopBar import TopBar
+from myPGM.ui import icons, theme
+from myPGM.ui.widgets import GAP, Card, ElidedLabel, button, hbox, label
 
 import pyqtgraph as pg
+
+SIDEBAR_WIDTH = 240         # default column widths of the workspace (DESIGN.md §1)
+SIDEBAR_MIN_WIDTH = 200
+INSPECTOR_WIDTH = 300
+INSPECTOR_MIN_WIDTH = 270
 
 logger = logging.getLogger(__name__)
 
@@ -66,24 +73,92 @@ class MainWindow(QMainWindow):
         if not app_icon.isNull():
             self.setWindowIcon(app_icon)
 
-        self.resize(800, 1000)          # placed on screen by _arrange_windows
+        self.resize(1440, 1010)         # placed on screen by _arrange_windows
+
+        pg.setConfigOption('leftButtonPan', False)
+
+        self._setup_menus()
+
+        # the theme recorded at startup, before a saved dark theme is applied below
+        theme.set_current(False)
+        self.plot_label_color = theme.tokens()["mu"]
+        self.fit_color = theme.calib_color(None)      # set from the plotted calibration
+        # plots and the PvPm table use the app font size, kept in sync by set_font_size
+        self.plot_font_px = current_app_font_px()
+        # font size chosen in a previous launch (the slider range)
+        saved_font_px = app_settings().value("font_size", 0, type=int)
+        if 8 <= saved_font_px <= 30:
+            set_app_font_size(saved_font_px)
+            self.plot_font_px = saved_font_px
+        self.plot_title_size = f"{self.plot_font_px + 4}px"
+        self.font_size_window = None
+
+        self._create_fit_controls()
+        self._create_plots()
+        # pressure toolbox as inspector cards; its Pm field goes in the center, next to
+        # "Add fit to log" (DESIGN.md: no Pm in the inspector)
+        self.ptoolbox = PressureToolbox(inspector=True)
+
+        #####################################################################################
+        # #? Layout (DESIGN.md §1): top bar, then spectra sidebar | center | inspector
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
-
-        # Main layout: pressure toolbox on top, files and fitting below
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # Top panel
-        top_panel_layout = QHBoxLayout()
-        main_layout.addLayout(top_panel_layout)
+        self.top_bar = TopBar()
+        main_layout.addWidget(self.top_bar)
 
-        # Bottom panel
-        bottom_panel_layout = QHBoxLayout()
-        main_layout.addLayout(bottom_panel_layout)
+        self.workspace_splitter = QSplitter(Qt.Horizontal)
+        self.workspace_splitter.setObjectName("Workspace")
+        self.workspace_splitter.setHandleWidth(GAP)
+        self.workspace_splitter.setChildrenCollapsible(False)
+        workspace_layout = QVBoxLayout()
+        workspace_layout.setContentsMargins(GAP, GAP, GAP, GAP)
+        workspace_layout.addWidget(self.workspace_splitter)
+        main_layout.addLayout(workspace_layout, 1)
 
-        pg.setConfigOption('leftButtonPan', False)
- 
+        self.file_list_widget = FileListViewerWidget()
+        self.file_list_widget.setMinimumWidth(SIDEBAR_MIN_WIDTH)
+        self.dir_label = self.file_list_widget.dir_label
+        self.workspace_splitter.addWidget(self.file_list_widget)
+        self.workspace_splitter.addWidget(self._build_center())
+        self.workspace_splitter.addWidget(self._build_inspector())
+        self.workspace_splitter.setStretchFactor(0, 0)
+        self.workspace_splitter.setStretchFactor(1, 1)
+        self.workspace_splitter.setStretchFactor(2, 0)
+        self.workspace_splitter.setSizes([SIDEBAR_WIDTH, 1440 - SIDEBAR_WIDTH - INSPECTOR_WIDTH,
+                                          INSPECTOR_WIDTH])
+
+        #####################################################################################
+        # #? Setup PvPm table and plotwindow
+
+        self.PvPmTableWindow = HPTableWindow()
+        self.PvPmPlotWindow = PvPmPlotWindow()
+        self._connect_top_bar()
+        self.PvPmTableWindow.show()
+        self.PvPmPlotWindow.show()
+        # placed once shown: showing polishes the widgets, which can enlarge the
+        # windows' minimum size (to 823 px for the table on Windows CI)
+        self._arrange_windows()
+
+        self.set_font_size(self.plot_font_px)
+
+        self.additional_toolbox_window = PressureToolbox()
+
+        # set by the presenter: called on close, returns False to keep the window open
+        self.close_guard = None
+
+        # theme chosen in a previous launch (light by default)
+        if app_settings().value("theme", "light", type=str) == "dark":
+            self.switch_to_dark()
+
+    #####################################################################################
+    # ? Window construction
+
+    def _setup_menus(self):
         menubar = self.menuBar()
 
         #####################################################################################
@@ -103,16 +178,7 @@ class MainWindow(QMainWindow):
         files_menu.addAction(self.open_session_action)
         files_menu.addAction(self.save_session_action)
         files_menu.addAction(self.save_session_as_action)
-        #####################################################################################
-        # #? Setup Theme switch menu
-        theme_menu = menubar.addMenu("Theme")
-
-        dark_action = QAction("Dark mode", self)
-        light_action = QAction("Light Mode", self)
-        dark_action.triggered.connect(self.switch_to_dark)
-        light_action.triggered.connect(self.switch_to_light)
-        theme_menu.addAction(dark_action)
-        theme_menu.addAction(light_action)
+        # the theme is switched with the top bar toggle (the Theme menu is gone)
 
         #####################################################################################
         # #? Setup PToolbox menu
@@ -129,7 +195,6 @@ class MainWindow(QMainWindow):
         fontsize_menu.addAction(fontsize_setting)
 
         #####################################################################################
-
         # #? Exit button setup
         exit_menu = menubar.addMenu("Exit")
 
@@ -138,111 +203,34 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         exit_menu.addAction(exit_action)
 
-        #####################################################################################
-        # ? Setup Pressure Toolbox in the top panel
-
-        PToolboxGroup = QGroupBox('Pressure toolbox')
-        PToolboxLayout = QHBoxLayout()
-        
-        self.ptoolbox = PressureToolbox()
-
-        self.PToolbox_toTable_button = QPushButton('Add \nto\n table')
-
-        PToolboxLayout.addWidget(self.ptoolbox, stretch=10)
-        PToolboxLayout.addWidget(self.PToolbox_toTable_button, stretch=1)
-        PToolboxGroup.setLayout(PToolboxLayout)
-        top_panel_layout.addWidget(PToolboxGroup)
-
-        #################################################################################### Main Bottom Panel ###################################################################################""
-
-        #####################################################################################
-        # ? Setup left part of bottom panel
-
-        FileManagementBox = QGroupBox("File management")
-        FileManagementLayout = QVBoxLayout()
-        FileManagementBox.setLayout(FileManagementLayout)
-
-        self.file_list_widget = FileListViewerWidget()
-
-        FileManagementLayout.addWidget(self.file_list_widget)
-
-        bottom_panel_layout.addWidget(FileManagementBox, stretch=1)
-
-        #####################################################################################
-        # #? Setup right part of bottom panel
-
-        FitBox = QGroupBox("File fitting")
-        FitBoxLayout = QVBoxLayout()
-        FitBox.setLayout(FitBoxLayout)
-        bottom_panel_layout.addWidget(FitBox, stretch=10)
-
-        #####################################################################################
-        # #? Setup loaded file info section
-
-        FileInfoBoxLayout = QVBoxLayout()
-        self.current_file_label = QLabel("No file selected", self)
-        FileInfoBoxLayout.addWidget(self.current_file_label)
-
-        self.dir_label = QLabel("No directory selected", self)
-        FileInfoBoxLayout.addWidget(self.dir_label)
-
-        FitBoxLayout.addLayout(FileInfoBoxLayout)
-        FitBoxLayout.addWidget(MyHSeparator())
-
-        #####################################################################################
-        # ? Data correction + fit section
-        InteractionBox = QHBoxLayout()
-
-        FitOptionBox = QVBoxLayout()
-
-        FitButtonsBox = QGridLayout()
-
+    def _create_fit_controls(self):
+        """Buttons of the spectrum card, the fit model selector and the spectrometer
+        calibration controls (placed by _build_center and _build_inspector)."""
         self.fit_button = QPushButton("Fit", self)
         self.fit_button.setProperty("primary", True)
         self.fit_button.clicked.connect(self.auto_fit)
-
-        FitButtonsBox.addWidget(self.fit_button, 0, 0)
 
         self.click_fit_button = QPushButton("Click-to-fit", self)
         self.click_fit_button.setCheckable(True)
         self.click_fit_button.clicked.connect(self.toggle_click_fit)
         self.click_fit_enabled = False
 
-        FitButtonsBox.addWidget(self.click_fit_button, 0, 1)
-
         self.fit_range_enable_button = QPushButton("Fit range", self)
         self.fit_range_enable_button.setCheckable(True)
         self.fit_range_enable_button.clicked.connect(self.toggle_fit_range)
         self.fit_range_enabled = False
 
-        FitButtonsBox.addWidget(self.fit_range_enable_button, 1, 0)
-        
         self.fit_range_edit_button = QPushButton("Edit", self)
         self.fit_range_edit_button.setCheckable(True)
         self.fit_range_edit_button.clicked.connect(self.toggle_fit_range_edit)
         self.fit_range_edit_enabled = False
 
-        FitButtonsBox.addWidget(self.fit_range_edit_button, 1, 1)
-
-        FitOptionBox.addLayout(FitButtonsBox)
-
         self.fit_model_combo = QComboBox()
         self.fit_model_combo.setObjectName("fit_model_combo")
         self.fit_model_combo.setMinimumWidth(100)
-
-        FitOptionBox.addWidget(self.fit_model_combo)
-
-        InteractionBox.addLayout(FitOptionBox)
-
-        InteractionBox.addWidget(MyVSeparator())
-        
-        CorrectionBox = QVBoxLayout()
-
-        BgBox = QHBoxLayout()
+        self.fit_model_combo.setFixedHeight(36)
 
         self.CHullBg_button = QPushButton("Auto Bg", self)
-   
-        BgBox.addWidget(self.CHullBg_button, stretch=3)
 
         self.ManualBg_button = QPushButton("Manual Bg", self)
         self.ManualBg_button.setCheckable(True)
@@ -250,61 +238,42 @@ class MainWindow(QMainWindow):
         self.click_ManualBg_enabled = False
         self.ManualBg_points = []
         self.temp_bg = None
-        BgBox.addWidget(self.ManualBg_button, stretch=3)
 
         self.ResetBg_button = QPushButton("Reset Bg", self)
-        BgBox.addWidget(self.ResetBg_button, stretch=3)
-
-        SpectroCalibBox = QHBoxLayout()
-        self.LoadSpectro_button = QPushButton("Load spectro", self)
-        SpectroCalibBox.addWidget(self.LoadSpectro_button, stretch=3)
-
-        self.Spectro_use_button = QPushButton("Use", self)
-        self.Spectro_use_button.setCheckable(True)
-        SpectroCalibBox.addWidget(self.Spectro_use_button, stretch=3)
-
-        self.Spectro_filename_label = QLabel("None", self)
-        SpectroCalibBox.addWidget(self.Spectro_filename_label, stretch=3)
-
-        SmoothBox = QHBoxLayout()
-        SmoothBox.addWidget(QLabel("Smoothing:", self), stretch=1)
 
         self.smoothing_factor = QSpinBox()      # smoothing window, in points
         self.smoothing_factor.setRange(1, 999)
         self.smoothing_factor.setValue(1)
-        
-        SmoothBox.addWidget(self.smoothing_factor, stretch=1)
 
-        self.Derivative_button = QPushButton("Toggle derivative", self)
+        self.Derivative_button = QPushButton("dI/dx", self)
+        self.Derivative_button.setToolTip("Show the derivative under the spectrum")
         self.Derivative_button.clicked.connect(self.toggle_derivative)
         self.Derivative_enabled = False
-        SmoothBox.addWidget(self.Derivative_button, stretch=2)
 
-        CorrectionBox.addLayout(BgBox)
-        CorrectionBox.addLayout(SpectroCalibBox)
-        CorrectionBox.addLayout(SmoothBox)
+        # spectrometer calibration (inspector)
+        self.LoadSpectro_button = QPushButton("Load…", self)
+        self.LoadSpectro_button.setToolTip("Load a spectrometer calibration file")
+        self.Spectro_use_button = QCheckBox(self)
+        self.Spectro_use_button.setToolTip("Use spectrometer calibration")
+        self.Spectro_filename_label = ElidedLabel("No calibration file", self)
 
-        InteractionBox.addLayout(CorrectionBox)
+        # fit -> pressure log (center), and point from the parameters alone (inspector)
+        self.add_fitted_button = button("Add fit to log", 36, primary=True, icon_name="plus",
+                                        tooltip="Add the fitted point to the pressure log")
+        self.add_fitted_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.add_fitted_button.clicked.connect(self.add_current_fit)
 
-        FitBoxLayout.addLayout(InteractionBox)
+        self.PToolbox_toTable_button = button(
+            "Add point to log", 36, role="accent", icon_name="plus", icon_role="act",
+            tooltip="Add a point from the λ, T and P values alone (no spectrum)")
 
-        #####################################################################################
-        # #? Setup data plotting section
-        PlotLayout = QVBoxLayout()
+        # replaced by the top bar toggles; kept until the panels are docks (step 3)
+        self.toggle_PvPm_button = QPushButton("P vs Pm", self)
+        self.toggle_PvPm_button.clicked.connect(self.toggle_PvPm)
+        self.toggle_PvPm_button.hide()
+
+    def _create_plots(self):
         self.splitter = QSplitter(Qt.Vertical)
-        # the theme recorded at startup, before a saved dark theme is applied below
-        theme.set_current(False)
-        self.plot_label_color = theme.tokens()["mu"]
-        self.fit_color = theme.calib_color(None)      # set from the plotted calibration
-        # plots and the PvPm table use the app font size, kept in sync by set_font_size
-        self.plot_font_px = current_app_font_px()
-        # font size chosen in a previous launch (the slider range)
-        saved_font_px = app_settings().value("font_size", 0, type=int)
-        if 8 <= saved_font_px <= 30:
-            set_app_font_size(saved_font_px)
-            self.plot_font_px = saved_font_px
-        self.plot_title_size = f"{self.plot_font_px + 4}px"
-        self.font_size_window = None
 
         # #? Actual spectral data
         self.data_widget = pg.PlotWidget()
@@ -319,7 +288,7 @@ class MainWindow(QMainWindow):
         self.data_fit_line = pg.PlotDataItem(name='Fit',pen=self.data_fit_pen,)
         self.data_bg_line = pg.PlotDataItem(name='Bg',pen=self.data_bg_pen)
         self.data_edge_marker = pg.InfiniteLine(pos=None, angle=90, pen=self.data_fit_pen, movable=False)
-        
+
         self.data_widget.setMenuEnabled(False)
         self.data_scatter.scene().sigMouseClicked.connect(self.data_plot_click)
 
@@ -343,44 +312,119 @@ class MainWindow(QMainWindow):
 
         self.splitter.addWidget(self.data_widget)
         self.splitter.addWidget(self.deriv_widget)
-        PlotLayout.addWidget(self.splitter)
         self.splitter.setSizes([300, 200])
         self.splitter.widget(1).hide()
 
-        FitBoxLayout.addLayout(PlotLayout)
+    def _build_center(self):
+        """Center column: the current spectrum with Pm and "Add fit to log" (the fitted
+        pressure card of step 4), then the spectrum card (fit toolbar and plots)."""
+        center = QWidget()
+        layout = QVBoxLayout(center)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(GAP)
 
-        self.table_interactions = QHBoxLayout()
-        self.add_fitted_button = QPushButton("Add fit to table")
-        self.add_fitted_button.setProperty("primary", True)
-        self.add_fitted_button.clicked.connect(self.add_current_fit)
-        self.table_interactions.addWidget(self.add_fitted_button, stretch=3)
+        # current spectrum, Pm and "Add fit to log"
+        fit_card = Card()
+        self.current_file_label = QLabel("No file selected", self)
+        self.current_file_label.setWordWrap(True)
+        self.current_file_label.setMinimumWidth(80)
+        self.current_file_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.current_file_label.setObjectName("CurrentFile")
+        pm_box = QVBoxLayout()
+        pm_box.setSpacing(6)
+        pm_box.addWidget(label("Membrane pressure Pm", "field"))
+        self.ptoolbox.Pm_spinbox.setMinimumWidth(110)
+        pm_box.addLayout(hbox(self.ptoolbox.Pm_spinbox, label("bar", "muted"), spacing=6))
+        add_box = QVBoxLayout()
+        add_box.addStretch(1)
+        add_box.addWidget(self.add_fitted_button)
+        current = QVBoxLayout()
+        current.setSpacing(4)
+        current.addWidget(label("Current spectrum", "section"))
+        current.addWidget(self.current_file_label)
+        top_row = hbox(current, pm_box, add_box, spacing=12)
+        top_row.setStretch(0, 1)
+        fit_card.body.addLayout(top_row)
+        layout.addWidget(fit_card)
 
-        self.toggle_PvPm_button = QPushButton("P vs Pm")
-        self.toggle_PvPm_button.clicked.connect(self.toggle_PvPm)
-        self.table_interactions.addWidget(self.toggle_PvPm_button, stretch=1)
-        FitBoxLayout.addLayout(self.table_interactions)
+        # spectrum card: fit toolbar, then the plots
+        spectrum_card = Card(spacing=10)
+        # two rows until the one-line toolbar of step 4 (DESIGN.md §1, spectrum card)
+        spectrum_card.body.addLayout(hbox(
+            self.fit_button, self.click_fit_button, self.fit_range_enable_button,
+            self.fit_range_edit_button, 1,
+            label("Smoothing", "muted"), self.smoothing_factor, spacing=6))
+        spectrum_card.body.addLayout(hbox(
+            label("Background", "muted"), self.CHullBg_button, self.ManualBg_button,
+            self.ResetBg_button, 1, self.Derivative_button, spacing=6))
+        spectrum_card.body.addWidget(self.splitter, 1)
+        layout.addWidget(spectrum_card, 1)
+        return center
 
-        #####################################################################################
-        # #? Setup PvPm table and plotwindow
+    def _build_inspector(self):
+        """Right column: Pressure gauge, Parameters and Spectrometer cards."""
+        self.ptoolbox.fit_model_slot.addWidget(label("Fit model", "field"))
+        self.ptoolbox.fit_model_slot.addWidget(self.fit_model_combo)
+        self.ptoolbox.add_point_slot.addWidget(self.PToolbox_toTable_button)
 
-        self.PvPmTableWindow = HPTableWindow()
-        self.PvPmPlotWindow = PvPmPlotWindow()
-        self.PvPmTableWindow.show()
-        self.PvPmPlotWindow.show()
-        # placed once shown: showing polishes the widgets, which can enlarge the
-        # windows' minimum size (to 823 px for the table on Windows CI)
-        self._arrange_windows()
+        spectro_card = Card("Spectrometer", spacing=10)
+        self.Spectro_filename_label.setProperty("role", "muted-13")
+        spectro_card.body.addLayout(hbox(self.Spectro_filename_label, 1, self.LoadSpectro_button))
+        use_label = label("Use spectrometer calibration", "muted-13")
+        use_label.setBuddy(self.Spectro_use_button)
+        spectro_card.body.addLayout(hbox(use_label, 1, self.Spectro_use_button))
 
-        self.set_font_size(self.plot_font_px)
+        inspector = QWidget()
+        inspector.setObjectName("Inspector")
+        layout = QVBoxLayout(inspector)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(GAP)
+        layout.addWidget(self.ptoolbox)
+        layout.addWidget(spectro_card)
+        layout.addStretch(1)
 
-        self.additional_toolbox_window = PressureToolbox()
+        scroll = QScrollArea()
+        scroll.setObjectName("InspectorScroll")
+        scroll.setWidget(inspector)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.viewport().setAutoFillBackground(False)
+        inspector.setAutoFillBackground(False)
+        scroll.setMinimumWidth(INSPECTOR_MIN_WIDTH)
+        return scroll
 
-        # set by the presenter: called on close, returns False to keep the window open
-        self.close_guard = None
+    def _connect_top_bar(self):
+        bar = self.top_bar
+        bar.open_button.clicked.connect(self.open_session_signal.emit)
+        bar.save_button.clicked.connect(self.save_session_signal.emit)
+        bar.export_button.clicked.connect(self.PvPmTableWindow.save_data_to_csv)
+        bar.theme_button.clicked.connect(self.toggle_theme)
+        # panel toggles follow the windows (closed with their own title bar too)
+        self._panel_toggles = {self.PvPmTableWindow: bar.log_toggle,
+                               self.PvPmPlotWindow: bar.plot_toggle}
+        for window, toggle in self._panel_toggles.items():
+            toggle.toggled.connect(window.setVisible)
+            window.installEventFilter(self)
 
-        # theme chosen in a previous launch (light by default)
-        if app_settings().value("theme", "light", type=str) == "dark":
-            self.switch_to_dark()
+    def eventFilter(self, watched, event):
+        toggles = getattr(self, "_panel_toggles", {})
+        if watched in toggles and event.type() in (QEvent.Show, QEvent.Hide):
+            toggle = toggles[watched]
+            was_blocked = toggle.blockSignals(True)
+            toggle.setChecked(event.type() == QEvent.Show)
+            toggle.blockSignals(was_blocked)
+        return super().eventFilter(watched, event)
+
+    # session shown in the top bar (set by the presenter)
+    def set_version(self, version):
+        self.top_bar.set_version(version)
+
+    def set_session_name(self, name):
+        self.top_bar.set_session_name(name)
+
+    def set_save_status(self, kind, when=None):
+        self.top_bar.set_save_status(kind, when)
 
     #####################################################################################
     # ? Main window methods
@@ -426,6 +470,12 @@ class MainWindow(QMainWindow):
                 window.close()
         super().closeEvent(event)
 
+    def toggle_theme(self):
+        if theme.is_dark():
+            self.switch_to_light()
+        else:
+            self.switch_to_dark()
+
     def switch_to_dark(self):
         self._apply_theme(dark=True)
 
@@ -443,6 +493,11 @@ class MainWindow(QMainWindow):
 
         # pyqtgraph plots are not styled by the Qt stylesheet
         self._style_plots()
+        # icons and other colours drawn in code
+        self.top_bar.set_dark(dark)
+        icons.refresh()
+        self.top_bar.restyle()
+        self.file_list_widget.restyle()
 
         for themed in (self.ptoolbox, self.additional_toolbox_window, self.PvPmPlotWindow):
             if dark:
@@ -609,7 +664,7 @@ class MainWindow(QMainWindow):
         )
         remember_dir("acquisition", dir_name)
         if dir_name:
-            self.dir_label.setText(f"Selected directory: {dir_name}")
+            self.file_list_widget.set_directory(dir_name)
         return dir_name
 
     def plot_data(self, x, y, buffer, preserve_view=False):

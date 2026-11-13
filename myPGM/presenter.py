@@ -23,6 +23,10 @@ def _fmt_err(value):
     return "n/a" if value is None else f"{value:.2g}"
 
 
+# spectrometer calibration label when no file is loaded (DESIGN.md §1, Spectrometer card)
+NO_SPECTRO_CALIBRATION = "No calibration file"
+
+
 def get_app_version():
     try:
         return version("myPGM")
@@ -597,7 +601,7 @@ class Presenter(QObject):
         except Exception as exc:
             self.corrected_spectro_x = None
             self.corrected_spectro_name = None
-            self.view.Spectro_filename_label.setText("None")
+            self.view.Spectro_filename_label.setText(NO_SPECTRO_CALIBRATION)
             self.view.Spectro_use_button.setChecked(False)
             self._show_error(
                 f"Failed to load spectrometer calibration file: {exc}",
@@ -899,6 +903,10 @@ class Presenter(QObject):
         if self.session_path:
             title += f" - {os.path.basename(self.session_path)}"
         self.view.setWindowTitle(title)
+        # top bar: version, and the session file name without its extension
+        self.view.set_version(self.app_version)
+        name = os.path.splitext(os.path.basename(self.session_path))[0] if self.session_path else None
+        self.view.set_session_name(name)
 
     def save_session(self, save_as=False):
         """Save the session to its file, asked for if it has none yet or with
@@ -916,6 +924,7 @@ class Presenter(QObject):
         self._saved_fingerprint = self._content_fingerprint()
         self.session_path = file_path
         self._update_window_title()
+        self.view.set_save_status("saved")
         self._remove_backup()
         logger.debug("Session saved to %s (%d spectra)", file_path, len(self.model))
         return True
@@ -979,7 +988,7 @@ class Presenter(QObject):
             self.corrected_spectro_name = session.get("corrected_spectro_name") or "from session"
         else:
             self.corrected_spectro_name = None
-        self.view.Spectro_filename_label.setText(self.corrected_spectro_name or "None")
+        self.view.Spectro_filename_label.setText(self.corrected_spectro_name or NO_SPECTRO_CALIBRATION)
 
         self.view.Spectro_use_button.setChecked(
             session.get("spectro_use_enabled", False)
@@ -995,6 +1004,7 @@ class Presenter(QObject):
         self._saved_fingerprint = self._content_fingerprint()
         self.session_path = file_path
         self._update_window_title()
+        self.view.set_save_status("saved", os.path.getmtime(file_path))
         logger.debug("Session loaded from %s (%d spectra)", file_path, len(self.model))
         return True
 
@@ -1042,6 +1052,7 @@ class Presenter(QObject):
         fingerprint = self._content_fingerprint()
         if not self.backup.is_up_to_date(fingerprint):
             self.backup.write(self._session_dict(), fingerprint)
+            self.view.set_save_status("autosaved")
 
     def flush_backup(self):
         """Wait for a backup being written, if any."""
@@ -1066,6 +1077,7 @@ class Presenter(QObject):
                 self._saved_fingerprint = None      # recovered work is not saved yet
                 self.session_path = None            # "Save" asks: never into the backup
                 self._update_window_title()
+                self.view.set_save_status(None)
                 os.remove(path)                     # now backed up by this window
                 logger.info("Session recovered from %s", path)
                 return True

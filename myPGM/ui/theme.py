@@ -6,7 +6,9 @@ that hold plots read the tokens (tokens(), calib_color()) and restyle themselves
 the theme changes (MainWindow.theme_switched).
 """
 import logging
+import tempfile
 from importlib.resources import files
+from pathlib import Path
 from string import Template
 
 import pyqtgraph as pg
@@ -180,7 +182,28 @@ def stylesheet(dark=False):
     values = {key: qss(value) for key, value in tokens(dark).items()}
     values["ui_font"] = f'"{fonts["ui"]}"'
     values["mono_font"] = f'"{fonts["mono"]}"'
+    values["check_icon"] = f'"{_check_icon(qcolor(tokens(dark)["onac"]).name())}"'
     return Template(load_style("theme.qss")).substitute(values)
+
+
+# check mark of the check boxes (Lucide "check"); the stylesheet needs an image file
+_CHECK_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+              'fill="none" stroke="{color}" stroke-width="3" stroke-linecap="round" '
+              'stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>')
+
+
+def _check_icon(color):
+    """Path of the check mark drawn in `color`, written once to a temporary folder;
+    '' if it cannot be written (checked boxes are then plain accent squares)."""
+    path = Path(tempfile.gettempdir()) / "myPGM-icons" / f"check-{color.lstrip('#')}.svg"
+    try:
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(_CHECK_SVG.format(color=color), encoding="utf-8")
+    except OSError as exc:
+        logger.warning("Could not write the check box icon: %s", exc)
+        return ""
+    return path.as_posix()
 
 
 def palette(dark=False):
