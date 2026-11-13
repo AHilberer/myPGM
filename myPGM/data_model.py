@@ -131,10 +131,18 @@ class PressureGaugeDataObject:
     def normalize_data(self):
         """Scale the intensity so that its maximum is 1. The baseline is kept on
         purpose: the fitted offset c absorbs it, and the fit starting values are
-        tuned for it (subtracting the minimum made some H2 fits diverge)."""
+        tuned for it (subtracting the minimum made some H2 fits diverge).
+        A spectrum with no positive value is scaled by its largest absolute value
+        (dividing by a negative maximum turned it upside down)."""
+        y = self.original_data[:, 1]
+        scale = np.max(y)
+        if not scale > 0:
+            scale = np.max(np.abs(y))
+        if not (np.isfinite(scale) and scale > 0):
+            raise ValueError("the spectrum intensity is zero everywhere (or not a number)")
         self.normalized_data = np.zeros(self.original_data.shape)
         self.normalized_data[:,0] = self.original_data[:,0]
-        self.normalized_data[:,1] = self.original_data[:,1] / max(self.original_data[:,1])
+        self.normalized_data[:,1] = y / scale
 
     def to_dict(self):
         return {
@@ -149,7 +157,6 @@ class PressureGaugeDataObject:
             "current_smoothing": _json_scalar(self.current_smoothing),
             "fit_model": self.fit_model.name if self.fit_model else None,
             "fit_result": _fit_result_to_dict(self.fit_result),
-            "fitted_data": _array_to_list(self.fitted_data),
             "fitting_range": list(self.fitting_range) if self.fitting_range is not None else None,
             "calib": self.calib.name if self.calib else None,
             "Pm": _json_scalar(self.Pm),
@@ -211,8 +218,11 @@ class PressureGaugeDataObject:
             obj.fit_model = None
 
         obj.fit_result = _fit_result_from_dict(payload.get("fit_result"))
-        obj.fitted_data = _list_to_array(payload.get("fitted_data"))
         obj.fitting_range = payload.get("fitting_range")
+        if "fitted_data" in payload:            # sessions saved by myPGM 1.0
+            obj.fitted_data = _list_to_array(payload["fitted_data"])
+        else:
+            obj.fitted_data = obj._fitted_curve()
 
         obj.Pm = payload.get("Pm")
         obj.P = payload.get("P")
@@ -360,10 +370,17 @@ class PressureGaugeDataObject:
         removes what is left and adds it to the total background.
         """
         x, y = self.get_data_to_process()
-        v = ConvexHull(np.column_stack((x, y))).vertices
+        # in increasing x (files can store it decreasing: the upper hull was used)
+        order = np.argsort(x, kind="stable")
+        xs, ys = x[order], y[order]
+        v = ConvexHull(np.column_stack((xs, ys))).vertices
         v = np.roll(v, -v.argmin())
-        anchors = v[: v.argmax()]
-        self._add_bg(np.interp(x, x[anchors], y[anchors]))
+        # lower hull: from the first point to the last one, included (without it
+        # the baseline stayed flat after the last but one anchor)
+        anchors = v[: v.argmax() + 1]
+        bg = np.empty_like(ys)
+        bg[order] = np.interp(xs, xs[anchors], ys[anchors])
+        self._add_bg(bg)
 
     def reset_bg(self):
         """Remove the background, keeping smoothing and spectrometer recalibration."""
@@ -404,36 +421,40 @@ class PressureGaugeDataObject:
         Fit the spectrum using the selected model, and update the pressure estimate.
         :param fit_model: GaugeFitModel
         """
-        x,y = self.get_data_to_process()
+        x, y = self._data_in_fitting_range()
+        if self.fit_model.type not in ("peak", "edge"):
+            raise ValueError(f"Fit type not implemented: {self.fit_model.type!r}")
+
+        self.fit_result = self.fit_procedure(self.fit_model, x, y, guess_peak=guess_peak)
+        self.fitted_data = self._fitted_curve()
+        if self.fit_model.type == "peak":
+            popt = self.fit_result["opti"]
+            i = self.fit_model.position_index(popt)
+            self.set_x(popt[i], self._position_uncertainty(self.fit_result["cov"], i))
+        else:
+            # no fit, hence no uncertainty
+            self.set_x(self.fitted_data)
+
+    def _data_in_fitting_range(self):
+        x, y = self.get_data_to_process()
         if self.fitting_range is not None:
             mask = (x >= self.fitting_range[0]) & (x <= self.fitting_range[1])
             x = x[mask]
             y = y[mask]
-        
-        self.fit_result = self.fit_procedure(self.fit_model, x, y, guess_peak=guess_peak)
-        if self.fit_model.type == "peak":
-            fitted = self.fit_model.func(x, *self.fit_result["opti"])
-            self.fitted_data = np.column_stack((x, fitted))
-            popt = self.fit_result["opti"]
-            i = self._peak_position_index(popt)
-            self.set_x(popt[i], self._position_uncertainty(self.fit_result["cov"], i))
+        return x, y
 
-        elif self.fit_model.type == "edge":
-            self.fitted_data = self.fit_result["opti"]
-            # no fit, hence no uncertainty
-            self.set_x(self.fitted_data)
-        else:
-            raise ValueError(f"Fit type not implemented: {self.fit_model.type!r}")
-
-    @staticmethod
-    def _peak_position_index(popt):
-        """Index of the fitted parameter used as the gauge position."""
-        # for now we use the number of args.... (crappy)
-        if len(popt) < 7:  # Samarium / Hydrogen (?)
-            return 2
-        # double peaks: the longer-wavelength one (R1 for ruby)
-        i, j = (2, 5) if len(popt) < 8 else (2, 6)   # Gaussian/Lorentzian or Voigt
-        return i if popt[i] >= popt[j] else j
+    def _fitted_curve(self):
+        """fitted_data: the fitted curve in the fitting range (peak models), or the
+        edge position. Not saved in sessions (it is not drawn: plot_fit uses
+        fit_result), rebuilt from fit_result when a session is loaded."""
+        if self.fit_result is None or self.fit_model is None:
+            return None
+        if self.fit_model.type == "edge":
+            return self.fit_result["opti"]
+        if self.normalized_data is None:
+            return None
+        x, _ = self._data_in_fitting_range()
+        return np.column_stack((x, self.fit_model.func(x, *self.fit_result["opti"])))
 
     @staticmethod
     def _position_uncertainty(cov, i):
@@ -447,6 +468,11 @@ class PressureGaugeDataObject:
 
     def fit_procedure(self, model, x, y, guess_peak=None):
         if model.type == "peak":
+            # a narrow fit range made curve_fit raise TypeError (or get_pinit IndexError)
+            n_params = model.n_params
+            if len(x) <= n_params:
+                raise RuntimeError(f"{len(x)} points in the fit range, the {model.name} "
+                                   f"model needs more than {n_params}.")
             try:
                 popt, pcov = curve_fit(
                     model.func, x, y, p0=model.get_pinit(x, y, guess_peak=guess_peak)
@@ -461,8 +487,13 @@ class PressureGaugeDataObject:
             if guess_peak is not None:
                 best_x = guess_peak
             else:
-                grad = np.gradient(y)
-                best_x = x[np.argmin(grad)]
+                if len(x) < 3:
+                    raise RuntimeError(f"{len(x)} points in the fit range, the edge "
+                                       "search needs at least 3.")
+                # steepest descent with increasing x, whatever the order in the file
+                order = np.argsort(x, kind="stable")
+                grad = np.gradient(y[order])
+                best_x = x[order][np.argmin(grad)]
             return {"opti": best_x, "cov": None}
 
 class PressureGaugeDataManager(MutableMapping):

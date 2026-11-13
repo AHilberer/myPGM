@@ -117,6 +117,48 @@ def test_saving_or_loading_clears_unsaved_changes(app):
     assert not app.presenter.has_unsaved_changes()
 
 
+def test_save_writes_to_the_session_file_and_save_as_asks(app, monkeypatch, tmp_path):
+    asked = []
+    other = tmp_path / "other.json"
+    monkeypatch.setattr(app.view, "get_save_session_filename_dialog",
+                        lambda: asked.append("file?") or str(app.session_file if len(asked) == 1 else other))
+    assert app.presenter.save_session() and asked == ["file?"]     # new session: asks
+    app.fit()
+    assert app.presenter.save_session() and asked == ["file?"]     # then its own file
+    assert app.view.windowTitle().endswith(" - saved.json")
+    assert app.presenter.save_session(save_as=True) and asked == ["file?", "file?"]
+    assert other.exists() and app.view.windowTitle().endswith(" - other.json")
+    app.view.save_session_as_signal.emit()                          # the menu action
+    assert len(asked) == 3
+
+
+def test_opened_session_is_saved_in_place(app, monkeypatch):
+    app.fit()
+    app.presenter.save_session()
+    app.presenter.load_session()
+    monkeypatch.setattr(app.view, "get_save_session_filename_dialog",
+                        lambda: pytest.fail("Save asked for a file"))
+    app.fit("Example_Ruby_2.asc")
+    assert app.presenter.save_session()
+    assert len(json.loads(app.session_file.read_text())["files"]) == 5
+
+
+def test_recovered_session_is_not_saved_into_the_backup(app):
+    _crashed_session(app)
+    view, presenter, _ = _new_app(app, answer=True)
+    assert presenter.offer_recovery()
+    assert presenter.session_path is None              # "Save" asks for a file
+    assert view.windowTitle().startswith("myPGM") and " - autosave" not in view.windowTitle()
+    dispose(view)
+
+
+def test_file_menu_shortcuts(app):
+    from PyQt5.QtGui import QKeySequence
+    assert app.view.open_session_action.shortcut() == QKeySequence(QKeySequence.Open)
+    assert app.view.save_session_action.shortcut() == QKeySequence(QKeySequence.Save)
+    assert app.view.save_session_as_action.shortcut() == QKeySequence(QKeySequence.SaveAs)
+
+
 def test_demo_session_starts_without_unsaved_changes(demo):
     presenter, _view, _ = demo
     assert not presenter.has_unsaved_changes()
@@ -164,7 +206,7 @@ def _crashed_session(app):
     app.fit()
     app.presenter.autosave()
     app.presenter.flush_backup()
-    app.presenter._backup_lock.unlock()
+    app.presenter.backup._lock.unlock()
     return app.presenter.model[app.presenter.current_selected_file].P
 
 
@@ -210,6 +252,20 @@ def test_declined_backup_is_kept_aside(app):
     dispose(view)
 
 
+@pytest.mark.parametrize("content", ["{not json", "[1, 2]"], ids=["invalid-json", "not-a-session"])
+def test_backup_that_cannot_be_loaded_is_offered_once(app, content):
+    _crashed_session(app)
+    crashed_backup = app.presenter.backup_path
+    with open(crashed_backup, "w") as f:       # e.g. damaged on disk
+        f.write(content)
+    view, presenter, asked = _new_app(app, answer=True)
+    assert not presenter.offer_recovery() and len(asked) == 1
+    assert not os.path.exists(crashed_backup)
+    assert os.path.exists(os.path.splitext(crashed_backup)[0] + ".discarded.json")
+    assert not presenter.offer_recovery() and len(asked) == 1      # not offered at every start
+    dispose(view)
+
+
 def test_backup_of_a_window_still_open_is_left_alone(app):
     # first window: unsaved work backed up, and still open (lock held)
     app.fit()
@@ -233,7 +289,7 @@ def test_stale_lock_of_a_crashed_process_is_detected(app):
     with open(base + ".lock", "w") as f:
         f.write(f"999999\npython3\n{socket.gethostname()}\n")
     view, presenter, asked = _new_app(app, answer=False)
-    assert presenter._orphan_backups() == [base + ".json"]
+    assert presenter.backup.orphans() == [base + ".json"]
     dispose(view)
 
 
@@ -280,7 +336,7 @@ def test_unwritable_backup_folder_warns_once(app, caplog, monkeypatch):
     import logging
     def fail(*args, **kwargs):
         raise PermissionError("read-only folder")
-    monkeypatch.setattr(app.presenter, "_write_json", fail)
+    monkeypatch.setattr("myPGM.session_backup.write_json", fail)
     with caplog.at_level(logging.DEBUG, logger="myPGM"):
         for window in (3, 5, 7):                       # three changes, three backup attempts
             app.fit()

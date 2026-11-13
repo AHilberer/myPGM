@@ -71,7 +71,49 @@ def test_double_model_on_single_peak_fails_cleanly(resources):
             pass
 
 
+@pytest.mark.parametrize("n_points", [0, 1, 3, 9])     # Double Voigt has 9 parameters
+def test_too_narrow_fit_range_fails_cleanly(resources, n_points):
+    # used to raise TypeError (curve_fit) or IndexError (initial guess), shown as an
+    # unexpected error instead of the "Fit error" popup
+    obj = PressureGaugeDataObject()
+    obj.load_spectral_data_file("Example_Ruby_1.asc", str(resources / "Example_Ruby_1.asc"))
+    obj.set_calibration(C.Ruby2020)
+    obj.set_fit_model(F.DoubleVoigt)
+    x = obj.normalized_data[:, 0]
+    obj.fitting_range = (x[500], x[499 + n_points]) if n_points else (1.0, 2.0)
+    with pytest.raises(RuntimeError, match="points in the fit range"):
+        obj.fit_data()
+
+
 # --- initial guess -------------------------------------------------------------
+
+def _triple_voigt(x, c, a1, x1, s1, g1, a2, x2, s2, g2, a3, x3, s3, g3):
+    return (F.Single_Voigt(x, c, a1, x1, s1, g1) + F.Single_Voigt(x, 0, a2, x2, s2, g2)
+            + F.Single_Voigt(x, 0, a3, x3, s3, g3))
+
+
+def test_peak_structure_is_declared_not_guessed():
+    # 12 peak parameters: the old "% 3" rule read a triple Voigt as 4 Gaussians
+    triple = F.GaugeFitModel("Triple Voigt", _triple_voigt, "peak", "grey",
+                             n_peaks=3, params_per_peak=4)
+    assert triple.n_params == 13
+    x = np.linspace(690, 700, 1001)
+    y = _triple_voigt(x, 0.1, 0.5, 694.9, 0.1, 0.1, 0.3, 693.4, 0.1, 0.1, 0.2, 697.0, 0.1, 0.1)
+    pinit = triple.get_pinit(x, y)
+    assert len(pinit) == 13
+    popt = np.array(pinit)
+    popt[[2, 6, 10]] = [694.9, 693.4, 697.0]
+    assert triple.position_index(popt) == 10              # longest wavelength
+    assert F.DoubleVoigt.position_index(popt[:9]) == 2
+    with pytest.raises(ValueError, match="peak parameters"):
+        F.GaugeFitModel("Wrong", _triple_voigt, "peak", "grey", n_peaks=3, params_per_peak=3)
+
+
+@pytest.mark.parametrize("model", [m for m in F.model_list if m.type == "peak"], ids=lambda m: m.name)
+def test_every_peak_model_declares_its_structure(model):
+    assert model.n_peaks in (1, 2) and model.params_per_peak in (3, 4)
+    assert ("Voigt" in model.name) == (model.params_per_peak == 4)
+
 
 def _two_gaussians(x):
     # both above the half-height detection threshold
@@ -152,3 +194,29 @@ def test_raman_edge_uses_click_position():
     obj = _edge_object(1450.0)
     obj.fit_data(guess_peak=1420.0)
     assert obj.x == 1420.0
+
+
+def test_raman_edge_in_too_narrow_range_fails_cleanly():
+    obj = _edge_object(1450.0)
+    obj.fitting_range = (1449.9, 1450.1)       # a single point
+    with pytest.raises(RuntimeError, match="points in the fit range"):
+        obj.fit_data()
+
+
+def test_raman_edge_with_x_stored_decreasing(resources):
+    # the gradient was taken in file order: with x decreasing, the steepest rise was found
+    obj = _edge_object(1450.0)
+    obj.original_data = obj.original_data[::-1].copy()
+    obj.normalize_data()
+    obj.fit_data()
+    assert obj.x == pytest.approx(1450.0, abs=0.5)
+
+    ascending = fitted(resources, "Example_diam_Raman.asc", C.Akahama2006, F.RamanEdge)
+    descending = PressureGaugeDataObject()
+    descending.load_spectral_data_file("d", str(resources / "Example_diam_Raman.asc"))
+    descending.original_data = descending.original_data[::-1].copy()
+    descending.normalize_data()
+    descending.set_calibration(C.Akahama2006)
+    descending.set_fit_model(F.RamanEdge)
+    descending.fit_data()
+    assert descending.x == ascending.x

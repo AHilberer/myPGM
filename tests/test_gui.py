@@ -3,6 +3,7 @@ import json
 import numpy as np
 import os
 import shutil
+import sys
 import time
 
 import pytest
@@ -79,6 +80,64 @@ def test_invalid_calibration_parameters_show_fit_error(gui):
     assert gui.errors == ["Fit error"]
 
 
+@pytest.mark.filterwarnings("ignore:divide by zero:RuntimeWarning")
+def test_failed_fit_leaves_the_spectrum_and_its_table_point_unchanged(gui):
+    obj = select_and_fit(gui, "Example_Ruby_1.asc")
+    gui.view.prompt_fit_pm = lambda current: 10.0
+    gui.presenter.add_current_fit_to_table()
+    P, x = obj.P, obj.x
+    # other calibration in the toolbox, and a fit that fails
+    gui.presenter.buffer.set_calibration(C.Akahama2006)   # divides by x0
+    gui.presenter.buffer.x0 = 0
+    gui.presenter.fit_current_file()
+    assert gui.errors == ["Fit error"]
+    assert obj.calib.name == "Ruby2020" and obj.x0 == 694.28
+    assert obj.P == P and obj.x == x
+    gui.presenter.update_PvPm_table()
+    assert table_rows(gui.view.PvPmTableWindow.table_widget)[0]["calibration"] == "Ruby2020"
+
+
+def test_too_narrow_fit_range_shows_fit_error(gui):
+    fid = gui.file_id("Example_Ruby_1.asc")
+    gui.presenter.file_selected_from_file_list(fid)
+    x = gui.presenter.model[fid].normalized_data[:, 0]
+    gui.view.toggle_fit_range()
+    gui.view.fit_range_selector.setRegion((x[500], x[502]))     # 3 points
+    gui.presenter.fit_mode = F.DoubleVoigt
+    gui.presenter.fit_current_file()
+    assert gui.errors == ["Fit error"]
+    assert gui.fit_error_reasons == [
+        "Example_Ruby_1.asc: 3 points in the fit range, the Double Voigt model needs more than 9."]
+    assert gui.presenter.model[fid].fit_result is None
+
+
+def test_dialogs_open_over_the_main_window(gui, monkeypatch):
+    from PyQt5.QtWidgets import QFileDialog, QMessageBox
+    from myPGM.helpers import SmartDoubleDialog
+    from myPGM.presenter import Presenter
+    from myPGM.ui.main_ui import MainWindow
+    parents = []
+    for dialog in (QMessageBox, QFileDialog, SmartDoubleDialog):
+        monkeypatch.setattr(dialog, "exec_", lambda self: parents.append(self.parent()) or 0)
+    Presenter._error_dialog(gui.presenter, "text", "Error")    # the fixture replaces it
+    MainWindow.fit_error_popup_window(gui.view, "reason")
+    gui.view.get_file_via_dialog()
+    gui.view.prompt_fit_pm(1.0)
+    assert parents == [gui.view] * 4
+
+
+def test_fit_error_dialog_shows_the_reason(gui, monkeypatch):
+    from PyQt5.QtWidgets import QMessageBox
+    shown = []
+    monkeypatch.setattr(QMessageBox, "exec_", lambda self: shown.append(
+        (self.windowTitle(), self.text(), self.informativeText())))
+    from myPGM.ui.main_ui import MainWindow
+    MainWindow.fit_error_popup_window(gui.view, "Ruby_1.asc: 3 points in the fit range")
+    # message boxes have no title on macOS (Apple guidelines): Qt ignores it there
+    title = "" if sys.platform == "darwin" else "Fit error"
+    assert shown == [(title, "The fit failed.", "Ruby_1.asc: 3 points in the fit range")]
+
+
 def test_add_fit_to_table(gui):
     select_and_fit(gui, "Example_Ruby_1.asc")
     gui.view.prompt_fit_pm = lambda current: 12.0
@@ -86,6 +145,58 @@ def test_add_fit_to_table(gui):
     rows = table_rows(gui.view.PvPmTableWindow.table_widget)
     assert len(rows) == 1
     assert rows[0]["#"] == "1" and rows[0]["Pm (bar)"] == "12.00"
+
+
+def test_toolbox_temperature_edited_after_the_fit_is_used_in_the_table(gui):
+    obj = select_and_fit(gui, "Example_Ruby_2.asc")
+    gui.view.ptoolbox.T_spinbox.setValue(500.0)
+    gui.view.ptoolbox.x0_spinbox.setValue(694.20)
+    shown_P = gui.view.ptoolbox.P_spinbox.value()
+    gui.view.prompt_fit_pm = lambda current: 10.0
+    gui.presenter.add_current_fit_to_table()
+    assert obj.T == 500.0 and obj.x0 == pytest.approx(694.20)
+    assert obj.P == pytest.approx(shown_P, abs=1e-3)           # was added at 298 K
+    assert obj.P_err is not None                                # still a fitted point
+    assert table_rows(gui.view.PvPmTableWindow.table_widget)[0]["P (GPa)"].startswith(
+        f"{shown_P:.3f}")
+    assert gui.errors == []
+
+
+def test_x0_edited_in_the_toolbox_stays_in_this_window(gui, qapp):
+    from myPGM.ui.main_ui import MainWindow
+    from myPGM.data_model import PressureGaugeDataManager
+    from myPGM.presenter import Presenter
+    gui.view.ptoolbox.x0_spinbox.setValue(694.20)
+    assert gui.view.ptoolbox.calibrations["Ruby2020"].x0default == pytest.approx(694.20)
+    assert C.Ruby2020.x0default == 694.28                       # module object unchanged
+    other = MainWindow()
+    Presenter(PressureGaugeDataManager(), other)
+    assert other.ptoolbox.calibrations["Ruby2020"].x0default == 694.28
+    assert other.ptoolbox.x0_spinbox.value() == pytest.approx(694.28)
+    dispose(other)
+
+
+def test_fit_changed_in_the_toolbox_is_not_added_to_the_table(gui):
+    obj = select_and_fit(gui, "Example_Ruby_2.asc")
+    P = obj.P
+    gui.view.ptoolbox.P_spinbox.setValue(10.0)                 # the toolbox no longer shows the fit
+    gui.view.prompt_fit_pm = lambda current: 10.0
+    gui.presenter.add_current_fit_to_table()
+    assert gui.errors == ["Toolbox changed"]
+    assert not obj.include_in_table and obj.P == P
+    # selecting the file again restores its fit in the toolbox
+    gui.presenter.file_selected_from_file_list(obj.id)
+    gui.presenter.add_current_fit_to_table()
+    assert obj.include_in_table and obj.P == P
+
+
+def test_cancelling_the_pm_dialog_changes_nothing(gui):
+    obj = select_and_fit(gui, "Example_Ruby_2.asc")
+    P = obj.P
+    gui.view.ptoolbox.T_spinbox.setValue(500.0)
+    gui.view.prompt_fit_pm = lambda current: None
+    gui.presenter.add_current_fit_to_table()
+    assert not obj.include_in_table and obj.T == 298 and obj.P == P
 
 
 # --- files --------------------------------------------------------------------------
@@ -180,6 +291,45 @@ def test_session_save_and_load(gui, tmp_path, monkeypatch):
     restored = gui.presenter.model[gui.file_id("Example_Ruby_2.asc")]
     assert restored.P == pytest.approx(P_fitted)
     assert gui.presenter.current_selected_file == restored.id
+    # compact JSON: indented, every number took a line (about 2x larger)
+    assert session.read_text().count("\n") == 0
+
+
+def test_session_restores_the_spectrometer_calibration_label(gui, resources, tmp_path, monkeypatch):
+    # the label kept showing the calibration file of the session open before
+    label = gui.view.Spectro_filename_label
+    gui.presenter.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))   # 1024 points
+    monkeypatch.setattr(gui.view, "get_file_via_dialog",
+                        lambda: [str(resources / "alternate_spectro_calib.asc")])
+    gui.presenter.load_spectro_calibration()
+    assert gui.presenter.corrected_spectro_x is not None
+    session = tmp_path / "session.json"
+    monkeypatch.setattr(gui.view, "get_save_session_filename_dialog", lambda: str(session))
+    monkeypatch.setattr(gui.view, "get_open_session_filename_dialog", lambda: str(session))
+    gui.presenter.save_session()
+
+    payload = json.loads(session.read_text())
+    no_calib = tmp_path / "no_calib.json"
+    no_calib.write_text(json.dumps(dict(payload, corrected_spectro_x=None, corrected_spectro_name=None)))
+    gui.presenter.load_session(str(no_calib))
+    assert label.text() == "None" and gui.presenter.corrected_spectro_x is None
+
+    gui.presenter.load_session()
+    assert label.text() == "alternate_spectro_calib.asc"
+
+    older = tmp_path / "older.json"                     # saved before the name was stored
+    del payload["corrected_spectro_name"]
+    older.write_text(json.dumps(payload))
+    gui.presenter.load_session(str(older))
+    assert label.text() == "from session"
+    assert gui.errors == []
+
+
+def test_session_dict_does_not_share_the_file_order(gui):
+    # autosave encodes this dict in a thread, while Move up/down swaps list items in place
+    order = gui.presenter.ordered_files_to_display
+    assert gui.presenter._session_dict()["ordered_files"] == order
+    assert gui.presenter._session_dict()["ordered_files"] is not order
 
 
 def test_corrupted_session_keeps_current_session(gui, tmp_path, monkeypatch):
@@ -207,14 +357,30 @@ def test_light_mode_does_not_colour_T_at_room_temperature(gui):
 
 
 def test_consistent_font_size_at_startup(gui):
-    from PyQt5.QtGui import QFontInfo
-    app_px = QFontInfo(gui.view.fit_button.font()).pixelSize()
+    from myPGM.helpers import current_app_font_px
+    # (QFontInfo.pixelSize() can be -1, on Windows: the app converts the point size)
+    app_px = current_app_font_px()
     axis = gui.view.data_widget.getAxis("bottom")
     assert axis.labelStyle["font-size"] == f"{app_px}px"
     assert axis.style["tickFont"].pixelSize() == app_px
     pvpm_axis = gui.view.PvPmPlotWindow.plot_graph.getAxis("left")
     assert pvpm_axis.labelStyle["font-size"] == f"{app_px}px"
     assert f"font-size: {app_px}px" in gui.view.PvPmTableWindow.table_widget.styleSheet()
+
+
+@pytest.mark.parametrize("point_size", [9.0, -1.0])
+def test_font_size_without_a_pixel_size_from_qt(qapp, monkeypatch, point_size):
+    # Qt gave -1 on Windows CI, and "font-size: -1px" was applied everywhere
+    from PyQt5.QtGui import QFont, QFontInfo
+    from myPGM.helpers import DEFAULT_FONT_PX, current_app_font_px
+    monkeypatch.setattr(QFontInfo, "pixelSize", lambda self: -1)
+    monkeypatch.setattr(QFont, "pointSizeF", lambda self: point_size)
+    size = current_app_font_px()
+    if point_size > 0:
+        dpi = qapp.primaryScreen().logicalDotsPerInch()
+        assert size == round(9.0 * dpi / 72) > 0
+    else:
+        assert size == DEFAULT_FONT_PX
 
 
 def test_font_window_starts_from_current_size_without_changes(gui):
@@ -246,6 +412,69 @@ def test_font_size_applies_everywhere_and_survives_theme_change(gui):
 
 def _title(gui):
     return gui.view.data_widget.plotItem.titleLabel.text
+
+
+# --- settings kept between launches ---------------------------------------------------------
+
+def test_theme_is_remembered(gui, isolated_settings):
+    from myPGM.ui.main_ui import MainWindow
+    gui.view.switch_to_dark()
+    assert (isolated_settings / "myPGM" / "myPGM.ini").exists()
+    view = MainWindow()                                 # next launch
+    assert view.plot_label_color == "white"
+    dispose(view)
+    gui.view.switch_to_light()
+    view = MainWindow()
+    assert view.plot_label_color == "black"
+    dispose(view)
+
+
+def test_font_size_is_remembered(gui):
+    from myPGM.helpers import load_style
+    from myPGM.ui.main_ui import MainWindow
+    gui.view.show_font_size_window()
+    gui.view.font_size_window.slider.setValue(21)
+    gui.app.setStyleSheet(load_style("light-mode.qss"))   # as at a new launch
+    view = MainWindow()
+    assert view.plot_font_px == 21 and "font-size: 21px" in gui.app.styleSheet()
+    dispose(view)
+
+
+def test_dialogs_start_in_the_last_folder_used(gui, monkeypatch, resources, tmp_path):
+    from PyQt5.QtWidgets import QFileDialog
+    from myPGM.settings import last_dir, remember_dir
+    starts = []
+    monkeypatch.setattr(QFileDialog, "exec_",
+                        lambda self: starts.append(self.directory().absolutePath()) or 1)
+    monkeypatch.setattr(QFileDialog, "selectedFiles", lambda self: [str(resources / "Example_H2.txt")])
+    gui.view.get_file_via_dialog()
+    gui.view.get_file_via_dialog()
+    # Qt writes D:/a/... on Windows, Python D:\a\...
+    assert os.path.normcase(os.path.normpath(starts[1])) == os.path.normcase(str(resources))
+
+    def static_dialog(answer):
+        return lambda parent, title, folder, *args, **kwargs: starts.append(folder) or answer
+    monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                        static_dialog((str(tmp_path / "s.json"), "Session Files (*.json)")))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", static_dialog(("", "")))
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", static_dialog(str(resources)))
+    starts.clear()
+    gui.view.get_save_session_filename_dialog()
+    gui.view.get_open_session_filename_dialog()            # cancelled: folder kept
+    gui.view.get_open_session_filename_dialog()
+    gui.view.select_directory_from_dialog()
+    gui.view.select_directory_from_dialog()
+    assert starts == ["", str(tmp_path), str(tmp_path), "", str(resources)]
+
+    monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                        static_dialog((str(tmp_path / "t.csv"), "CSV Files (*.csv)")))
+    starts.clear()
+    gui.view.PvPmTableWindow.get_save_filename_dialog()
+    gui.view.PvPmTableWindow.get_save_filename_dialog()
+    assert starts == ["", str(tmp_path)]
+
+    remember_dir("spectra", tmp_path / "gone" / "file.txt")    # folder removed since
+    assert last_dir("spectra") == ""
 
 
 def test_title_shows_fit_uncertainty(gui):
@@ -292,6 +521,29 @@ def test_table_plot_and_csv_show_uncertainty(gui, tmp_path, monkeypatch):
     assert exported[0]["x unit"] == "nm" and exported[0]["fit model"] == "Double Voigt"
 
 
+def test_csv_export_error_is_shown(gui, tmp_path, monkeypatch, caplog):
+    from PyQt5.QtWidgets import QMessageBox
+    shown = []
+    monkeypatch.setattr(QMessageBox, "critical", lambda parent, title, text: shown.append(title))
+    window = gui.view.PvPmTableWindow
+    monkeypatch.setattr(window, "get_save_filename_dialog", lambda: str(tmp_path / "missing" / "t.csv"))
+    window.save_data_to_csv()                       # raised FileNotFoundError
+    assert shown == ["Export error"]
+    assert "Could not export the table" in caplog.text
+
+
+@pytest.mark.parametrize("chosen, saved", [
+    ("/data/run.csv.d/table", "/data/run.csv.d/table.csv"),   # '.csv' only in a folder name
+    ("/data/table.CSV", "/data/table.CSV"),
+    ("/data/table", "/data/table.csv"),
+])
+def test_csv_export_adds_the_extension(gui, monkeypatch, chosen, saved):
+    from PyQt5.QtWidgets import QFileDialog
+    monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                        lambda *args, **kwargs: (chosen, "CSV Files (*.csv)"))
+    assert gui.view.PvPmTableWindow.get_save_filename_dialog() == saved
+
+
 def test_error_bars_removed_with_table_entries(gui):
     select_and_fit(gui, "Example_Ruby_1.asc")
     gui.view.prompt_fit_pm = lambda current: 12.0
@@ -318,7 +570,42 @@ def test_windows_open_within_the_screen(gui):
     from PyQt5.QtGui import QGuiApplication
     area = QGuiApplication.primaryScreen().availableGeometry()
     for window in (gui.view, gui.view.PvPmTableWindow, gui.view.PvPmPlotWindow):
-        assert area.contains(window.geometry()), (window.windowTitle(), window.geometry(), area)
+        geometry = window.frameGeometry()  # title bar and borders included
+        minimum = window.minimumSizeHint().expandedTo(window.minimumSize())
+        info = (window.windowTitle(), geometry, area, minimum)
+        # a window whose minimum size is larger than the screen (800 x 600 on Windows
+        # CI, with its larger fonts) cannot fit: it must then start at the screen edge
+        if minimum.width() <= area.width():
+            assert area.left() <= geometry.left() and geometry.right() <= area.right(), info
+        else:
+            assert geometry.left() == area.left() and geometry.width() >= minimum.width(), info
+        if minimum.height() <= area.height():
+            assert area.top() <= geometry.top() and geometry.bottom() <= area.bottom(), info
+        else:
+            assert geometry.top() == area.top() and geometry.height() >= minimum.height(), info
+
+
+def test_window_wider_than_the_screen_starts_at_its_edge(qapp, monkeypatch):
+    # a window whose layout cannot shrink to the screen was placed with its usual
+    # width, next to the main window; Qt then widened it to its minimum when showing
+    # it, and it ran off the right edge (Windows CI, 800 px screen: the table needed
+    # 823 px, with the Windows fonts)
+    from PyQt5.QtGui import QGuiApplication
+    from myPGM.ui import PvPmTable
+    from myPGM.ui.main_ui import MainWindow
+    area = QGuiApplication.primaryScreen().availableGeometry()
+    table_init = PvPmTable.HPTableWindow.__init__
+
+    def wide_table_init(self, *args, **kwargs):
+        table_init(self, *args, **kwargs)
+        self.table_widget.setMinimumWidth(area.width() + 23)
+    monkeypatch.setattr(PvPmTable.HPTableWindow, "__init__", wide_table_init)
+    view = MainWindow()
+    qapp.processEvents()
+    table = view.PvPmTableWindow
+    assert table.frameGeometry().left() == area.left()  # geometry() excludes the frame
+    assert table.width() > area.width()
+    view.close()
 
 
 # --- demo session -------------------------------------------------------------------------
@@ -538,6 +825,32 @@ def test_manual_background_is_flat_beyond_the_clicked_points(gui):
     for cx, cy in clicks:                                       # still goes through the clicks
         assert np.interp(cx, x, bg) == pytest.approx(cy, abs=2e-3)
     assert bg[inside].min() < bg[inside].max()                  # curved between the clicks
+
+
+def test_manual_background_with_one_click_does_not_reuse_the_previous_one(gui):
+    gui.presenter.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
+    obj = gui.presenter.model[gui.file_id("Example_Ruby_1.asc")]
+    gui.view.toggle_ManualBg()                                  # start
+    gui.view.ManualBg_points = [[689.0, 0.04], [699.0, 0.05]]
+    gui.view.plot_ManualBg()
+    gui.view.toggle_ManualBg()                                  # subtract
+    bg = obj.bg.copy()
+    gui.view.toggle_ManualBg()                                  # again, one click only
+    gui.view.ManualBg_points = [[694.0, 0.04]]
+    gui.view.plot_ManualBg()
+    gui.view.toggle_ManualBg()
+    np.testing.assert_array_equal(obj.bg, bg)                   # was subtracted twice
+    assert gui.errors == []
+
+
+def test_derivative_plot_with_x_stored_decreasing(gui):
+    x = np.linspace(1300, 1600, 301)
+    y = 1 - 1 / (1 + np.exp(-(x - 1450) / 2))
+    gui.view.plot_data(x, y, gui.presenter.buffer)
+    dI = gui.view.deriv_scatter.getData()[1].copy()
+    assert x[np.argmin(dI)] == pytest.approx(1450, abs=1)
+    gui.view.plot_data(x[::-1], y[::-1], gui.presenter.buffer)
+    np.testing.assert_allclose(gui.view.deriv_scatter.getData()[1], dI[::-1])
 
 
 def test_pvpm_plot_follows_table_order_and_short_names(gui):

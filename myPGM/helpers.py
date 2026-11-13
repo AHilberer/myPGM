@@ -22,9 +22,17 @@ def set_app_theme(style):
     _, marker, font_rule = app.styleSheet().partition(FONT_RULE_MARKER)
     app.setStyleSheet(style + marker + font_rule)
 
+DEFAULT_FONT_PX = 15
+
 def current_app_font_px():
-    """Pixel size of the font currently used by the application widgets."""
-    return QFontInfo(QApplication.font()).pixelSize()
+    """Pixel size of the font currently used by the application widgets. Qt gives
+    -1 when it cannot resolve one (seen on Windows): the point size is then
+    converted, and DEFAULT_FONT_PX used as a last resort (-1 px fonts were set)."""
+    font = QApplication.font()
+    size = QFontInfo(font).pixelSize()
+    if size <= 0 and font.pointSizeF() > 0:
+        size = round(font.pointSizeF() * QApplication.primaryScreen().logicalDotsPerInch() / 72)
+    return size if size > 0 else DEFAULT_FONT_PX
 
 def set_app_font_size(size):
     """Set the global font size, keeping the current theme stylesheet."""
@@ -37,7 +45,7 @@ class FontSizeWindow(QWidget):
     # widgets drawn outside of Qt stylesheets (plots, table) listen to this
     font_size_changed = pyqtSignal(int)
 
-    def __init__(self, current_size=15):
+    def __init__(self, current_size=DEFAULT_FONT_PX):
         super().__init__()
 
         self.setObjectName("FontSizeWindow")
@@ -138,7 +146,7 @@ def pressure_valid(func):
             else:
                 self.view.ptoolbox.set_valid_colors(True)
             return res
-        except PressureCalculationFailed as err:
+        except PressureCalculationFailed:
             if hasattr(self, "_get_toolbox_context") and hasattr(self, "sender"):
                 toolbox, _ = self._get_toolbox_context(self.sender())
                 toolbox.set_valid_colors(False)
@@ -220,36 +228,48 @@ def customparse_file2data(f):
         if len(sp) < 2:
             continue
         try:
-            data_rows.append([_to_float(v) for v in sp])
+            # first two columns only: rows with more values (e.g. a numeric
+            # header line) made the array ragged
+            data_rows.append([_to_float(v) for v in sp][:2])
         except ValueError:
             continue
 
     if not data_rows:
         raise RuntimeError("No numeric data found in file")
 
-    data = np.array(data_rows, dtype=np.float64)
-    return data[:, :2]
+    return np.array(data_rows, dtype=np.float64)
+
+def _single_column_values(f):
+    """Values of a one-number-per-line file (header/footer lines skipped), or None."""
+    with open(f, 'r') as file:
+        data_lines = []
+        for line in file:
+            try:
+                data_lines.append(float(line.strip().replace(',', '.')))
+            except ValueError:
+                pass
+    return np.array(data_lines, dtype=np.float64) if data_lines else None
+
+def _strictly_monotonic(values):
+    steps = np.diff(values)
+    return bool(np.all(steps > 0) or np.all(steps < 0))
 
 def spectro_calibration_reader(f):
+    """x axis of an alternative spectrometer calibration: the first column of a
+    two-column file, or a single-column file. A calibration axis is strictly
+    monotonic, which decides between the two readings of a line like '690,01'
+    (two columns, or one value with a decimal comma: it was read as 690)."""
+    readings = []
     try:
-        # two-column file
-        data = customparse_file2data(f)[:, 0]
-        return data
-
-    except Exception:
-        # single-column file (?)
-        with open(f, 'r') as file:
-            data_lines = []
-            for line in file:
-                try:
-                    # in case of header/footer
-                    v = float(line.strip().replace(',', '.'))
-                    data_lines.append(v)
-                except ValueError:
-                    pass
-
-            if not data_lines:
-                raise RuntimeError("No numeric data found in spectrometer calibration file")
-
-            data = np.array(data_lines, dtype=np.float64)
-        return data
+        readings.append(customparse_file2data(f)[:, 0])      # two-column file
+    except RuntimeError:
+        pass
+    single = _single_column_values(f)
+    if single is not None:
+        readings.append(single)
+    if not readings:
+        raise RuntimeError("No numeric data found in spectrometer calibration file")
+    for data in readings:
+        if _strictly_monotonic(data):
+            return data
+    return readings[0]

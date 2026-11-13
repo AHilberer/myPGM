@@ -1,4 +1,5 @@
 import csv
+import logging
 
 from PyQt5.QtWidgets import (
     QWidget,
@@ -11,11 +12,15 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QAbstractItemView,
     QMenu,
+    QMessageBox,
 )
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
 
+from myPGM.settings import last_dir, remember_dir
 from myPGM.ui.PressureToolbox import PressureToolbox
+
+logger = logging.getLogger(__name__)
 
 ROOM_T = 298
 SORT_ROLE = Qt.UserRole          # numeric value used for sorting
@@ -301,10 +306,15 @@ class HPTableWindow(QWidget):
         file_path = self.get_save_filename_dialog()
         if file_path:
             header, rows = self.table_widget.export_rows()
-            with open(file_path, "w", newline="", encoding="utf-8") as file_handle:
-                writer = csv.writer(file_handle)
-                writer.writerow(header)
-                writer.writerows(rows)
+            try:
+                with open(file_path, "w", newline="", encoding="utf-8") as file_handle:
+                    writer = csv.writer(file_handle)
+                    writer.writerow(header)
+                    writer.writerows(rows)
+            except OSError as exc:
+                # e.g. no permission, or the file is open in Excel on Windows
+                logger.warning("Could not export the table to %s: %s", file_path, exc)
+                QMessageBox.critical(self, "Export error", f"Could not export the table:\n{exc}")
 
     def get_save_filename_dialog(self):
         options = QFileDialog.Options()
@@ -315,16 +325,15 @@ class HPTableWindow(QWidget):
         fileName, fileType = QFileDialog.getSaveFileName(
             self,
             "myPGM: Save data to csv",
-            "",
+            last_dir("exports"),
             "CSV Files (*.csv);;All Files (*)",
             options=options,
         )
 
-        if fileType == "CSV Files (*.csv)":
-            if ".csv" in fileName:
-                pass
-            else:
-                fileName += ".csv"
+        # endswith: ".csv" anywhere in the path (e.g. a folder name) skipped the extension
+        if fileType == "CSV Files (*.csv)" and fileName and not fileName.lower().endswith(".csv"):
+            fileName += ".csv"
+        remember_dir("exports", fileName)
 
         if fileName:
             return fileName

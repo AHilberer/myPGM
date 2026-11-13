@@ -2,6 +2,81 @@
 
 All notable changes to myPGM are listed here. Versions follow [semantic versioning](https://semver.org).
 
+## [1.1.0] - 2026-11-13
+
+Fixes found in a review of the whole code (fits that could corrupt table points, background
+subtraction, file parsing, session recovery), saving in place with Save / Save as, settings kept
+between launches and smaller session files. Sessions are compatible both ways with 1.0.
+
+### Added
+- **Save session** writes to the session's own file (shown in the window title) and only asks for a
+  file the first time; **Save session as...** always asks. Keyboard shortcuts: Ctrl+O, Ctrl+S,
+  Ctrl+Shift+S and Ctrl+Q (Cmd on macOS).
+- The theme, font size and the folders last used in file dialogs are remembered between launches
+  (in `~/.config/myPGM/myPGM.ini`, or `%APPDATA%\myPGM\myPGM.ini` on Windows). Reference positions
+  (λ0, ν0) are not, on purpose: they are measured for each experiment.
+
+### Changed
+- The fit error dialog gives the reason (e.g. too few points in the fit range); it was only in the log.
+- Error dialogs, the Pm dialog and the file dialog open over the main window (they could open
+  behind it).
+- Session files are about 2.3x smaller: compact JSON, without the fitted curve (rebuilt when the
+  session is opened). Older sessions still open, and new ones open in myPGM 1.0.
+- The Hilberer 2026 diamond Raman edge calibration cites its paper (Nat Commun 17, 2644 (2026)).
+
+### Fixed
+- Exporting the table to a file that cannot be written (no permission, file open elsewhere) gave an
+  unexpected error; it is now reported. The `.csv` extension was not added when `.csv` appeared
+  elsewhere in the path, and was added again to a name ending in `.CSV`.
+- A failed fit left the spectrum with the toolbox calibration but its previous position, so a
+  point already in the PvPm table could show a wrong pressure; a failed fit now changes nothing.
+- A fit range with too few points for the model gave an "Unexpected error" instead of the fit error.
+- Manual Bg with a single click subtracted the previous manual background a second time.
+- "Add fit to table" ignored T, x0 and T0 edited in the pressure toolbox after the fit, so the table
+  point did not have the pressure shown in the toolbox. They are now used; if the calibration,
+  position or pressure was changed in the toolbox, the fit is not added and a message explains why.
+- A session backup that could not be loaded was offered for recovery at every start; it is now
+  kept aside as `.discarded.json`, like a declined backup.
+- Auto Bg left out the last point of the spectrum: after the last but one anchor the background
+  stayed flat, so a sloped baseline was only partly removed at the high-x end.
+- Spectra stored with x decreasing: Auto Bg used the upper hull (making the spectrum negative), and
+  the Raman edge and the derivative plot followed the file order instead of increasing x.
+- Spectrum files with a row of more values than the others (e.g. a numeric header line) could not
+  be loaded.
+- A single-column spectrometer calibration file with decimal commas (`690,01`) was read as two
+  columns, giving a flat x axis (690, 690, ...) without any error.
+- Opening a session did not update the spectrometer calibration file name shown next to "Use";
+  sessions now store it.
+- A spectrum with no positive intensity was turned upside down by the normalisation, and an
+  all-zero spectrum loaded as NaN; the latter is now refused with a clear message.
+- The automatic backup could read the file order while Move up/down was changing it.
+- When Qt reports no pixel size for the system font (seen on Windows), the plots and the table got a
+  font size of -1 px; the point size is now converted instead.
+- A PvPm window that cannot shrink to fit a small screen (large fonts) opened partly off its right
+  edge. The windows are now placed once shown, at their real minimum size and with their title bar
+  and borders inside the screen.
+
+### Development
+- Fit models declare their number of peaks and parameters per peak (checked against the fit
+  function), instead of guessing them from the number of arguments.
+- Each window works on its own copies of the calibrations: editing x0 or T0 no longer changes the
+  module-level calibration objects (which leaked between tests).
+- The automatic backup (file, lock, background writing, scan for orphans) moved from the presenter
+  to `myPGM/session_backup.py`.
+- ruff checks the code (`ruff check .`, also run on GitHub); tab indentation converted to spaces.
+- The tests also run on macOS and Windows on GitHub.
+- Package metadata: SPDX license expression `GPL-3.0-only` (building needs setuptools >= 77).
+
+### Known limitations
+- Ruby temperature correction (under review): the Datchi 2007 polynomial for 296-900 K is used at
+  every temperature. Below room temperature it likely overestimates the ruby shift, hence the
+  pressure (by several GPa at cryogenic temperatures).
+- σx and σP are the statistical precision of the fit only, and are underestimated when the spectrum
+  is smoothed (smoothed points are not independent).
+- The Raman edge model needs a fit range around the edge: on the whole spectrum it can pick an
+  unrelated feature.
+- No standalone executables yet.
+
 ## [1.0.0] - 2026-10-18
 
 First stable release. Compared with the previous `main` branch, it fixes several fitting and stability

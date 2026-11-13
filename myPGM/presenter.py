@@ -1,17 +1,15 @@
 import os
-import glob
 import json
 import hashlib
 import logging
-import threading
 import time
-import uuid
 import numpy as np
 from copy import deepcopy
 from importlib.metadata import PackageNotFoundError, version
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
-from PyQt5.QtCore import Qt, QFileInfo, QObject, QTimer, QLockFile
+from PyQt5.QtCore import Qt, QFileInfo, QObject, QTimer
 from myPGM.data_model import PressureGaugeDataObject
+from myPGM.session_backup import SessionBackup, write_json
 import myPGM.calibrations
 import myPGM.fit_models
 from myPGM.helpers import pressure_valid, spectro_calibration_reader, PressureCalculationFailed
@@ -34,7 +32,6 @@ def get_app_version():
 
 class Presenter(QObject):
     AUTOSAVE_INTERVAL_MS = 30_000
-    BACKUP_PREFIX = "autosave_session"     # + _<pid>_<start time>_<random>.json, one per window
 
     def __init__(self, model, view, test_mode=False, demo=False, backup_dir=None):
         """test_mode: load the example spectra (used by the tests).
@@ -47,6 +44,7 @@ class Presenter(QObject):
         self.current_selected_file = None
         self.current_directory = None
         self.corrected_spectro_x = None
+        self.corrected_spectro_name = None     # its file name, shown next to "Use"
         self.example_files = [
                 "Example_diam_Raman.asc",
                 "Example_Ruby_1.asc",
@@ -66,7 +64,8 @@ class Presenter(QObject):
         self.buffer = PressureGaugeDataObject()
         self.additional_buffer = PressureGaugeDataObject()
         self.app_version = get_app_version()
-        self.view.setWindowTitle(f"myPGM - Pressure Gauge Monitor v{self.app_version}")
+        self.session_path = None            # where "Save session" writes, None: asks
+        self._update_window_title()
 
         self.initialize_calibrations_menu()
         self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
@@ -104,6 +103,7 @@ class Presenter(QObject):
 
         self.view.open_session_signal.connect(self.load_session)
         self.view.save_session_signal.connect(self.save_session)
+        self.view.save_session_as_signal.connect(lambda: self.save_session(save_as=True))
         self.view.theme_switched.connect(self.on_theme_switched)
 
         self.view.PToolbox_toTable_button.clicked.connect(self.add_current_PToolbox_to_table)
@@ -119,22 +119,9 @@ class Presenter(QObject):
 
         # automatic backup of the session, recovered after a crash (offer_recovery)
         self.backup_dir = backup_dir
-        self.backup_path = None
-        self._backup_lock = None
-        self._backup_fingerprint = None
-        self._backup_thread = None
-        self._backup_failed = False     # warned once, then only debug messages
+        self.backup = SessionBackup(backup_dir) if backup_dir is not None else None
         self.autosave_timer = None
-        if backup_dir is not None:
-            # each window has its own backup, locked while the window is open, so that
-            # several myPGM windows never recover or delete each other's backups
-            base = os.path.join(backup_dir, f"{self.BACKUP_PREFIX}_{os.getpid()}_"
-                                            f"{int(time.time())}_{uuid.uuid4().hex[:6]}")
-            self.backup_path = base + ".json"
-            self._backup_lock = QLockFile(base + ".lock")
-            self._backup_lock.setStaleLockTime(0)       # only the owner process being gone matters
-            if not self._backup_lock.tryLock(0):
-                logger.warning("Could not lock the session backup %s", base + ".lock")
+        if self.backup is not None:
             self.autosave_timer = QTimer(self)
             self.autosave_timer.timeout.connect(self.autosave)
             self.autosave_timer.start(self.AUTOSAVE_INTERVAL_MS)
@@ -143,7 +130,10 @@ class Presenter(QObject):
         #? Methods 
 
     def initialize_calibrations_menu(self):
-        calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
+        # copies owned by this window: editing x0 or T0 updates the calibration's
+        # default (on_x0_edited), which must not change the module objects shared
+        # by every window
+        calib_dict = {a.name: deepcopy(a) for a in myPGM.calibrations.calib_list}
         self.view.ptoolbox.initialize(calib_dict)
         self.view.additional_toolbox_window.initialize(calib_dict)
 
@@ -153,7 +143,8 @@ class Presenter(QObject):
         self._error_dialog(text, title)
 
     def _error_dialog(self, text, title):
-        msg = QMessageBox()
+        # over the main window (without a parent it could open behind it)
+        msg = QMessageBox(self.view)
         msg.setIcon(QMessageBox.Critical)
         msg.setText(text)
         msg.setWindowTitle(title)
@@ -199,8 +190,7 @@ class Presenter(QObject):
 
     def initialize_buffer(self):
         # Default state at opening 
-        calib_dict = {a.name: a for a in myPGM.calibrations.calib_list}
-        self.buffer.calib = calib_dict["Ruby2020"]
+        self.buffer.calib = self.view.ptoolbox.calibrations["Ruby2020"]
         self.buffer.Pm = 0
         self.buffer.T = 298
         self.buffer.x0 = 694.28
@@ -607,6 +597,7 @@ class Presenter(QObject):
             self._validate_spectro_calibration(corrected_spectro_x)
         except Exception as exc:
             self.corrected_spectro_x = None
+            self.corrected_spectro_name = None
             self.view.Spectro_filename_label.setText("None")
             self.view.Spectro_use_button.setChecked(False)
             self._show_error(
@@ -616,6 +607,7 @@ class Presenter(QObject):
             return
 
         self.corrected_spectro_x = corrected_spectro_x
+        self.corrected_spectro_name = file_name
         self.view.Spectro_filename_label.setText(file_name)
         logger.debug("Spectrometer calibration loaded from %s", selected_file)
 
@@ -743,23 +735,30 @@ class Presenter(QObject):
             obj = self.model.get(self.current_selected_file, None)
 
             try:
+                # The fit is done on a copy, kept only if it succeeds: a failed fit
+                # must not leave obj (possibly a table point) with the new calibration
+                # and its old position, i.e. a wrong pressure.
+                trial = deepcopy(obj)
                 # Set parameters from buffer :
                 # calibration first, as set_calibration resets x0/T0 to the calib defaults
                 # deepcopy more safe here also:
-                obj.set_calibration( deepcopy(self.buffer.calib) )
-                obj.set_Pm(self.buffer.Pm)
-                obj.set_T(self.buffer.T)
-                obj.set_x0(self.buffer.x0)
-                obj.set_T0(self.buffer.T0)
+                trial.set_calibration( deepcopy(self.buffer.calib) )
+                trial.set_Pm(self.buffer.Pm)
+                trial.set_T(self.buffer.T)
+                trial.set_x0(self.buffer.x0)
+                trial.set_T0(self.buffer.T0)
 
-                obj.set_fit_model(self.fit_mode)
+                trial.set_fit_model(self.fit_mode)
 
                 # the range is only used while "Fit range" is on
                 if self.view.fit_range_enabled:
-                    obj.fitting_range = self.view.fit_range_selector.getRegion()
+                    trial.fitting_range = self.view.fit_range_selector.getRegion()
                 else:
-                    obj.fitting_range = None
-                obj.fit_data(guess)
+                    trial.fitting_range = None
+                trial.fit_data(guess)
+
+                # same object kept in the model, with the fitted state
+                vars(obj).update(vars(trial))
 
                 # Copy the fitted obj into the buffer. It must be a deepcopy:
                 # otherwise self.buffer would be a reference to the last fitted
@@ -778,15 +777,19 @@ class Presenter(QObject):
 
     def fit_error_popup(self, reason=""):
         logger.warning("Fit error: %s", reason)
-        self.view.fit_error_popup_window()
+        self.view.fit_error_popup_window(reason)
 
     def add_current_fit_to_table(self, _=None):
         if self.current_selected_file is not None:
             obj = self.model.get(self.current_selected_file, None)
             if obj.fit_result is not None:
+                trial = self._with_toolbox_conditions(obj)
+                if trial is None:
+                    return
                 pm_value = self.view.prompt_fit_pm(self.buffer.Pm)
                 if pm_value is None:
                     return
+                vars(obj).update(vars(trial))
                 obj.set_Pm(pm_value)
                 self.buffer.set_Pm(pm_value)
                 self.view.ptoolbox.set_Pmval(pm_value)
@@ -796,6 +799,30 @@ class Presenter(QObject):
                 self._show_error("No fit result to add to table.")
         else:
             self._show_error("No file selected.")
+
+    def _with_toolbox_conditions(self, obj):
+        """Copy of the fitted obj with the T, x0 and T0 of the pressure toolbox, which
+        shows a copy of this fit (self.buffer) and may have been edited since: the
+        table point then has the pressure shown in the toolbox. None (error shown) if
+        the toolbox no longer shows this fit (calibration, position or pressure changed)."""
+        trial = deepcopy(obj)
+        if self.buffer.id != obj.id:
+            return trial                # the toolbox does not show this spectrum
+        if (self.buffer.calib is None or obj.calib is None
+                or self.buffer.calib.name != obj.calib.name or self.buffer.x != obj.x):
+            self._show_error(
+                "The pressure toolbox no longer shows this fit (calibration or position "
+                "changed). Fit the spectrum again, or select it again in the file list, "
+                "before adding it to the table.", title="Toolbox changed")
+            return None
+        try:
+            trial.set_T(self.buffer.T)
+            trial.set_x0(self.buffer.x0)
+            trial.set_T0(self.buffer.T0)
+        except PressureCalculationFailed as exc:
+            self._show_error(f"Cannot add this fit to the table: {exc}", title="Pressure error")
+            return None
+        return trial
 
     def update_PvPm_table(self):
         self.view.PvPmTableWindow.table_widget.updatetable()
@@ -855,35 +882,41 @@ class Presenter(QObject):
     def _session_dict(self):
         return {
             "app_version": self.app_version,
-            "ordered_files": self.ordered_files_to_display,
+            # a copy: autosave encodes this dict in a thread, and Move up/down
+            # swaps the items of the list in place
+            "ordered_files": list(self.ordered_files_to_display),
             "current_selected_file": self.current_selected_file,
             "buffer": self.buffer.to_dict(),
             "corrected_spectro_x": self.corrected_spectro_x.tolist()
             if self.corrected_spectro_x is not None
             else None,
+            "corrected_spectro_name": self.corrected_spectro_name,
             "spectro_use_enabled": self.view.Spectro_use_button.isChecked(),
             "files": [obj.to_dict() for obj in self.model.values()],
         }
 
-    @staticmethod
-    def _write_json(session, file_path, indent=2):
-        # write to a temporary file first, so a crash never leaves a half-written file
-        tmp_path = file_path + ".tmp"
-        with open(tmp_path, "w", encoding="utf-8") as file_handle:
-            json.dump(session, file_handle, indent=indent)
-        os.replace(tmp_path, file_path)
+    def _update_window_title(self):
+        title = f"myPGM - Pressure Gauge Monitor v{self.app_version}"
+        if self.session_path:
+            title += f" - {os.path.basename(self.session_path)}"
+        self.view.setWindowTitle(title)
 
-    def save_session(self):
-        """Ask for a file and save the session. Returns True if it was saved."""
-        file_path = self.view.get_save_session_filename_dialog()
+    def save_session(self, save_as=False):
+        """Save the session to its file, asked for if it has none yet or with
+        save_as. Returns True if it was saved."""
+        file_path = None if save_as else self.session_path
+        if not file_path:
+            file_path = self.view.get_save_session_filename_dialog()
         if not file_path:
             return False
         try:
-            self._write_json(self._session_dict(), file_path)
+            write_json(self._session_dict(), file_path)
         except Exception as exc:
             self._show_error(f"Failed to save session: {exc}", title="Save error")
             return False
         self._saved_fingerprint = self._content_fingerprint()
+        self.session_path = file_path
+        self._update_window_title()
         self._remove_backup()
         logger.debug("Session saved to %s (%d spectra)", file_path, len(self.model))
         return True
@@ -898,6 +931,8 @@ class Presenter(QObject):
         try:
             with open(file_path, "r", encoding="utf-8") as file_handle:
                 session = json.load(file_handle)
+            if not isinstance(session, dict):
+                raise ValueError("not a myPGM session file")
         except Exception as exc:
             self._show_error(f"Failed to load session: {exc}", title="Load error")
             return False
@@ -913,7 +948,7 @@ class Presenter(QObject):
             ]
         except Exception as exc:
             self._show_error(f"Failed to load session: {exc}", title="Load error")
-            return
+            return False
 
         self.model.clear()
         self.ordered_files_to_display = []
@@ -941,6 +976,11 @@ class Presenter(QObject):
         corrected_spectro_x = session.get("corrected_spectro_x")
         if corrected_spectro_x is not None:
             self.corrected_spectro_x = np.asarray(corrected_spectro_x)
+            # sessions saved before the file name was stored
+            self.corrected_spectro_name = session.get("corrected_spectro_name") or "from session"
+        else:
+            self.corrected_spectro_name = None
+        self.view.Spectro_filename_label.setText(self.corrected_spectro_name or "None")
 
         self.view.Spectro_use_button.setChecked(
             session.get("spectro_use_enabled", False)
@@ -954,6 +994,8 @@ class Presenter(QObject):
 
         self.update_PvPm_table()
         self._saved_fingerprint = self._content_fingerprint()
+        self.session_path = file_path
+        self._update_window_title()
         logger.debug("Session loaded from %s (%d spectra)", file_path, len(self.model))
         return True
 
@@ -982,90 +1024,40 @@ class Presenter(QObject):
                 return False
             if choice == "save" and not self.save_session():
                 return False            # save dialog cancelled or failed: keep the app open
-        self._remove_backup()           # closed normally: no recovery needed next time
-        if self._backup_lock is not None:
-            self._backup_lock.unlock()
+        if self.backup is not None:
+            self.backup.close()         # closed normally: no recovery needed next time
         return True
 
+    @property
+    def backup_path(self):
+        return self.backup.path if self.backup is not None else None
+
     def autosave(self):
-        """Write the backup if there are unsaved changes not backed up yet.
-        The session is collected here, then encoded and written in a background
-        thread (compact JSON), so that large sessions do not freeze the app."""
-        if self.backup_path is None:
+        """Write the backup if there are unsaved changes not backed up yet. The session
+        is collected here; SessionBackup encodes and writes it in a thread."""
+        if self.backup is None:
             return
         if not self.has_unsaved_changes():
-            self._remove_backup()
+            self.backup.remove()
             return
         fingerprint = self._content_fingerprint()
-        if fingerprint == self._backup_fingerprint:
-            return
-        if self._backup_thread is not None and self._backup_thread.is_alive():
-            return                      # previous backup still being written: next time
-        session = self._session_dict()
-        self._backup_fingerprint = fingerprint
-
-        def write():
-            try:
-                self._write_json(session, self.backup_path, indent=None)
-                logger.debug("Session backup written to %s", self.backup_path)
-            except OSError as exc:
-                if not self._backup_failed:
-                    self._backup_failed = True
-                    logger.warning("Could not write the session backup (no automatic backup "
-                                   "until this is fixed): %s", exc)
-                else:
-                    logger.debug("Could not write the session backup: %s", exc)
-
-        self._backup_thread = threading.Thread(target=write, name="session-backup", daemon=True)
-        self._backup_thread.start()
+        if not self.backup.is_up_to_date(fingerprint):
+            self.backup.write(self._session_dict(), fingerprint)
 
     def flush_backup(self):
         """Wait for a backup being written, if any."""
-        if self._backup_thread is not None:
-            self._backup_thread.join(timeout=30)
+        if self.backup is not None:
+            self.backup.flush()
 
     def _remove_backup(self):
-        self.flush_backup()             # so that a write in progress cannot re-create it
-        self._backup_fingerprint = None
-        if self.backup_path is not None and os.path.exists(self.backup_path):
-            os.remove(self.backup_path)
-
-    def _orphan_backups(self):
-        """Backups left by windows that did not close normally (their lock is not
-        held any more), newest first. Backups of windows still open are skipped."""
-        if self.backup_dir is None:
-            return []
-        orphans = []
-        for path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.json")):
-            if path == self.backup_path or path.endswith(".discarded.json"):
-                continue
-            lock = QLockFile(os.path.splitext(path)[0] + ".lock")
-            lock.setStaleLockTime(0)
-            if not lock.tryLock(0):
-                continue                # another myPGM window is still using it
-            lock.unlock()               # stale lock of a crashed window: cleaned up
-            orphans.append(path)
-        # half-written backups of windows that crashed while writing one
-        for tmp_path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.json.tmp")):
-            lock = QLockFile(tmp_path[:-len(".json.tmp")] + ".lock")
-            lock.setStaleLockTime(0)
-            if lock.tryLock(0):         # its window is gone (a live one may be writing it)
-                lock.unlock()
-                os.remove(tmp_path)
-        # locks left by windows that crashed with nothing to back up
-        for lock_path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.lock")):
-            if os.path.exists(os.path.splitext(lock_path)[0] + ".json"):
-                continue
-            lock = QLockFile(lock_path)
-            lock.setStaleLockTime(0)
-            if lock.tryLock(0):
-                lock.unlock()           # removes the stale lock file
-        return sorted(orphans, key=os.path.getmtime, reverse=True)
+        if self.backup is not None:
+            self.backup.remove()
 
     def offer_recovery(self):
         """At startup: offer to recover the newest backup left by a window that did
-        not close normally. Declined backups are kept as *.discarded.json."""
-        orphans = self._orphan_backups()
+        not close normally. Declined backups, and backups that cannot be loaded
+        (offered again at every start otherwise), are kept as *.discarded.json."""
+        orphans = self.backup.orphans() if self.backup is not None else []
         if not orphans:
             return False
         path = orphans[0]
@@ -1073,11 +1065,14 @@ class Presenter(QObject):
         if self.view.ask_recover_session(when):
             if self.load_session(path):
                 self._saved_fingerprint = None      # recovered work is not saved yet
+                self.session_path = None            # "Save" asks: never into the backup
+                self._update_window_title()
                 os.remove(path)                     # now backed up by this window
                 logger.info("Session recovered from %s", path)
                 return True
+            discarded = SessionBackup.set_aside(path)   # load_session showed the error
+            logger.warning("Session backup could not be loaded, kept as %s", discarded)
             return False
-        discarded = os.path.splitext(path)[0] + ".discarded.json"
-        os.replace(path, discarded)
+        discarded = SessionBackup.set_aside(path)
         logger.info("Session backup declined, kept as %s", discarded)
         return False

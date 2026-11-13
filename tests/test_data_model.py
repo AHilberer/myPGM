@@ -42,6 +42,23 @@ def test_normalized_data_max_is_one(ruby):
     np.testing.assert_array_equal(ruby.normalized_data[:, 0], ruby.original_data[:, 0])
 
 
+def test_spectrum_without_positive_values_is_not_flipped():
+    # it was divided by its (negative) maximum: the peak became a dip
+    x = np.linspace(690, 700, 101)
+    y = -5 + np.exp(-(x - 695) ** 2)              # peak above a negative baseline
+    obj = PressureGaugeDataObject()
+    obj.original_data = np.column_stack((x, y))
+    obj.normalize_data()
+    np.testing.assert_allclose(obj.normalized_data[:, 1], y / 5)
+
+
+def test_all_zero_spectrum_is_rejected():
+    obj = PressureGaugeDataObject()
+    obj.original_data = np.column_stack((np.arange(10.0), np.zeros(10)))
+    with pytest.raises(ValueError, match="zero everywhere"):
+        obj.normalize_data()
+
+
 # --- pressure <-> x ---------------------------------------------------------------
 
 def test_set_x_then_P_are_consistent():
@@ -188,6 +205,36 @@ def test_backgrounds_add_up(ruby):
     np.testing.assert_allclose(y, ruby.normalized_data[:, 1] - 0.05)
 
 
+def _spectrum(x, y):
+    obj = PressureGaugeDataObject()
+    obj.original_data = np.column_stack((x, y))
+    obj.normalized_data = obj.original_data.copy()
+    return obj
+
+
+def test_auto_background_removes_a_sloped_baseline():
+    # the last point of the hull was left out: only a constant was removed here,
+    # leaving 0.5 of baseline at the right end
+    x = np.linspace(690, 700, 201)
+    obj = _spectrum(x, 0.2 + 0.05 * (x - 690) + np.exp(-(x - 695) ** 2 / 0.1))
+    obj.convexhull_bg()
+    _, y = obj.get_data_to_process()
+    far = np.abs(x - 695) > 1.5
+    np.testing.assert_allclose(y[far], 0, atol=1e-6)
+    assert y.max() == pytest.approx(1.0, abs=1e-6)
+
+
+def test_auto_background_with_x_stored_decreasing():
+    # the hull was walked in file order: with x decreasing it gave the upper hull
+    x = np.linspace(690, 700, 201)
+    y = 0.2 + 0.05 * (x - 690) + np.exp(-(x - 695) ** 2 / 0.1)
+    ascending, descending = _spectrum(x, y), _spectrum(x[::-1], y[::-1])
+    ascending.convexhull_bg()
+    descending.convexhull_bg()
+    np.testing.assert_allclose(descending.bg, ascending.bg[::-1])
+    assert descending.get_data_to_process()[1].min() >= -1e-9
+
+
 def test_no_processing_means_raw_normalized_data(ruby, resources):
     ruby.spectro_recalib(_calib_x(resources))
     ruby.smoothen(5)
@@ -242,6 +289,35 @@ def test_to_dict_from_dict_round_trip(ruby):
     assert list(restored.fitting_range) == [692.0, 697.0]
 
 
+def test_fitted_curve_is_rebuilt_instead_of_saved(ruby, resources):
+    # not drawn (plot_fit uses fit_result): saving it made sessions ~20 % larger
+    ruby.fitting_range = (692.0, 697.0)
+    ruby.fit_data()
+    payload = json.loads(json.dumps(ruby.to_dict()))
+    assert "fitted_data" not in payload
+    calib_dict = {c.name: c for c in C.calib_list}
+    model_dict = {m.name: m for m in F.model_list}
+    restored = PressureGaugeDataObject.from_dict(payload, calib_dict, model_dict)
+    np.testing.assert_allclose(restored.fitted_data, ruby.fitted_data)
+
+    # sessions saved by myPGM 1.0 still have it
+    old = dict(payload, fitted_data=[[1.0, 2.0]])
+    assert PressureGaugeDataObject.from_dict(old, calib_dict, model_dict).fitted_data.tolist() == [[1.0, 2.0]]
+
+    edge = PressureGaugeDataObject()
+    edge.load_spectral_data_file("d", str(resources / "Example_diam_Raman.asc"))
+    edge.set_calibration(C.Akahama2006)
+    edge.set_fit_model(F.RamanEdge)
+    edge.fit_data()
+    restored = PressureGaugeDataObject.from_dict(json.loads(json.dumps(edge.to_dict())),
+                                                 calib_dict, model_dict)
+    assert restored.fitted_data == edge.fitted_data == edge.x
+
+    unfitted = PressureGaugeDataObject.from_dict(
+        json.loads(json.dumps(PressureGaugeDataObject().to_dict())), calib_dict, model_dict)
+    assert unfitted.fitted_data is None
+
+
 # --- fit uncertainty -------------------------------------------------------------------
 
 def _dP_dx(obj, h=1e-4):
@@ -254,7 +330,7 @@ def test_fit_gives_position_and_pressure_uncertainty(ruby):
     assert 0 < ruby.x_err < 0.01                     # nm
     assert 0.0005 < ruby.P_err < 0.01                # GPa, statistical fit precision only
     assert ruby.P_err == pytest.approx(abs(_dP_dx(ruby)) * ruby.x_err, rel=1e-4)
-    i = PressureGaugeDataObject._peak_position_index(ruby.fit_result["opti"])
+    i = ruby.fit_model.position_index(ruby.fit_result["opti"])
     assert ruby.x == ruby.fit_result["opti"][i]      # R1, the longer-wavelength peak
 
 
