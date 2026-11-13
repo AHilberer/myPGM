@@ -3,6 +3,7 @@ import json
 import numpy as np
 import os
 import shutil
+import sys
 import time
 
 import pytest
@@ -132,7 +133,9 @@ def test_fit_error_dialog_shows_the_reason(gui, monkeypatch):
         (self.windowTitle(), self.text(), self.informativeText())))
     from myPGM.ui.main_ui import MainWindow
     MainWindow.fit_error_popup_window(gui.view, "Ruby_1.asc: 3 points in the fit range")
-    assert shown == [("Fit error", "The fit failed.", "Ruby_1.asc: 3 points in the fit range")]
+    # message boxes have no title on macOS (Apple guidelines): Qt ignores it there
+    title = "" if sys.platform == "darwin" else "Fit error"
+    assert shown == [(title, "The fit failed.", "Ruby_1.asc: 3 points in the fit range")]
 
 
 def test_add_fit_to_table(gui):
@@ -445,7 +448,8 @@ def test_dialogs_start_in_the_last_folder_used(gui, monkeypatch, resources, tmp_
     monkeypatch.setattr(QFileDialog, "selectedFiles", lambda self: [str(resources / "Example_H2.txt")])
     gui.view.get_file_via_dialog()
     gui.view.get_file_via_dialog()
-    assert starts[1] == str(resources)
+    # Qt writes D:/a/... on Windows, Python D:\a\...
+    assert os.path.normcase(os.path.normpath(starts[1])) == os.path.normcase(str(resources))
 
     def static_dialog(answer):
         return lambda parent, title, folder, *args, **kwargs: starts.append(folder) or answer
@@ -565,7 +569,8 @@ def test_windows_open_within_the_screen(gui):
     from PyQt5.QtGui import QGuiApplication
     area = QGuiApplication.primaryScreen().availableGeometry()
     for window in (gui.view, gui.view.PvPmTableWindow, gui.view.PvPmPlotWindow):
-        assert area.contains(window.geometry()), (window.windowTitle(), window.geometry(), area)
+        assert area.contains(window.geometry()), (window.windowTitle(), window.geometry(), area,
+                                                  window.minimumSizeHint(), window.minimumSize())
 
 
 # --- demo session -------------------------------------------------------------------------
