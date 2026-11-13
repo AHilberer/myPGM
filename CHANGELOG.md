@@ -64,7 +64,7 @@ between launches and smaller session files. Sessions are compatible both ways wi
 - The automatic backup (file, lock, background writing, scan for orphans) moved from the presenter
   to `myPGM/session_backup.py`.
 - ruff checks the code (`ruff check .`, also run on GitHub); tab indentation converted to spaces.
-- The tests also run on macOS and Windows on GitHub (reported, not yet required to pass).
+- The tests also run on macOS and Windows on GitHub.
 - Package metadata: SPDX license expression `GPL-3.0-only` (building needs setuptools >= 77).
 
 ### Known limitations

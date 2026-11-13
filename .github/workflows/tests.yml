@@ -19,8 +19,6 @@ jobs:
     # Linux job names unchanged; the OS is added for the others
     name: pytest (${{ matrix.python-version }}, ${{ matrix.deps }} deps${{ matrix.os != 'ubuntu-latest' && format(', {0}', matrix.os) || '' }})
     runs-on: ${{ matrix.os }}
-    # macOS and Windows are new: reported, but not required to pass until they do
-    continue-on-error: ${{ matrix.os != 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
