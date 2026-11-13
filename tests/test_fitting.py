@@ -173,3 +173,22 @@ def test_raman_edge_in_too_narrow_range_fails_cleanly():
     obj.fitting_range = (1449.9, 1450.1)       # a single point
     with pytest.raises(RuntimeError, match="points in the fit range"):
         obj.fit_data()
+
+
+def test_raman_edge_with_x_stored_decreasing(resources):
+    # the gradient was taken in file order: with x decreasing, the steepest rise was found
+    obj = _edge_object(1450.0)
+    obj.original_data = obj.original_data[::-1].copy()
+    obj.normalize_data()
+    obj.fit_data()
+    assert obj.x == pytest.approx(1450.0, abs=0.5)
+
+    ascending = fitted(resources, "Example_diam_Raman.asc", C.Akahama2006, F.RamanEdge)
+    descending = PressureGaugeDataObject()
+    descending.load_spectral_data_file("d", str(resources / "Example_diam_Raman.asc"))
+    descending.original_data = descending.original_data[::-1].copy()
+    descending.normalize_data()
+    descending.set_calibration(C.Akahama2006)
+    descending.set_fit_model(F.RamanEdge)
+    descending.fit_data()
+    assert descending.x == ascending.x

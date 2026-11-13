@@ -361,12 +361,17 @@ class PressureGaugeDataObject:
         removes what is left and adds it to the total background.
         """
         x, y = self.get_data_to_process()
-        v = ConvexHull(np.column_stack((x, y))).vertices
+        # in increasing x (files can store it decreasing: the upper hull was used)
+        order = np.argsort(x, kind="stable")
+        xs, ys = x[order], y[order]
+        v = ConvexHull(np.column_stack((xs, ys))).vertices
         v = np.roll(v, -v.argmin())
         # lower hull: from the first point to the last one, included (without it
         # the baseline stayed flat after the last but one anchor)
         anchors = v[: v.argmax() + 1]
-        self._add_bg(np.interp(x, x[anchors], y[anchors]))
+        bg = np.empty_like(ys)
+        bg[order] = np.interp(xs, xs[anchors], ys[anchors])
+        self._add_bg(bg)
 
     def reset_bg(self):
         """Remove the background, keeping smoothing and spectrometer recalibration."""
@@ -472,8 +477,10 @@ class PressureGaugeDataObject:
                 if len(x) < 3:
                     raise RuntimeError(f"{len(x)} points in the fit range, the edge "
                                        "search needs at least 3.")
-                grad = np.gradient(y)
-                best_x = x[np.argmin(grad)]
+                # steepest descent with increasing x, whatever the order in the file
+                order = np.argsort(x, kind="stable")
+                grad = np.gradient(y[order])
+                best_x = x[order][np.argmin(grad)]
             return {"opti": best_x, "cov": None}
 
 class PressureGaugeDataManager(MutableMapping):

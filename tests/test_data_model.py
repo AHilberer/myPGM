@@ -207,6 +207,17 @@ def test_auto_background_removes_a_sloped_baseline():
     assert y.max() == pytest.approx(1.0, abs=1e-6)
 
 
+def test_auto_background_with_x_stored_decreasing():
+    # the hull was walked in file order: with x decreasing it gave the upper hull
+    x = np.linspace(690, 700, 201)
+    y = 0.2 + 0.05 * (x - 690) + np.exp(-(x - 695) ** 2 / 0.1)
+    ascending, descending = _spectrum(x, y), _spectrum(x[::-1], y[::-1])
+    ascending.convexhull_bg()
+    descending.convexhull_bg()
+    np.testing.assert_allclose(descending.bg, ascending.bg[::-1])
+    assert descending.get_data_to_process()[1].min() >= -1e-9
+
+
 def test_no_processing_means_raw_normalized_data(ruby, resources):
     ruby.spectro_recalib(_calib_x(resources))
     ruby.smoothen(5)

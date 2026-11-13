@@ -565,7 +565,10 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setLabel("bottom", f"{buffer.calib.xname} ({buffer.calib.xunit})")
         self.deriv_widget.setLabel("left", 'dI/dx')
 
-        dI = gaussian_filter1d(y, mode="nearest", sigma=1, order=1)
+        # along increasing x, as the Raman edge search (files can store x decreasing)
+        order = np.argsort(x, kind="stable")
+        dI = np.empty(len(y))
+        dI[order] = gaussian_filter1d(np.asarray(y)[order], mode="nearest", sigma=1, order=1)
         self.deriv_scatter.setData(x, dI)
         if not preserve_view:
             self.deriv_widget.autoRange()

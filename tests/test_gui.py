@@ -625,6 +625,16 @@ def test_manual_background_with_one_click_does_not_reuse_the_previous_one(gui):
     assert gui.errors == []
 
 
+def test_derivative_plot_with_x_stored_decreasing(gui):
+    x = np.linspace(1300, 1600, 301)
+    y = 1 - 1 / (1 + np.exp(-(x - 1450) / 2))
+    gui.view.plot_data(x, y, gui.presenter.buffer)
+    dI = gui.view.deriv_scatter.getData()[1].copy()
+    assert x[np.argmin(dI)] == pytest.approx(1450, abs=1)
+    gui.view.plot_data(x[::-1], y[::-1], gui.presenter.buffer)
+    np.testing.assert_allclose(gui.view.deriv_scatter.getData()[1], dI[::-1])
+
+
 def test_pvpm_plot_follows_table_order_and_short_names(gui):
     for name, Pm in [("Example_Ruby_3.asc", 24.0), ("Example_Ruby_1.asc", 8.0), ("Example_Ruby_2.asc", 15.0)]:
         _add(gui, name, Pm)

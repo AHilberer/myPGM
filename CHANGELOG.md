@@ -16,6 +16,8 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
   kept aside as `.discarded.json`, like a declined backup.
 - Auto Bg left out the last point of the spectrum: after the last but one anchor the background
   stayed flat, so a sloped baseline was only partly removed at the high-x end.
+- Spectra stored with x decreasing: Auto Bg used the upper hull (making the spectrum negative), and
+  the Raman edge and the derivative plot followed the file order instead of increasing x.
 
 ## [1.0.0] - 2026-10-18
 
