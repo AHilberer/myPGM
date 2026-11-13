@@ -908,11 +908,12 @@ class Presenter(QObject):
         }
 
     @staticmethod
-    def _write_json(session, file_path, indent=2):
-        # write to a temporary file first, so a crash never leaves a half-written file
+    def _write_json(session, file_path):
+        # write to a temporary file first, so a crash never leaves a half-written file;
+        # compact: indented, every number of every spectrum took a line (about 2x larger)
         tmp_path = file_path + ".tmp"
         with open(tmp_path, "w", encoding="utf-8") as file_handle:
-            json.dump(session, file_handle, indent=indent)
+            json.dump(session, file_handle)
         os.replace(tmp_path, file_path)
 
     def save_session(self):
@@ -1055,7 +1056,7 @@ class Presenter(QObject):
 
         def write():
             try:
-                self._write_json(session, self.backup_path, indent=None)
+                self._write_json(session, self.backup_path)
                 logger.debug("Session backup written to %s", self.backup_path)
             except OSError as exc:
                 if not self._backup_failed:

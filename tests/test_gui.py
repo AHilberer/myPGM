@@ -276,6 +276,8 @@ def test_session_save_and_load(gui, tmp_path, monkeypatch):
     restored = gui.presenter.model[gui.file_id("Example_Ruby_2.asc")]
     assert restored.P == pytest.approx(P_fitted)
     assert gui.presenter.current_selected_file == restored.id
+    # compact JSON: indented, every number took a line (about 2x larger)
+    assert session.read_text().count("\n") == 0
 
 
 def test_session_restores_the_spectrometer_calibration_label(gui, resources, tmp_path, monkeypatch):

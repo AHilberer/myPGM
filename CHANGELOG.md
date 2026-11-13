@@ -8,6 +8,8 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
 - The fit error dialog gives the reason (e.g. too few points in the fit range); it was only in the log.
 - Error dialogs, the Pm dialog and the file dialog open over the main window (they could open
   behind it).
+- Session files are about 2.3x smaller: compact JSON, without the fitted curve (rebuilt when the
+  session is opened). Older sessions still open, and new ones open in myPGM 1.0.
 
 ### Fixed
 - Exporting the table to a file that cannot be written (no permission, file open elsewhere) gave an

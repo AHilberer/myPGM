@@ -289,6 +289,35 @@ def test_to_dict_from_dict_round_trip(ruby):
     assert list(restored.fitting_range) == [692.0, 697.0]
 
 
+def test_fitted_curve_is_rebuilt_instead_of_saved(ruby, resources):
+    # not drawn (plot_fit uses fit_result): saving it made sessions ~20 % larger
+    ruby.fitting_range = (692.0, 697.0)
+    ruby.fit_data()
+    payload = json.loads(json.dumps(ruby.to_dict()))
+    assert "fitted_data" not in payload
+    calib_dict = {c.name: c for c in C.calib_list}
+    model_dict = {m.name: m for m in F.model_list}
+    restored = PressureGaugeDataObject.from_dict(payload, calib_dict, model_dict)
+    np.testing.assert_allclose(restored.fitted_data, ruby.fitted_data)
+
+    # sessions saved by myPGM 1.0 still have it
+    old = dict(payload, fitted_data=[[1.0, 2.0]])
+    assert PressureGaugeDataObject.from_dict(old, calib_dict, model_dict).fitted_data.tolist() == [[1.0, 2.0]]
+
+    edge = PressureGaugeDataObject()
+    edge.load_spectral_data_file("d", str(resources / "Example_diam_Raman.asc"))
+    edge.set_calibration(C.Akahama2006)
+    edge.set_fit_model(F.RamanEdge)
+    edge.fit_data()
+    restored = PressureGaugeDataObject.from_dict(json.loads(json.dumps(edge.to_dict())),
+                                                 calib_dict, model_dict)
+    assert restored.fitted_data == edge.fitted_data == edge.x
+
+    unfitted = PressureGaugeDataObject.from_dict(
+        json.loads(json.dumps(PressureGaugeDataObject().to_dict())), calib_dict, model_dict)
+    assert unfitted.fitted_data is None
+
+
 # --- fit uncertainty -------------------------------------------------------------------
 
 def _dP_dx(obj, h=1e-4):

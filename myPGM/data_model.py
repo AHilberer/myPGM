@@ -158,7 +158,6 @@ class PressureGaugeDataObject:
             "current_smoothing": _json_scalar(self.current_smoothing),
             "fit_model": self.fit_model.name if self.fit_model else None,
             "fit_result": _fit_result_to_dict(self.fit_result),
-            "fitted_data": _array_to_list(self.fitted_data),
             "fitting_range": list(self.fitting_range) if self.fitting_range is not None else None,
             "calib": self.calib.name if self.calib else None,
             "Pm": _json_scalar(self.Pm),
@@ -220,8 +219,11 @@ class PressureGaugeDataObject:
             obj.fit_model = None
 
         obj.fit_result = _fit_result_from_dict(payload.get("fit_result"))
-        obj.fitted_data = _list_to_array(payload.get("fitted_data"))
         obj.fitting_range = payload.get("fitting_range")
+        if "fitted_data" in payload:            # sessions saved by myPGM 1.0
+            obj.fitted_data = _list_to_array(payload["fitted_data"])
+        else:
+            obj.fitted_data = obj._fitted_curve()
 
         obj.Pm = payload.get("Pm")
         obj.P = payload.get("P")
@@ -420,26 +422,40 @@ class PressureGaugeDataObject:
         Fit the spectrum using the selected model, and update the pressure estimate.
         :param fit_model: GaugeFitModel
         """
-        x,y = self.get_data_to_process()
+        x, y = self._data_in_fitting_range()
+        if self.fit_model.type not in ("peak", "edge"):
+            raise ValueError(f"Fit type not implemented: {self.fit_model.type!r}")
+
+        self.fit_result = self.fit_procedure(self.fit_model, x, y, guess_peak=guess_peak)
+        self.fitted_data = self._fitted_curve()
+        if self.fit_model.type == "peak":
+            popt = self.fit_result["opti"]
+            i = self._peak_position_index(popt)
+            self.set_x(popt[i], self._position_uncertainty(self.fit_result["cov"], i))
+        else:
+            # no fit, hence no uncertainty
+            self.set_x(self.fitted_data)
+
+    def _data_in_fitting_range(self):
+        x, y = self.get_data_to_process()
         if self.fitting_range is not None:
             mask = (x >= self.fitting_range[0]) & (x <= self.fitting_range[1])
             x = x[mask]
             y = y[mask]
-        
-        self.fit_result = self.fit_procedure(self.fit_model, x, y, guess_peak=guess_peak)
-        if self.fit_model.type == "peak":
-            fitted = self.fit_model.func(x, *self.fit_result["opti"])
-            self.fitted_data = np.column_stack((x, fitted))
-            popt = self.fit_result["opti"]
-            i = self._peak_position_index(popt)
-            self.set_x(popt[i], self._position_uncertainty(self.fit_result["cov"], i))
+        return x, y
 
-        elif self.fit_model.type == "edge":
-            self.fitted_data = self.fit_result["opti"]
-            # no fit, hence no uncertainty
-            self.set_x(self.fitted_data)
-        else:
-            raise ValueError(f"Fit type not implemented: {self.fit_model.type!r}")
+    def _fitted_curve(self):
+        """fitted_data: the fitted curve in the fitting range (peak models), or the
+        edge position. Not saved in sessions (it is not drawn: plot_fit uses
+        fit_result), rebuilt from fit_result when a session is loaded."""
+        if self.fit_result is None or self.fit_model is None:
+            return None
+        if self.fit_model.type == "edge":
+            return self.fit_result["opti"]
+        if self.normalized_data is None:
+            return None
+        x, _ = self._data_in_fitting_range()
+        return np.column_stack((x, self.fit_model.func(x, *self.fit_result["opti"])))
 
     @staticmethod
     def _peak_position_index(popt):
