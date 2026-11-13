@@ -6,10 +6,8 @@ from PyQt5.QtWidgets import (QFrame,
                              QHBoxLayout,
                              QLabel,
                              QPushButton,
-                             QWidget,
-                             QSlider,
                              QApplication)
-from PyQt5.QtCore import Qt, pyqtSignal, QLocale
+from PyQt5.QtCore import Qt, QLocale
 from PyQt5.QtGui import QIcon, QFontInfo
 from functools import wraps
 from importlib.resources import files
@@ -39,40 +37,6 @@ def set_app_font_size(size):
     app = QApplication.instance()
     base_style = app.styleSheet().split(FONT_RULE_MARKER)[0]
     app.setStyleSheet(f"{base_style}{FONT_RULE_MARKER}\n* {{ font-size: {size}px; }}\n")
-
-class FontSizeWindow(QWidget):
-
-    # widgets drawn outside of Qt stylesheets (plots, table) listen to this
-    font_size_changed = pyqtSignal(int)
-
-    def __init__(self, current_size=DEFAULT_FONT_PX):
-        super().__init__()
-
-        self.setObjectName("FontSizeWindow")
-        self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setWindowTitle("Font size control")
-
-        layout = QVBoxLayout(self)
-
-        self.label = QLabel("Adjust global font size")
-        layout.addWidget(self.label)
-
-        self.slider = QSlider(Qt.Horizontal)
-        self.slider.setMinimum(8)
-        self.slider.setMaximum(30)
-        # start from the size in use: nothing changes until the slider is moved
-        self.slider.setValue(current_size)
-        layout.addWidget(self.slider)
-
-        self.value_label = QLabel(f"{self.slider.value()}px")
-        layout.addWidget(self.value_label)
-
-        self.slider.valueChanged.connect(self.set_font_size)
-
-    def set_font_size(self, size):
-        set_app_font_size(size)
-        self.value_label.setText(f"{size}px")
-        self.font_size_changed.emit(size)
 
 class SmartDoubleSpinBox(QDoubleSpinBox):
     def __init__(self, *args, **kwargs):

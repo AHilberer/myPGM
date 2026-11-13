@@ -85,7 +85,7 @@ Controls: buttons 30–40 px high, 7–8 px radius; primary = `ac` background, `
 
 ## 3. Calibration colors
 
-Each calibration family has one color, used everywhere the calibration appears: file-list dot, pill in the fitted-pressure card, table "Calibration" column dot, P vs Pm markers and legend, and the two selectors.
+Each calibration family has one color, used everywhere the calibration appears: file-list dot, pill in the fitted-pressure card, table "Calibration" column dot, P vs Pm markers and legend, and the calibration selector (the fit model selector is colored by kind of model, see below).
 
 | Family | Light (solid / text on tint) | Dark (solid / text on tint) |
 |---|---|---|
@@ -96,7 +96,7 @@ Each calibration family has one color, used everywhere the calibration appears: 
 | cBN (not in mockup) | pick a fifth hue with the same lightness, e.g. `#2F6FA8` / `#8DBDE6` | |
 
 - **Calibration selector**: background = solid color, text = white (light) or `#12151B` (dark), semibold, custom chevron.
-- **Fit model selector**: background = solid color at 10 % (light) / 16 % (dark), 1 px border at 45 % / 55 %, text = "text on tint" color, semibold.
+- **Fit model selector**: colored by the kind of model, not by the calibration (as before the redesign): Double models red, Single models green, Raman edge grey (`theme.MODEL_COLORS`, light and dark variants). Background = that color at 10 % (light) / 16 % (dark), 1 px border at 45 % / 55 %, text = its "text on tint" color, semibold; each item of the list has a dot in its kind's color.
 - Today `HPCalibration.color` holds one named color per calibration (`firebrick`, `crimson`…). Either replace it by a family key mapped to the table above, or keep per-calibration shades but make sure each has a light and a dark variant with ≥ 4.5:1 contrast for the selector text.
 
 ## 4. Settings window (gear button)

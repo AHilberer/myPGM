@@ -103,18 +103,39 @@ def test_current_point_is_highlighted_and_ringed(demo):
 
 # --- calibration-coloured selectors ------------------------------------------------------------
 
-def test_selectors_follow_the_calibration_family(gui):
+def test_calibration_selector_follows_the_calibration_family(gui):
     toolbox = gui.view.ptoolbox
-    for combo in (toolbox.calibration_combo, gui.view.fit_model_combo):
-        assert combo.property("calib") == "ruby"
+    assert toolbox.calibration_combo.property("calib") == "ruby"
     toolbox.calibration_combo.setCurrentText(C.SamariumDatchi.name)
-    for combo in (toolbox.calibration_combo, gui.view.fit_model_combo):
-        assert combo.property("calib") == "samarium"
-    # the fit model selector no longer takes a colour per model
-    gui.view.fit_model_combo.setCurrentIndex(1)
-    assert gui.view.fit_model_combo.styleSheet() == ""
-    sheet = gui.app.styleSheet()
-    assert 'QComboBox#fit_model_combo[calib="samarium"]' in sheet
+    assert toolbox.calibration_combo.property("calib") == "samarium"
+    assert 'QComboBox#calibration_combo[calib="samarium"]' in gui.app.styleSheet()
+
+
+def test_fit_model_selector_is_coloured_by_kind_of_model(gui):
+    """Double models red, Single models green, Raman edge grey (as before the
+    redesign), whatever the calibration."""
+    from myPGM.ui import theme
+    combo = gui.view.fit_model_combo
+    kinds = {F.DoubleVoigt.name: "double", F.SingleLorentzian.name: "single",
+             F.RamanEdge.name: "edge"}
+    for name, kind in kinds.items():
+        combo.setCurrentText(name)
+        assert combo.property("model") == kind
+        assert f'QComboBox#fit_model_combo[model="{kind}"]' in gui.app.styleSheet()
+    gui.view.ptoolbox.calibration_combo.setCurrentText(C.SamariumDatchi.name)
+    # the colour is the model's kind, not the calibration (samarium is not a kind)
+    current = gui.presenter.fit_models[combo.currentText()]
+    assert combo.property("model") == theme.model_family(current)
+    assert combo.styleSheet() == ""
+    # list items: a dot in the colour of each kind
+    from PyQt5.QtWidgets import QStyleOptionViewItem
+    delegate, model = combo.itemDelegate(), combo.model()
+    for row in range(combo.count()):
+        option = QStyleOptionViewItem()
+        delegate.initStyleOption(option, model.index(row, 0))
+        assert not option.icon.isNull()
+    assert theme.model_color(F.DoubleVoigt) != theme.model_color(F.SingleVoigt)
+    assert combo.itemIcon(combo.currentIndex()).isNull()   # closed selector: text only
 
 
 def test_x_axis_title_follows_the_calibration(gui):

@@ -67,3 +67,19 @@ def setup_logging(debug=False, log_dir=None):
     if file_error is not None:
         logger.warning("Could not create the log file: %s", file_error)
     return log_file_path
+
+
+def set_debug(debug):
+    """Switch detailed messages on or off while the app runs (Settings › Logging)."""
+    logging.getLogger("myPGM").setLevel(logging.DEBUG if debug else logging.INFO)
+
+
+def is_debug():
+    return logging.getLogger("myPGM").isEnabledFor(logging.DEBUG)
+
+
+def log_dir():
+    """Folder of the log file (None if there is none)."""
+    if log_file_path is not None:
+        return Path(log_file_path).parent
+    return default_log_dir()

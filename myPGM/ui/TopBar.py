@@ -1,6 +1,6 @@
 """Top bar of the main window (DESIGN.md §1.1): app mark and name, session name and
-save status on the left; panel toggles, Open / Save / Export CSV and the theme toggle
-on the right."""
+save status on the left; panel toggles, Open / Save / Export CSV, the theme toggle and
+the Settings button on the right."""
 import time
 
 from PyQt5.QtCore import Qt, QTimer
@@ -74,7 +74,11 @@ class TopBar(QWidget):
         self.theme_button = icon_button("moon", "Dark theme", size=34, icon_size=16)
         self.theme_button.setProperty("role", "quiet-icon")
         layout.addWidget(self.theme_button)
+        self.settings_button = icon_button("settings", "Settings", size=34, icon_size=16)
+        self.settings_button.setProperty("role", "quiet-icon")
+        layout.addWidget(self.settings_button)
 
+        self.app_version = "dev"
         # save status: "Not saved yet", or the time since the last save / backup
         self._saved_at = None
         self._saved_kind = None
@@ -90,6 +94,7 @@ class TopBar(QWidget):
     # --- content ---------------------------------------------------------------------------
 
     def set_version(self, version):
+        self.app_version = version
         self.app_subtitle.setText(f"Pressure Gauge Monitor · v{version}")
 
     def set_session_name(self, name):

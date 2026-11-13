@@ -62,7 +62,6 @@ class PressureToolbox(QWidget):
         self._valid = True
         self._T_bgcolor = None
         self._calib = None              # current calibration, gives the selector colour
-        self.tinted_combos = []         # other selectors tinted by it (fit model)
 
         # --- PRESSURE GAUGE card -------------------------------------------------------
         self.gauge_card = Card("Pressure gauge", spacing=6)
@@ -190,14 +189,15 @@ class PressureToolbox(QWidget):
         self.calibration_combo.blockSignals(was_blocked)
 
     def _style_calib_combo(self):
-        """The selectors follow the calibration family (DESIGN.md §3): the `calib`
-        property picks the generated rules of the stylesheet (theme._selector_rules)."""
+        """The calibration selector follows the calibration family (DESIGN.md §3): the
+        `calib` property picks the generated rules of the stylesheet
+        (theme._selector_rules)."""
         family = theme.calib_family(self._calib) or ""
-        for combo in [self.calibration_combo] + self.tinted_combos:
-            if combo.property("calib") != family:
-                combo.setProperty("calib", family)
-                combo.style().unpolish(combo)
-                combo.style().polish(combo)
+        combo = self.calibration_combo
+        if combo.property("calib") != family:
+            combo.setProperty("calib", family)
+            combo.style().unpolish(combo)
+            combo.style().polish(combo)
 
     def calib_changed(self, newcalib_name):
         newcalib = self.calibrations[newcalib_name]

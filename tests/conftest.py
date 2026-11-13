@@ -23,7 +23,7 @@ def dispose(view):
     view.close_guard = None
     view.close()
     for window in (view.PvPmTableWindow, view.PvPmPlotWindow,
-                   view.additional_toolbox_window, view.font_size_window, view):
+                   view.additional_toolbox_window, view):
         if window is not None:
             window.deleteLater()
     QApplication.processEvents()

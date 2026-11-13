@@ -19,7 +19,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 from PyQt5.QtGui import QBrush, QColor, QFont, QFontMetrics, QIcon, QPainter, QPixmap
 
-from myPGM.settings import last_dir, remember_dir
+from myPGM.settings import column_visibility, last_dir, remember_dir, set_column_visibility
 from myPGM.ui.PressureToolbox import PressureToolbox
 from myPGM.ui import theme
 from myPGM.ui.widgets import button
@@ -208,7 +208,10 @@ class HPTableWidget(QTableWidget):
         self._shown_count = 0               # rows at the last update: new ones are scrolled to
         self.setHorizontalHeader(LogHeader(self))
         self.setItemDelegate(LogItemDelegate(self))
-        self.user_column_visibility = {}   # columns shown/hidden from the header menu
+        # columns shown/hidden from the header menu or Settings › Pressure log, kept
+        # between launches
+        self.user_column_visibility = {key: shown for key, shown in column_visibility().items()
+                                       if key in COLUMN_INDEX and key != "#"}
         self.font_px = 18
 
         self.set_font_size(18)
@@ -383,6 +386,10 @@ class HPTableWidget(QTableWidget):
     def set_column_visible(self, key, visible):
         self.user_column_visibility[key] = visible
         self.setColumnHidden(COLUMN_INDEX[key], not visible)
+        set_column_visibility(key, visible)
+
+    def is_column_shown(self, key):
+        return not self.isColumnHidden(COLUMN_INDEX[key])
 
     # --- rows -> objects -----------------------------------------------------------------------
 

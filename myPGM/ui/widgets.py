@@ -1,12 +1,12 @@
 """Small building blocks of the main window layout (DESIGN.md §1): cards, section
 titles, labels and icon buttons. Their look is in theme.qss (object names and the
 `role` property)."""
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QFont, QPainter
+from PyQt5.QtCore import QRectF, QSize, Qt
+from PyQt5.QtGui import QFont, QIcon, QPainter, QPixmap
 from PyQt5.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy,
-                             QVBoxLayout, QWidget)
+                             QStyledItemDelegate, QStyleOptionViewItem, QVBoxLayout, QWidget)
 
-from myPGM.ui import icons
+from myPGM.ui import icons, theme
 
 PANEL_PADDING = 14      # inside panels
 GAP = 8                 # between panels and around the window edge
@@ -171,3 +171,32 @@ def x_symbol(calib):
 
 def x_unit(calib):
     return _UNITS.get(calib.xunit, calib.xunit) if calib is not None else ""
+
+
+class ModelItemDelegate(QStyledItemDelegate):
+    """Item of the fit model list: a dot in the colour of the model's kind (Double,
+    Single, Raman edge; theme.MODEL_COLORS) before its name."""
+
+    DOT = 8
+
+    def __init__(self, lookup, parent=None):
+        super().__init__(parent)
+        self.lookup = lookup            # item text -> fit model
+
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        # the combo's list draws its items in the combo's font, semibold here
+        option.font.setWeight(QFont.Normal)
+        color = theme.model_color(self.lookup(index.data(Qt.DisplayRole)))
+        pixmap = QPixmap(self.DOT * 2, self.DOT * 2)
+        pixmap.setDevicePixelRatio(2)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(theme.qcolor(color))
+        painter.drawEllipse(QRectF(0, 0, self.DOT, self.DOT))
+        painter.end()
+        option.features |= QStyleOptionViewItem.HasDecoration
+        option.icon = QIcon(pixmap)
+        option.decorationSize = QSize(self.DOT, self.DOT)

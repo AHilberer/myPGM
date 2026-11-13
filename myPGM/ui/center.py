@@ -341,7 +341,7 @@ class PeakLabel(pg.TextItem):
         t = theme.tokens()
         title, pressure = self._lines
         self.setHtml(
-            f'<div style="font-family:{theme.ui_family()}; font-size:11px; font-weight:600; '
+            f'<div style="font-family:{theme.ui_family()}; font-size:11px; font-weight:{theme.qt5_weight(600)}; '
             f'color:{t["tx"]}">{title}</div>'
             f'<div style="font-family:{theme.mono_family()}; font-size:11px; '
             f'color:{theme.qcolor(t["mu"]).name()}">{pressure}</div>')

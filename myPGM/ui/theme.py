@@ -6,6 +6,8 @@ that hold plots read the tokens (tokens(), calib_color()) and restyle themselves
 the theme changes (MainWindow.theme_switched).
 """
 import logging
+import re
+import sys
 import tempfile
 from importlib.resources import files
 from pathlib import Path
@@ -74,6 +76,14 @@ CALIB_COLORS = {
     "cbn":      {"light": ("#2F6FA8", "#245A8A"), "dark": ("#5FA3DE", "#8DBDE6")},
 }
 
+# fit model selector: one colour per kind of model, as before the redesign (Double
+# models red, Single models green, Raman edge grey), as (solid, text on tint)
+MODEL_COLORS = {
+    "double": {"light": ("#C42B3B", "#9E1C2B"), "dark": ("#F2697A", "#F7A8B2")},
+    "single": {"light": ("#24834E", "#1A6A3E"), "dark": ("#5CC98A", "#9BDDB5")},
+    "edge":   {"light": ("#6B7280", "#4B5260"), "dark": ("#98A1B1", "#C4CAD4")},
+}
+
 FONT_FILES = [
     "Inter-Regular.ttf", "Inter-Medium.ttf", "Inter-SemiBold.ttf", "Inter-Bold.ttf",
     "JetBrainsMono-Regular.ttf", "JetBrainsMono-Medium.ttf", "JetBrainsMono-SemiBold.ttf",
@@ -81,7 +91,7 @@ FONT_FILES = [
 UI_FAMILY = "Inter"
 MONO_FAMILY = "JetBrains Mono"
 
-_state = {"dark": False, "fonts": None}
+_state = {"dark": False, "fonts": None, "system_dark": None}
 
 
 # --- tokens ------------------------------------------------------------------------------
@@ -126,6 +136,24 @@ def calib_color(calib, dark=None, on_tint=False):
     The muted text colour for a calibration without a known family (or None)."""
     theme = "dark" if (is_dark() if dark is None else dark) else "light"
     family = CALIB_COLORS.get(calib_family(calib))
+    if family is None:
+        return tokens(dark)["mu"]
+    return family[theme][1 if on_tint else 0]
+
+
+def model_family(model):
+    """'double', 'single' or 'edge' (MODEL_COLORS); None for an unknown model."""
+    if model is None:
+        return None
+    if getattr(model, "type", None) == "edge":
+        return "edge"
+    return "double" if getattr(model, "n_peaks", 0) >= 2 else "single"
+
+
+def model_color(model, dark=None, on_tint=False):
+    """Colour of a fit model's kind, as '#RRGGBB' (the muted text colour if unknown)."""
+    theme = "dark" if (is_dark() if dark is None else dark) else "light"
+    family = MODEL_COLORS.get(model_family(model))
     if family is None:
         return tokens(dark)["mu"]
     return family[theme][1 if on_tint else 0]
@@ -184,32 +212,50 @@ def stylesheet(dark=False):
     values["mono_font"] = f'"{fonts["mono"]}"'
     values["check_icon"] = f'"{_check_icon(qcolor(tokens(dark)["onac"]).name())}"'
     values["chevron_icon"] = f'"{_chevron_icon(qcolor(tokens(dark)["mu"]).name())}"'
-    return Template(load_style("theme.qss")).substitute(values) + _selector_rules(dark)
+    sheet = Template(load_style("theme.qss")).substitute(values) + _selector_rules(dark)
+    return _QSS_WEIGHT.sub(_qt5_weight, sheet)
+
+
+# Qt 5 reads a numeric QSS font-weight as weight / 8 on its 0-99 scale: 500 gave
+# SemiBold and 600 Bold. CSS weights are written in theme.qss (as in DESIGN.md) and
+# converted here to the values that give Medium, SemiBold and Bold.
+_QT5_WEIGHTS = {400: 50, 500: 57, 600: 63, 700: 75}
+_QSS_WEIGHT = re.compile(r"font-weight:\s*(\d+)")
+
+
+def qt5_weight(css_weight):
+    """CSS weight (500, 600...) for a Qt 5 stylesheet or rich text span."""
+    return _QT5_WEIGHTS.get(css_weight, css_weight // 8) * 8
+
+
+def _qt5_weight(match):
+    weight = _QT5_WEIGHTS.get(int(match.group(1)))
+    return match.group(0) if weight is None else f"font-weight: {weight * 8}"
 
 
 def _selector_rules(dark):
-    """Calibration-coloured selectors (DESIGN.md §3): the calibration combo on the solid
-    family colour, the fit model combo on a tint of it. The combos carry the family
-    in their `calib` property (PressureToolbox.set_calib)."""
+    """Coloured selectors (DESIGN.md §3): the calibration combo on the solid colour of
+    its family (`calib` property, PressureToolbox.set_calib), the fit model combo on a
+    tint of its model kind's colour (`model` property, MainWindow)."""
     t = tokens(dark)
     theme = "dark" if dark else "light"
     tint_alpha, border_alpha = (0.16, 0.55) if dark else (0.10, 0.45)
     rules = ["\n/* --- calibration selectors (generated, theme.py) --- */"]
     for family, colors in CALIB_COLORS.items():
-        solid, on_tint = colors[theme]
-        tint, border = qcolor(solid), qcolor(solid)
-        tint.setAlphaF(tint_alpha)
-        border.setAlphaF(border_alpha)
+        solid, _on_tint = colors[theme]
         rules.append(
             f'QComboBox#calibration_combo[calib="{family}"] {{\n'
             f'  background-color: {solid}; color: {t["on_calib"]}; border-color: {solid};\n'
             f'  font-weight: 600;\n}}\n'
             f'QComboBox#calibration_combo[calib="{family}"]::down-arrow {{\n'
-            f'  image: url("{_chevron_icon(t["on_calib"])}");\n}}\n'
-            f'QComboBox#fit_model_combo[calib="{family}"] {{\n'
+            f'  image: url("{_chevron_icon(t["on_calib"])}");\n}}')
+    for family, colors in MODEL_COLORS.items():
+        solid, on_tint = colors[theme]
+        rules.append(
+            f'QComboBox#fit_model_combo[model="{family}"] {{\n'
             f'  background-color: {qss((solid, tint_alpha))}; color: {on_tint};\n'
             f'  border-color: {qss((solid, border_alpha))}; font-weight: 600;\n}}\n'
-            f'QComboBox#fit_model_combo[calib="{family}"]::down-arrow {{\n'
+            f'QComboBox#fit_model_combo[model="{family}"]::down-arrow {{\n'
             f'  image: url("{_chevron_icon(on_tint)}");\n}}')
     return "\n".join(rules) + "\n"
 
@@ -269,10 +315,40 @@ def palette(dark=False):
     return pal
 
 
+def system_prefers_dark():
+    """True if the operating system uses a dark appearance (Settings › Theme › System).
+    Windows: the "apps use light theme" setting; elsewhere: the platform palette, read
+    before myPGM sets its own (Qt 5 follows the macOS appearance)."""
+    if sys.platform == "win32":
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _WINDOWS_THEME_KEY) as key:
+                return winreg.QueryValueEx(key, "AppsUseLightTheme")[0] == 0
+        except OSError:
+            return False
+    if _state["system_dark"] is None:
+        _remember_system_palette(QApplication.instance())
+    return bool(_state["system_dark"])
+
+
+_WINDOWS_THEME_KEY = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+
+
+def _remember_system_palette(app):
+    if _state["system_dark"] is None and app is not None:
+        _state["system_dark"] = app.palette().color(QPalette.Window).lightness() < 128
+
+
+def mode_is_dark(mode):
+    """'light', 'dark' or 'system' (the stored theme) -> dark or not."""
+    return mode == "dark" or (mode == "system" and system_prefers_dark())
+
+
 def apply_theme(app=None, dark=False):
     """Apply the light or dark theme to the whole application (fonts loaded on first
     use; the font size rule of the stylesheet is kept)."""
     app = app or QApplication.instance()
+    _remember_system_palette(app)           # before it is replaced
     load_fonts()
     set_current(dark)
     app.setPalette(palette(dark))

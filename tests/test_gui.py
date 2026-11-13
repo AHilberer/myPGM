@@ -386,29 +386,36 @@ def test_font_size_without_a_pixel_size_from_qt(qapp, monkeypatch, point_size):
         assert size == DEFAULT_FONT_PX
 
 
-def test_font_window_starts_from_current_size_without_changes(gui):
+def _save_font_size(gui, size):
+    """Settings › General › Interface font size, then Save (it replaced FontSizeWindow)."""
+    gui.view.open_settings()
+    dialog = gui.view.settings_dialog
+    dialog.font_spin.setValue(size)
+    dialog.save_button.click()
+    return dialog
+
+
+def test_settings_start_from_current_font_size_without_changes(gui):
     css_before = gui.app.styleSheet()
-    gui.view.show_font_size_window()
-    assert gui.view.font_size_window.slider.value() == gui.view.plot_font_px
+    gui.view.open_settings()
+    assert gui.view.settings_dialog.font_spin.value() == gui.view.plot_font_px
+    gui.view.settings_dialog.save_button.click()            # nothing changed
     assert gui.app.styleSheet() == css_before
 
 
 def test_font_size_applies_everywhere_and_survives_theme_change(gui):
-    gui.view.show_font_size_window()
-    window = gui.view.font_size_window
-    window.slider.setValue(24)
+    dialog = _save_font_size(gui, 24)
     gui.view.switch_to_dark()
 
     assert "font-size: 24px" in gui.app.styleSheet()
-    assert "FontSizeWindow" in gui.app.styleSheet()          # dark theme rule for the window
+    assert "SettingsDialog" in gui.app.styleSheet()          # dark theme rule for the window
     assert gui.view.data_widget.getAxis("bottom").labelStyle["font-size"] == "24px"
     assert gui.view.data_widget.getAxis("left").style["tickFont"].pixelSize() == 24
     assert gui.view.PvPmPlotWindow.plot_graph.getAxis("left").labelStyle["font-size"] == "24px"
     assert "font-size: 24px" in gui.view.PvPmTableWindow.table_widget.styleSheet()
 
-    window.close()
-    gui.view.show_font_size_window()
-    assert gui.view.font_size_window is window and window.slider.value() == 24
+    gui.view.open_settings()
+    assert gui.view.settings_dialog is dialog and dialog.font_spin.value() == 24
 
 
 # --- fitted pressure display ------------------------------------------------------------
@@ -443,8 +450,7 @@ def test_theme_is_remembered(gui, isolated_settings):
 def test_font_size_is_remembered(gui):
     from myPGM.ui import theme
     from myPGM.ui.main_ui import MainWindow
-    gui.view.show_font_size_window()
-    gui.view.font_size_window.slider.setValue(21)
+    _save_font_size(gui, 21)
     gui.app.setStyleSheet(theme.stylesheet(dark=False))   # as at a new launch
     view = MainWindow()
     assert view.plot_font_px == 21 and "font-size: 21px" in gui.app.styleSheet()

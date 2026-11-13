@@ -8,7 +8,7 @@ QWidget {
 
 /* --- windows and panels --------------------------------------------------------- */
 
-QMainWindow, QDialog, QMessageBox, QInputDialog, SmartDoubleDialog, FontSizeWindow,
+QMainWindow, QDialog, QMessageBox, QInputDialog, SmartDoubleDialog,
 HPTableWindow, PvPmPlotWindow {
   background-color: $bg;
 }
@@ -712,4 +712,77 @@ QLabel[role="empty-title"] {
 }
 #RecoveryBanner QLabel {
   color: $tx;
+}
+
+/* --- Settings window (DESIGN.md section 4) ------------------------------------------- */
+
+QDialog#SettingsDialog, #SettingsContent, QScrollArea#SettingsPage {
+  background-color: $sf;
+}
+#SettingsHeader {
+  background-color: $hd;
+  border-bottom: 1px solid $bd;
+}
+#SettingsFooter {
+  background-color: $hd;
+  border-top: 1px solid $bd;
+}
+#SettingsNav {
+  background-color: $hd;
+  border-right: 1px solid $bd;
+}
+QLabel#SettingsTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+QPushButton[role="nav"] {
+  text-align: left;
+  padding: 0px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: $tx;
+  font-weight: 500;
+  min-height: 0px;
+}
+QPushButton[role="nav"]:hover {
+  background-color: $sf2;
+}
+QPushButton[role="nav"]:checked {
+  background-color: $acs;
+  color: $act;
+}
+QPushButton[role="nav"][current="true"] {
+  font-weight: 600;
+}
+QLabel[role="settings-title"] {
+  font-size: 16px;
+  font-weight: 600;
+}
+QLabel[role="row-title"] {
+  font-weight: 500;
+}
+#ColumnTile {
+  border: 1px solid $bd;
+  border-radius: 8px;
+}
+#ColumnTile QCheckBox {
+  font-family: $mono_font;
+  font-size: 12px;
+}
+QAbstractSpinBox#IntervalSpin {
+  font-size: 14px;
+}
+QPushButton[role="text"] {
+  background: transparent;
+  border: none;
+  color: $mu;
+  padding: 0px 12px;
+}
+QPushButton[role="text"]:hover {
+  color: $tx;
+}
+QLabel#AboutName {
+  font-size: 16px;
+  font-weight: 700;
 }

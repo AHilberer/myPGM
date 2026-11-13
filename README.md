@@ -97,11 +97,13 @@ It loads the bundled example spectra, fits the three ruby spectra and the H2 vib
 
 # Unsaved work and automatic backup
 
-When closing myPGM with unsaved changes (spectra, fits, processing or table points), it asks whether to save the session first. While you work, the session is also backed up automatically every 30 seconds in your user folder (next to the log file below). Each myPGM window has its own backup, so several windows can be open at the same time. If myPGM closes unexpectedly, it offers to recover that backup at the next start; a declined backup is kept aside with a `.discarded.json` extension.
+When closing myPGM with unsaved changes (spectra, fits, processing or table points), it asks whether to save the session first. While you work, the session is also backed up automatically every 30 seconds in your user folder (next to the log file below); the interval, or autosave itself, can be changed in Settings › Session. Each myPGM window has its own backup, so several windows can be open at the same time. If myPGM closes unexpectedly, a banner offers to recover that backup at the next start (this can be turned off in Settings › Session); a declined backup, or one left aside because you loaded something else, is kept with a `.discarded.json` extension.
 
 # Settings
 
-myPGM remembers the theme, the font size and the folders last used to open spectra, sessions, the acquisition directory and CSV exports. They are kept in `~/.config/myPGM/myPGM.ini` (Linux and macOS) or `%APPDATA%\myPGM\myPGM.ini` (Windows); delete this file to return to the defaults. The reference positions (λ0, ν0) are not remembered on purpose: they are measured for each experiment, and a value from a previous one would silently give wrong pressures.
+The gear button at the top right (or Files › Settings…, ⌘, on macOS) opens the Settings window: theme (light, dark or following the system), interface font size, the additional pressure toolbox, autosave, the pressure log columns, debug logging and the log folder.
+
+myPGM remembers these settings, the window layout and the folders last used to open spectra, sessions, the acquisition directory and CSV exports. They are kept in `~/.config/myPGM/myPGM.ini` (Linux and macOS) or `%APPDATA%\myPGM\myPGM.ini` (Windows); delete this file to return to the defaults. The reference positions (λ0, ν0) are not remembered on purpose: they are measured for each experiment, and a value from a previous one would silently give wrong pressures.
 
 # Log file
 
@@ -113,7 +115,7 @@ myPGM writes warnings and errors, including every error message shown in the app
 
 The exact path is printed at startup and shown in the dialog that appears if an unexpected error occurs. Please attach this file when reporting a bug.
 
-For more detailed messages (files loaded, fit results, sessions saved and loaded), start the app with `--debug`:
+For more detailed messages (files loaded, fit results, sessions saved and loaded), turn on Settings › Logging › Debug logging, or start the app with `--debug`:
 
 ```bash
 mypgm --debug

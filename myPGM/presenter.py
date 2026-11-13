@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
 from PyQt5.QtCore import Qt, QFileInfo, QObject, QTimer
 from myPGM.data_model import PressureGaugeDataObject
 from myPGM.session_backup import SessionBackup, write_json
+from myPGM.settings import setting
 import myPGM.calibrations
 import myPGM.fit_models
 from myPGM.helpers import pressure_valid, spectro_calibration_reader, PressureCalculationFailed
@@ -35,7 +36,6 @@ def get_app_version():
         return "dev"
 
 class Presenter(QObject):
-    AUTOSAVE_INTERVAL_MS = 30_000
 
     def __init__(self, model, view, test_mode=False, demo=False, backup_dir=None):
         """test_mode: load the example spectra (used by the tests).
@@ -133,7 +133,8 @@ class Presenter(QObject):
         if self.backup is not None:
             self.autosave_timer = QTimer(self)
             self.autosave_timer.timeout.connect(self.autosave)
-            self.autosave_timer.start(self.AUTOSAVE_INTERVAL_MS)
+        self.apply_autosave_settings()
+        self.view.settings_saved.connect(self.apply_autosave_settings)
 
     ##################################################################################""
         #? Methods 
@@ -1067,6 +1068,16 @@ class Presenter(QObject):
         if not self.backup.is_up_to_date(fingerprint):
             self.backup.write(self._session_dict(), fingerprint)
             self.view.set_save_status("autosaved")
+
+    def apply_autosave_settings(self):
+        """Autosave on or off and its interval (Settings › Session), applied without
+        restarting. A backup already written is kept."""
+        if self.autosave_timer is None:
+            return
+        if setting("session/autosave"):
+            self.autosave_timer.start(setting("session/autosave_interval_s") * 1000)
+        else:
+            self.autosave_timer.stop()
 
     def flush_backup(self):
         """Wait for a backup being written, if any."""

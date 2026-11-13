@@ -30,19 +30,21 @@ from PyQt5.QtGui import QGuiApplication, QKeySequence
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
 from myPGM.helpers import (get_app_icon,
-                          FontSizeWindow,
                           set_app_font_size,
                           current_app_font_px,)
+from myPGM import log_setup
+from myPGM import settings as S
 from myPGM.settings import app_settings, last_dir, remember_dir
 
 from myPGM.ui.PvPmPlot import PvPmPlotWindow
-from myPGM.ui.PvPmTable import HPTableWindow
+from myPGM.ui.PvPmTable import COLUMNS as LOG_COLUMNS, HPTableWindow
 from myPGM.ui.FileListViewerWidget import FileListViewerWidget
 from myPGM.ui.PressureToolbox import PressureToolbox
 from myPGM.ui.TopBar import TopBar
 from myPGM.ui.docks import MIN_HEIGHT as MIN_DOCK_HEIGHT, PanelDock
 from myPGM.ui import icons, theme
-from myPGM.ui.widgets import (GAP, Button, Card, ElidedLabel, button, divider, hbox, label,
+from myPGM.ui.widgets import (GAP, Button, Card, ElidedLabel, ModelItemDelegate, button,
+                              divider, hbox, label,
                               x_symbol, x_unit)
 from myPGM.ui.center import (EmptyCenter, FitRangeEditOverlay, FitToolbar, LegendRow,
                              PeakLabel, Pill,
@@ -50,6 +52,7 @@ from myPGM.ui.center import (EmptyCenter, FitRangeEditOverlay, FitToolbar, Legen
                              dashed_marker_pen, peak_name)
 from myPGM.ui.banner import RecoveryBanner
 from myPGM.ui.dialogs import AddPointDialog
+from myPGM.ui.settings_dialog import SettingsDialog
 
 import pyqtgraph as pg
 
@@ -81,6 +84,7 @@ class MainWindow(QMainWindow):
     demo_requested = pyqtSignal()           # "Explore the demo session" (empty state)
     save_session_signal = pyqtSignal()
     save_session_as_signal = pyqtSignal()
+    settings_saved = pyqtSignal()           # Settings window: Save (autosave values for the presenter)
 
     def __init__(self):
         super().__init__()
@@ -108,7 +112,7 @@ class MainWindow(QMainWindow):
         if 8 <= saved_font_px <= 30:
             set_app_font_size(saved_font_px)
             self.plot_font_px = saved_font_px
-        self.font_size_window = None
+        self.settings_dialog = None             # created when first opened
 
         self._create_fit_controls()
         self._create_plots()
@@ -173,9 +177,9 @@ class MainWindow(QMainWindow):
         # set by the presenter: called on close, returns False to keep the window open
         self.close_guard = None
 
-        # theme chosen in a previous launch (light by default)
-        if app_settings().value("theme", "light", type=str) == "dark":
-            self.switch_to_dark()
+        # theme chosen in a previous launch (light by default; "system" follows the OS)
+        if theme.mode_is_dark(S.setting("theme")):
+            self._apply_theme(dark=True, remember=False)
 
     #####################################################################################
     # ? Window construction
@@ -200,21 +204,15 @@ class MainWindow(QMainWindow):
         files_menu.addAction(self.open_session_action)
         files_menu.addAction(self.save_session_action)
         files_menu.addAction(self.save_session_as_action)
-        # the theme is switched with the top bar toggle (the Theme menu is gone)
-
-        #####################################################################################
-        # #? Setup PToolbox menu
-        ptoolbox_menu = menubar.addMenu("PToolbox")
-
-        additional_toolbox = QAction("Toggle additional PToolbox", self)
-        additional_toolbox.triggered.connect(self.toggle_additional_ptoolbox)
-        ptoolbox_menu.addAction(additional_toolbox)
-        #####################################################################################
-        # #? Setup font size menu
-        fontsize_menu = menubar.addMenu("Font size")
-        fontsize_setting = QAction("Set font size", self)
-        fontsize_setting.triggered.connect(self.show_font_size_window)
-        fontsize_menu.addAction(fontsize_setting)
+        # theme, font size and the additional pressure toolbox are in the Settings
+        # window (DESIGN.md §4); on macOS this action goes to the app menu, with Cmd+,
+        files_menu.addSeparator()
+        self.settings_action = QAction("Settings…", self)
+        self.settings_action.setMenuRole(QAction.PreferencesRole)
+        shortcuts = QKeySequence.keyBindings(QKeySequence.Preferences)
+        self.settings_action.setShortcuts(shortcuts or [QKeySequence("Ctrl+,")])
+        self.settings_action.triggered.connect(self.open_settings)
+        files_menu.addAction(self.settings_action)
 
         #####################################################################################
         # #? View menu: the bottom panels (filled by _setup_docks)
@@ -263,6 +261,9 @@ class MainWindow(QMainWindow):
         self.fit_model_combo.setObjectName("fit_model_combo")
         self.fit_model_combo.setMinimumWidth(100)
         self.fit_model_combo.setFixedHeight(36)
+        # colour dot of each model's kind in the list (not in the closed selector)
+        self.fit_model_combo.setItemDelegate(ModelItemDelegate(
+            lambda name: getattr(self, "_fit_models", {}).get(name), self.fit_model_combo))
 
         # Background: Auto / Manual / None, an exclusive segmented control
         self.CHullBg_button = Button("Auto", 28)
@@ -458,7 +459,6 @@ class MainWindow(QMainWindow):
         """Right column: Pressure gauge, Parameters and Spectrometer cards."""
         self.ptoolbox.fit_model_slot.addWidget(label("Fit model", "field"))
         self.ptoolbox.fit_model_slot.addWidget(self.fit_model_combo)
-        self.ptoolbox.tinted_combos.append(self.fit_model_combo)
         self.ptoolbox._style_calib_combo()
         self.ptoolbox.add_point_slot.addWidget(self.PToolbox_toTable_button)
 
@@ -555,6 +555,9 @@ class MainWindow(QMainWindow):
             if not self._layout_restored:
                 self._default_dock_sizes()      # with the final window size
             self._schedule_panel_update()
+            # open at the last close (Settings › General › Additional pressure toolbox)
+            if S.setting("additional_toolbox"):
+                QTimer.singleShot(0, lambda: self.set_additional_toolbox_visible(True))
 
     def _connect_top_bar(self):
         bar = self.top_bar
@@ -562,6 +565,7 @@ class MainWindow(QMainWindow):
         bar.save_button.clicked.connect(self.save_session_signal.emit)
         bar.export_button.clicked.connect(self.PvPmTableWindow.save_data_to_csv)
         bar.theme_button.clicked.connect(self.toggle_theme)
+        bar.settings_button.clicked.connect(self.open_settings)
         # panel toggles show / hide the docks where they were (docked or floating), and
         # follow them when they are hidden with their × or the View menu
         for dock, toggle in ((self.log_dock, bar.log_toggle), (self.plot_dock, bar.plot_toggle)):
@@ -624,11 +628,13 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         self.save_layout()
+        # shown again at the next launch if it is open now (Settings › General)
+        S.set_setting("additional_toolbox", self.additional_toolbox_window.isVisible())
         # close the side windows owned by this main window (not every app window,
         # which recursed between main windows); floating panels close with it
-        for window in (self.additional_toolbox_window, self.font_size_window):
-            if window is not None:
-                window.close()
+        self.additional_toolbox_window.close()
+        if self.settings_dialog is not None:
+            self.settings_dialog.close()
         super().closeEvent(event)
 
     def toggle_theme(self):
@@ -636,6 +642,8 @@ class MainWindow(QMainWindow):
             self.switch_to_light()
         else:
             self.switch_to_dark()
+        if self.settings_dialog is not None and self.settings_dialog.isVisible():
+            self.settings_dialog.set_theme_mode(S.setting("theme"))
 
     def switch_to_dark(self):
         self._apply_theme(dark=True)
@@ -643,14 +651,24 @@ class MainWindow(QMainWindow):
     def switch_to_light(self):
         self._apply_theme(dark=False)
 
-    def _apply_theme(self, dark):
+    def set_theme_mode(self, mode):
+        """'light', 'dark' or 'system' (Settings › General › Theme)."""
+        S.set_setting("theme", mode)
+        dark = theme.mode_is_dark(mode)
+        if dark != theme.is_dark():
+            self._apply_theme(dark, remember=False)
+
+    def _apply_theme(self, dark, remember=True):
+        """remember: store the theme as the user's choice (the top-bar toggle); not for
+        a theme that follows the system."""
         try:
             # app-wide, so that every window and dialog follows the theme
             theme.apply_theme(dark=dark)
         except OSError as exc:
             logger.warning("Could not load the theme stylesheet: %s", exc)
             theme.set_current(dark)
-        app_settings().setValue("theme", "dark" if dark else "light")
+        if remember:
+            S.set_setting("theme", "dark" if dark else "light")
 
         # pyqtgraph plots are not styled by the Qt stylesheet
         self._style_plots()
@@ -661,6 +679,9 @@ class MainWindow(QMainWindow):
         self.file_list_widget.restyle()
         self.pressure_card.restyle()
         self.recovery_banner.restyle()
+        self._style_fit_model_combo()
+        if self.settings_dialog is not None:
+            self.settings_dialog.restyle()
         self._update_empty_glyph()
         for dock in self._docks:
             dock.restyle()
@@ -715,10 +736,25 @@ class MainWindow(QMainWindow):
 
     def populate_fit_models_combo(self, model_dict):
         if model_dict is not None:
-            # tinted by the calibration family (DESIGN.md §3), not by the model
+            # coloured by kind of model: Double red, Single green, Raman edge grey
+            self._fit_models = dict(model_dict)
             self.fit_model_combo.addItems(model_dict.keys())
+            self.fit_model_combo.currentIndexChanged.connect(self._style_fit_model_combo)
+            self._style_fit_model_combo()
         else:
             raise ImportError('Error loading fit models.')
+
+    def _style_fit_model_combo(self, *_args):
+        """Tint of the selected model's kind (the `model` property picks the generated
+        rules of the stylesheet, theme._selector_rules) and a colour dot per item."""
+        models = getattr(self, "_fit_models", {})
+        combo = self.fit_model_combo
+        family = theme.model_family(models.get(combo.currentText())) or ""
+        if combo.property("model") != family:
+            combo.setProperty("model", family)
+            combo.style().unpolish(combo)
+            combo.style().polish(combo)
+
 
     def set_current_point(self, obj_id):
         """The point shown (selected spectrum or recalled log entry): its log row is
@@ -744,7 +780,7 @@ class MainWindow(QMainWindow):
         summary = (f"{calib.name if calib is not None else ''} · "
                    f"{symbol} {toolbox.x_spinbox.value():.3f} {unit} · "
                    f"T {toolbox.T_spinbox.value():.1f} K → "
-                   f'<span style="font-family:{theme.mono_family()}; font-weight:600; '
+                   f'<span style="font-family:{theme.mono_family()}; font-weight:{theme.qt5_weight(600)}; '
                    f'color:{theme.tokens()["tx"]}">P {toolbox.P_spinbox.value():.3f} GPa</span>')
         pm = self.prompt_point_pm(summary, toolbox.Pm_spinbox.value())
         if pm is None:
@@ -1033,20 +1069,74 @@ class MainWindow(QMainWindow):
         msg.exec_()
 
     def toggle_additional_ptoolbox(self):
-        if self.additional_toolbox_window.isVisible():
-            self.additional_toolbox_window.hide()
-        else:
-            self.additional_toolbox_window.show()
+        self.set_additional_toolbox_visible(not self.additional_toolbox_window.isVisible())
 
-    def show_font_size_window(self):
-        # created once, so reopening it keeps the chosen size
-        if self.font_size_window is None:
-            self.font_size_window = FontSizeWindow(self.plot_font_px)
-            self.font_size_window.font_size_changed.connect(self.set_font_size)
-            self.font_size_window.font_size_changed.connect(
-                lambda size: app_settings().setValue("font_size", size))
-        self.font_size_window.show()
-        self.font_size_window.raise_()
+    def set_additional_toolbox_visible(self, visible):
+        self.additional_toolbox_window.setVisible(visible)
+        if visible:
+            self.additional_toolbox_window.raise_()
+
+    # --- Settings window (DESIGN.md §4) ---------------------------------------------------------
+
+    @staticmethod
+    def _optional_log_columns():
+        return [(key, header, shown) for key, header, _numeric, shown in LOG_COLUMNS
+                if key != "#"]
+
+    def open_settings(self):
+        """Gear button, Files › Settings… (Cmd+, on macOS). One window: opened again,
+        it comes to the front; once closed, it reopens with the values in use."""
+        if self.settings_dialog is None:
+            self.settings_dialog = SettingsDialog(self._optional_log_columns(), self)
+            self.settings_dialog.saved.connect(self.apply_settings)
+        dialog = self.settings_dialog
+        if not dialog.isVisible():
+            dialog.set_version(self.top_bar.app_version)
+            dialog.log_dir = log_setup.log_dir()
+            dialog.log_folder_button.setEnabled(dialog.log_dir is not None)
+            dialog.set_values(self.current_settings())
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def current_settings(self):
+        """Values in use, as shown in the Settings window."""
+        table = self.PvPmTableWindow.table_widget
+        return {
+            "theme": S.setting("theme"),
+            "font_size": self.plot_font_px,
+            "additional_toolbox": self.additional_toolbox_window.isVisible(),
+            "autosave": S.setting("session/autosave"),
+            "autosave_interval_s": S.setting("session/autosave_interval_s"),
+            "offer_recovery": S.setting("session/offer_recovery"),
+            "columns": {key: table.is_column_shown(key)
+                        for key, _header, _shown in self._optional_log_columns()},
+            "debug": log_setup.is_debug(),
+        }
+
+    def apply_settings(self, values):
+        """Save in the Settings window: apply what changed and store every value."""
+        self.set_theme_mode(values["theme"])
+        if values["font_size"] != self.plot_font_px:
+            set_app_font_size(values["font_size"])
+            self.set_font_size(values["font_size"])
+        app_settings().setValue("font_size", values["font_size"])
+        self.set_additional_toolbox_visible(values["additional_toolbox"])
+        S.set_setting("additional_toolbox", values["additional_toolbox"])
+        table = self.PvPmTableWindow.table_widget
+        for key, shown in values["columns"].items():
+            # only the changed ones: a column left as it is keeps its automatic
+            # behaviour (T is shown when a temperature is not 298 K)
+            if shown != table.is_column_shown(key):
+                table.set_column_visible(key, shown)
+        S.set_setting("session/autosave", values["autosave"])
+        S.set_setting("session/autosave_interval_s", values["autosave_interval_s"])
+        S.set_setting("session/offer_recovery", values["offer_recovery"])
+        if values["debug"] != log_setup.is_debug():
+            log_setup.set_debug(values["debug"])
+            logger.info("Debug logging %s", "on" if values["debug"] else "off")
+        S.set_setting("logging/debug", values["debug"])
+        self.settings_saved.emit()
 
     def set_font_size(self, size):
         # pyqtgraph items and the PvPm table are not reached by the app stylesheet

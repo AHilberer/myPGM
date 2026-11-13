@@ -50,6 +50,23 @@ def test_selector_text_is_readable_on_every_calibration_colour():
         assert _contrast(theme.DARK["on_calib"], colors["dark"][0]) >= 4.5, family
 
 
+def test_fit_model_selector_text_is_readable():
+    # text on tint over the panel colour (10 % / 16 % tint), >= 4.5:1
+    from PyQt5.QtGui import QColor
+    for dark, tint_alpha in ((False, 0.10), (True, 0.16)):
+        panel = QColor(theme.tokens(dark)["sf"])
+        for family, colors in theme.MODEL_COLORS.items():
+            solid, on_tint = (QColor(c) for c in colors["dark" if dark else "light"])
+            mixed = QColor(*(round(getattr(panel, ch)() * (1 - tint_alpha)
+                                   + getattr(solid, ch)() * tint_alpha)
+                             for ch in ("red", "green", "blue")))
+            assert _contrast(on_tint.name(), mixed.name()) >= 4.5, (family, dark)
+
+
+def test_every_fit_model_has_a_kind():
+    assert {theme.model_family(m) for m in F.model_list} == {"double", "single", "edge"}
+
+
 def test_bundled_fonts_are_loaded(qapp):
     fonts = theme.load_fonts()
     assert fonts == {"ui": "Inter", "mono": "JetBrains Mono"}
@@ -104,3 +121,18 @@ def test_theme_switch_keeps_the_toolbox_values(gui):
     gui.view.switch_to_dark()
     gui.view.switch_to_light()
     assert toolbox.T_spinbox.value() == 350 and toolbox.x_spinbox.value() == 695.5
+
+
+def test_font_weights_are_converted_for_qt5(qapp):
+    """Qt 5 reads a QSS weight as weight / 8: 600 gave Bold. theme.qss keeps CSS
+    weights, the generated stylesheet gives Medium / SemiBold / Bold."""
+    from PyQt5.QtGui import QFont
+    from PyQt5.QtWidgets import QLabel
+    from myPGM.ui import theme
+    sheet = theme.stylesheet(dark=False)
+    assert "font-weight: 500" not in sheet and "font-weight: 504" in sheet   # 600 -> 504
+    for css, qt in ((500, QFont.Medium), (600, QFont.DemiBold), (700, QFont.Bold)):
+        widget = QLabel()
+        widget.setStyleSheet(f"QLabel {{ font-weight: {theme.qt5_weight(css)}; }}")
+        widget.ensurePolished()
+        assert widget.font().weight() == qt
