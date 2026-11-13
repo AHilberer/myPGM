@@ -64,11 +64,10 @@ def isolated_settings(tmp_path):
 
 @pytest.fixture(autouse=True)
 def no_blocking_questions(monkeypatch):
-    """Closing a window with unsaved changes asks Save/Discard/Cancel, and startup
-    may offer to recover a backup: answer them in tests instead of blocking."""
+    """Closing a window with unsaved changes asks Save/Discard/Cancel: answer it in
+    tests instead of blocking. (Recovering a backup is a non-blocking banner.)"""
     from myPGM.ui.main_ui import MainWindow
     monkeypatch.setattr(MainWindow, "ask_save_changes", lambda self: "discard")
-    monkeypatch.setattr(MainWindow, "ask_recover_session", lambda self, when: False)
 
 
 @pytest.fixture(scope="session")

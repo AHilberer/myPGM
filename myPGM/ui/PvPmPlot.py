@@ -1,6 +1,7 @@
 import numpy as np
 import pyqtgraph as pg
 
+from PyQt5.QtCore import QEvent, Qt
 from PyQt5.QtWidgets import (QAction,
                              QLabel,
                              QVBoxLayout,
@@ -36,7 +37,22 @@ class PvPmPlotWindow(QWidget):
 
         self.lines = {}
         self.error_bars = {}
+
+        # the point of the spectrum shown gets a ring (DESIGN.md §1)
+        self.current_id = None
+        self.current_ring = pg.ScatterPlotItem(symbol="o", size=20, brush=None)
+        self.current_ring.setZValue(10)
+        self.plot_graph.addItem(self.current_ring, ignoreBounds=True)
+
+        # no point yet: a centred line instead of an empty plot (DESIGN.md §4b)
+        self.empty_label = QLabel("Logged points appear here, P against Pm.", self.plot_graph)
+        self.empty_label.setObjectName("EmptyHint")
+        self.empty_label.setAlignment(Qt.AlignCenter)
+        self.empty_label.setWordWrap(True)
+        self.empty_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.plot_graph.installEventFilter(self)
         self._restyle()
+        self._set_empty(True)
         
         # 'Display lines' in the plot's right-click menu
         self.lines_action = QAction('Display lines', self)
@@ -51,6 +67,27 @@ class PvPmPlotWindow(QWidget):
 
     def set_data_manager(self, data_manager):
         self.data_manager = data_manager
+
+    def eventFilter(self, watched, event):
+        if watched is self.plot_graph and event.type() == QEvent.Resize:
+            self.empty_label.setGeometry(self.plot_graph.rect().adjusted(16, 0, -16, 0))
+        return super().eventFilter(watched, event)
+
+    def set_current_id(self, obj_id):
+        self.current_id = obj_id
+        self._update_ring()
+
+    def _update_ring(self):
+        obj = None
+        if self.data_manager is not None and self.current_id is not None:
+            obj = next((o for o in self.data_manager.table_entries()
+                        if o.id == self.current_id and o.Pm is not None and o.P is not None),
+                       None)
+        if obj is None:
+            self.current_ring.setData([], [])
+            return
+        self.current_ring.setData([float(obj.Pm)], [float(obj.P)])
+        self.current_ring.setPen(pg.mkPen(theme.qcolor(theme.calib_color(obj.calib)), width=1.5))
 
     def set_dark_mode(self):
         self._restyle()
@@ -68,6 +105,7 @@ class PvPmPlotWindow(QWidget):
         for group in self.lines:
             self._style_series(group)
         self._update_legend()
+        self._update_ring()
 
     def _series_color(self, group):
         return theme.qcolor(theme.calib_color(self.calibs.get(group)))
@@ -96,6 +134,8 @@ class PvPmPlotWindow(QWidget):
         tick_font = theme.mono_font(self.font_px)
         for side in ("left", "bottom"):
             self.plot_graph.getAxis(side).setStyle(tickFont=tick_font)
+        if getattr(self, "empty", False):
+            self._set_empty(True)       # PlotItem.setLabel shows the axes again
 
     def legend_entries(self):
         """(text, colour) of each series, in the order they were first plotted."""
@@ -160,6 +200,16 @@ class PvPmPlotWindow(QWidget):
             self._update_error_bars(g, subdata)
 
         self._update_legend()
+        self._update_ring()
+        self._set_empty(not incoming_data)
+
+    def _set_empty(self, empty):
+        """No point: the message instead of the axes, no legend."""
+        self.empty = empty
+        self.empty_label.setVisible(empty)
+        self.legend_label.setVisible(not empty)
+        for axis in ("left", "bottom"):
+            self.plot_graph.getPlotItem().showAxis(axis, not empty)
 
     def _update_error_bars(self, group, subdata):
         # statistical fit uncertainty on P (0 for points without one, e.g. Raman edge)

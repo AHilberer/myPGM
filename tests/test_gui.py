@@ -510,9 +510,15 @@ def test_table_plot_and_csv_show_uncertainty(gui, tmp_path, monkeypatch):
     gui.view.prompt_fit_pm = lambda current: 12.0
     gui.presenter.add_current_fit_to_table()
 
-    row = table_rows(gui.view.PvPmTableWindow.table_widget)[0]
-    assert row["P (GPa)"] == f"{obj.P:.3f} \u00b1 {obj.P_err:.3f}"
+    # step 5 (DESIGN.md §5): P shows the value alone, its uncertainty is the optional
+    # "σP (fit)" column (hidden by default, like "σx (fit)")
+    table = gui.view.PvPmTableWindow.table_widget
+    row = table_rows(table)[0]
+    assert row["P (GPa)"] == f"{obj.P:.3f}"
+    assert row["\u03c3P (fit)"] == f"{obj.P_err:.3f}"
     assert row["\u03c3x (fit)"] == f"{obj.x_err:.4f} nm"
+    headers = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())]
+    assert table.isColumnHidden(headers.index("\u03c3P (fit)"))
 
     bars = gui.view.PvPmPlotWindow.error_bars["Ruby2020"]
     assert list(bars.opts["top"]) == pytest.approx([obj.P_err])
@@ -760,7 +766,8 @@ def test_table_calibration_swatch_tooltips_and_alignment(gui):
     assert calib_item.toolTip() == "Ruby2020"
     assert table.item(0, headers.index("file")).toolTip() == obj.full_path
     assert table.item(0, headers.index("Pm (bar)")).textAlignment() & Qt.AlignRight
-    assert table.alternatingRowColors()
+    # step 5 (DESIGN.md §5): rows separated by lines instead of alternating colours
+    assert not table.alternatingRowColors() and not table.showGrid()
 
 
 def test_table_order_survives_session(gui, tmp_path, monkeypatch):

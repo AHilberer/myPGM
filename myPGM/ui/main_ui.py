@@ -1,4 +1,5 @@
 import logging
+import os
 
 import numpy as np
 from PyQt5.QtWidgets import (
@@ -16,6 +17,7 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QSplitter,
     QSpinBox,
+    QStackedWidget,
 )
 from PyQt5 import sip
 from PyQt5.QtCore import (
@@ -23,7 +25,7 @@ from PyQt5.QtCore import (
     QTimer,
     pyqtSignal,
 )
-from PyQt5.QtGui import QColor, QGuiApplication, QKeySequence
+from PyQt5.QtGui import QGuiApplication, QKeySequence
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -42,9 +44,11 @@ from myPGM.ui.docks import MIN_HEIGHT as MIN_DOCK_HEIGHT, PanelDock
 from myPGM.ui import icons, theme
 from myPGM.ui.widgets import (GAP, Button, Card, ElidedLabel, button, divider, hbox, label,
                               x_symbol, x_unit)
-from myPGM.ui.center import (FitRangeEditOverlay, FitToolbar, LegendRow, PeakLabel, Pill,
+from myPGM.ui.center import (EmptyCenter, FitRangeEditOverlay, FitToolbar, LegendRow,
+                             PeakLabel, Pill,
                              PressureCard, Segmented, SplitButton, Stepper,
                              dashed_marker_pen, peak_name)
+from myPGM.ui.banner import RecoveryBanner
 from myPGM.ui.dialogs import AddPointDialog
 
 import pyqtgraph as pg
@@ -73,6 +77,8 @@ class MainWindow(QMainWindow):
     add_current_fit_signal = pyqtSignal(object)
     add_point_requested = pyqtSignal()
     open_session_signal = pyqtSignal()
+    files_dropped = pyqtSignal(list)        # local paths dropped on the window
+    demo_requested = pyqtSignal()           # "Explore the demo session" (empty state)
     save_session_signal = pyqtSignal()
     save_session_as_signal = pyqtSignal()
 
@@ -129,7 +135,11 @@ class MainWindow(QMainWindow):
         # bottom margin: none while docked panels are shown (their separator is the gap)
         self.workspace_layout = QVBoxLayout()
         self.workspace_layout.setContentsMargins(GAP, GAP, GAP, GAP)
-        self.workspace_layout.addWidget(self.workspace_splitter)
+        self.workspace_layout.setSpacing(GAP)
+        # backup of an unsaved session found at startup (DESIGN.md §4b)
+        self.recovery_banner = RecoveryBanner()
+        self.workspace_layout.addWidget(self.recovery_banner)
+        self.workspace_layout.addWidget(self.workspace_splitter, 1)
         main_layout.addLayout(self.workspace_layout, 1)
 
         self.file_list_widget = FileListViewerWidget()
@@ -399,12 +409,57 @@ class MainWindow(QMainWindow):
         plots_layout.addWidget(self.splitter)
         spectrum_card.body.addWidget(plots, 1)
         layout.addWidget(spectrum_card, 1)
-        return center
+
+        # no spectrum loaded: one card with the drop zone instead (DESIGN.md §4b)
+        self.empty_center = EmptyCenter()
+        self.empty_center.add_button.clicked.connect(self.file_list_widget.add_button.click)
+        self.empty_center.folder_button.clicked.connect(
+            self.file_list_widget.selectdir_button.click)
+        self.empty_center.session_button.clicked.connect(self.open_session_signal.emit)
+        self.empty_center.demo_button.clicked.connect(self.demo_requested.emit)
+        self.ptoolbox.calib_shown.connect(self._update_empty_glyph)
+        self.center_stack = QStackedWidget()
+        self.center_stack.addWidget(self.empty_center)
+        self.center_stack.addWidget(center)
+        self._work_center = center
+        model = self.file_list_widget.list_widget.model()
+        for signal in (model.rowsInserted, model.rowsRemoved, model.modelReset):
+            signal.connect(self._update_center_page)
+        self._update_center_page()
+        self.setAcceptDrops(True)
+        return self.center_stack
+
+    def _update_center_page(self, *_args):
+        empty = self.file_list_widget.is_empty()
+        self.center_stack.setCurrentWidget(self.empty_center if empty else self._work_center)
+
+    def _update_empty_glyph(self, *_args):
+        self.empty_center.set_color(theme.calib_color(self.ptoolbox._calib))
+
+    @staticmethod
+    def _dropped_paths(mime):
+        if not mime.hasUrls():
+            return []
+        return [url.toLocalFile() for url in mime.urls()
+                if url.isLocalFile() and os.path.isfile(url.toLocalFile())]
+
+    def dragEnterEvent(self, event):
+        if self._dropped_paths(event.mimeData()):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        paths = self._dropped_paths(event.mimeData())
+        if paths:
+            event.acceptProposedAction()
+            remember_dir("spectra", paths[0])
+            self.files_dropped.emit(paths)
 
     def _build_inspector(self):
         """Right column: Pressure gauge, Parameters and Spectrometer cards."""
         self.ptoolbox.fit_model_slot.addWidget(label("Fit model", "field"))
         self.ptoolbox.fit_model_slot.addWidget(self.fit_model_combo)
+        self.ptoolbox.tinted_combos.append(self.fit_model_combo)
+        self.ptoolbox._style_calib_combo()
         self.ptoolbox.add_point_slot.addWidget(self.PToolbox_toTable_button)
 
         spectro_card = Card("Spectrometer", spacing=10)
@@ -605,6 +660,8 @@ class MainWindow(QMainWindow):
         self.top_bar.restyle()
         self.file_list_widget.restyle()
         self.pressure_card.restyle()
+        self.recovery_banner.restyle()
+        self._update_empty_glyph()
         for dock in self._docks:
             dock.restyle()
 
@@ -658,24 +715,16 @@ class MainWindow(QMainWindow):
 
     def populate_fit_models_combo(self, model_dict):
         if model_dict is not None:
+            # tinted by the calibration family (DESIGN.md §3), not by the model
             self.fit_model_combo.addItems(model_dict.keys())
-
-            for k, v in model_dict.items():
-                ind = self.fit_model_combo.findText(k)
-                self.fit_model_combo.model().item(ind).setBackground(QColor(v.color))
-            
-            tmp_color = (
-            self.fit_model_combo.model()
-            .item(self.fit_model_combo.currentIndex())
-            .background()
-            .color()
-            .getRgb()
-            )
-            self.fit_model_combo.setStyleSheet(
-                "background-color: rgba{};".format(tmp_color)
-            )
         else:
             raise ImportError('Error loading fit models.')
+
+    def set_current_point(self, obj_id):
+        """The point shown (selected spectrum or recalled log entry): its log row is
+        highlighted and its P vs Pm marker ringed (DESIGN.md §1)."""
+        self.PvPmTableWindow.table_widget.set_current_id(obj_id)
+        self.PvPmPlotWindow.set_current_id(obj_id)
 
     def add_current_fit(self):
         self.add_current_fit_signal.emit(None)
@@ -819,14 +868,21 @@ class MainWindow(QMainWindow):
         self.deriv_widget.setTitle(f"dI/d{self._deriv_symbol}", justify="left",
                                    color=theme.qcolor(theme.tokens()["mu"]).name(), size="12px")
 
-    def plot_data(self, x, y, buffer, preserve_view=False):
-        self._clear_fit_items()
-        calib = buffer.calib
-        self._plot_calib = calib
+    def set_x_axis(self, calib):
+        """x of the spectrum plots in the calibration's symbol and unit: axis title,
+        fit range label, dI/dλ toggle and derivative title."""
         symbol, unit = x_symbol(calib), x_unit(calib)
         self.data_widget.setLabel("bottom", f"{symbol} ({unit})")
         self.fit_range_overlay.unit = unit
         self.Derivative_button.setText(f" dI/d{symbol}")
+        self._deriv_symbol = symbol
+        self._set_deriv_title()
+
+    def plot_data(self, x, y, buffer, preserve_view=False):
+        self._clear_fit_items()
+        calib = buffer.calib
+        self._plot_calib = calib
+        self.set_x_axis(calib)
         # not fitted until plot_fit: "—" in the fitted pressure card
         self.pressure_card.clear(calib)
         # the fit line of this spectrum is drawn in its calibration's colour
@@ -837,8 +893,6 @@ class MainWindow(QMainWindow):
             self.data_widget.autoRange()
 
     # derivative data
-        self._deriv_symbol = symbol
-        self._set_deriv_title()
 
         # along increasing x, as the Raman edge search (files can store x decreasing)
         order = np.argsort(x, kind="stable")
@@ -949,6 +1003,7 @@ class MainWindow(QMainWindow):
             self.data_widget.addItem(self.peak_label, ignoreBounds=True)
             self.peak_label.place(self.data_widget.plotItem.vb)
         self.pressure_card.set_fit(P, fit_model.name, position_text)
+        self.file_list_widget.refresh()            # fitted P and dot of the row
 
     def ask_save_changes(self):
         """'save', 'discard' or 'cancel'."""
@@ -960,14 +1015,13 @@ class MainWindow(QMainWindow):
             QMessageBox.Save)
         return {QMessageBox.Save: "save", QMessageBox.Discard: "discard"}.get(answer, "cancel")
 
-    def ask_recover_session(self, when):
-        answer = QMessageBox.question(
-            self, "Recover session",
-            f"myPGM did not close normally last time.\n"
-            f"A backup of the unsaved session from {when} was found.\n\n"
-            "Recover it?",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-        return answer == QMessageBox.Yes
+    def show_recovery_banner(self, when):
+        """Offer to recover a backup (banner under the top bar; it replaced the startup
+        message box). The presenter is told through recovery_banner's signals."""
+        self.recovery_banner.show_backup(when)
+
+    def hide_recovery_banner(self):
+        self.recovery_banner.hide()
 
     def fit_error_popup_window(self, reason=""):
         msg = QMessageBox(self)

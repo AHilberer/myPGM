@@ -78,7 +78,10 @@ def test_theme_switch_restyles_plots_table_and_selector(gui):
         headers = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())]
         dot = table.item(0, headers.index("calibration")).icon().pixmap(12, 12).toImage()
         assert dot.pixelColor(6, 6).name() == ruby.lower()
-        assert ruby in view.ptoolbox.calibration_combo.styleSheet()
+        # step 5: the selectors take the family colour from the generated app rules
+        assert view.ptoolbox.calibration_combo.property("calib") == "ruby"
+        assert f'QComboBox#calibration_combo[calib="ruby"] {{\n  background-color: {ruby}' \
+            in gui.app.styleSheet()
     assert gui.errors == []
 
 

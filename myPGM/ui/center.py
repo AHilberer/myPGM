@@ -6,11 +6,12 @@ The widgets the presenter and tests use (buttons, spin boxes) are created by Mai
 and keep their attribute names there; these classes only lay them out and draw."""
 from PyQt5.QtCore import QPointF, QRectF, Qt
 from PyQt5.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QPixmap
-from PyQt5.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout, QLabel,
+                             QPushButton, QVBoxLayout, QWidget)
 import pyqtgraph as pg
 
-from myPGM.ui import theme
-from myPGM.ui.widgets import Card, divider, hbox, label
+from myPGM.ui import icons, theme
+from myPGM.ui.widgets import Card, button, divider, hbox, label
 
 NO_VALUE = "—"
 
@@ -173,21 +174,21 @@ class Segmented(QFrame):
         layout.setSpacing(2)
         self.group = QButtonGroup(self)
         self.group.setExclusive(True)
-        for button in buttons:
-            button.setCheckable(True)
-            button.setProperty("role", "segment")
-            self.group.addButton(button)
-            layout.addWidget(button)
+        for segment in buttons:
+            segment.setCheckable(True)
+            segment.setProperty("role", "segment")
+            self.group.addButton(segment)
+            layout.addWidget(segment)
 
-    def check(self, button):
+    def check(self, segment):
         """Check one button (None: none of them), without clicking it."""
-        if button is None:
+        if segment is None:
             self.group.setExclusive(False)
             for b in self.group.buttons():
                 b.setChecked(False)
             self.group.setExclusive(True)
         else:
-            button.setChecked(True)
+            segment.setChecked(True)
 
 
 class Stepper(QFrame):
@@ -447,3 +448,97 @@ def dashed_marker_pen():
     pen.setDashPattern([3, 3])
     pen.setCosmetic(True)
     return pen
+
+
+# --- empty state (DESIGN.md §4b) ---------------------------------------------------------------
+
+def _spectrum_glyph(color, size=48):
+    """Small spectrum (two peaks) in `color`, in a rounded box."""
+    t = theme.tokens()
+
+    def draw(p):
+        p.setPen(QPen(theme.qcolor(t["bd"]), 1))
+        p.setBrush(theme.qcolor(t["sf"]))
+        p.drawRoundedRect(QRectF(0.5, 0.5, size - 1, size - 1), 8, 8)
+        path = QPainterPath(QPointF(10, 35))
+        path.cubicTo(16, 35, 17, 22, 19, 22)
+        path.cubicTo(21, 22, 21, 33, 23, 33)
+        path.cubicTo(25, 33, 25, 12, 27.5, 12)
+        path.cubicTo(30, 12, 30, 35, 34, 35)
+        path.lineTo(38, 35)
+        pen = QPen(QColor(color), 2)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        p.setPen(pen)
+        p.setBrush(Qt.NoBrush)
+        p.drawPath(path)
+
+    return _glyph(draw, size, size)
+
+
+class EmptyCenter(Card):
+    """Center column with no spectrum loaded (mockup_startup.png): a dashed drop zone
+    with the accepted files and three actions, then a hint about the Parameters card
+    and a link to the demo session. Files can be dropped anywhere on the window."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self._color = theme.calib_color(None)
+        self.body.addStretch(2)
+
+        self.drop_zone = QFrame()
+        self.drop_zone.setObjectName("DropZone")
+        self.drop_zone.setAttribute(Qt.WA_StyledBackground, True)
+        self.drop_zone.setMaximumWidth(560)
+        zone = QVBoxLayout(self.drop_zone)
+        zone.setContentsMargins(32, 36, 32, 36)
+        zone.setSpacing(12)
+        self.glyph = QLabel()
+        self.glyph.setAlignment(Qt.AlignCenter)
+        zone.addWidget(self.glyph)
+        title = label("Drop spectrum files here", "empty-title")
+        title.setAlignment(Qt.AlignCenter)
+        zone.addWidget(title)
+        text = label("Text or ASC spectra from ruby, samarium, H₂, diamond or cBN gauges. "
+                     "Several files at once are fine.", "muted-13")
+        text.setAlignment(Qt.AlignCenter)
+        text.setWordWrap(True)
+        zone.addWidget(text)
+        zone.addSpacing(4)
+        self.add_button = button("Add spectra…", 38, primary=True, icon_name="plus",
+                                 tooltip="Add spectrum files")
+        self.folder_button = button("Select acquisition folder…", 38, icon_name="folder",
+                                    tooltip="Folder where Load latest looks for new spectra")
+        self.session_button = button("Open session…", 38, icon_name="folder-open",
+                                     tooltip="Open a saved session")
+        zone.addLayout(hbox(1, self.add_button, self.folder_button, 1))
+        zone.addLayout(hbox(1, self.session_button, 1))
+        self.body.addLayout(hbox(1, self.drop_zone, 1))
+
+        # hint and demo link
+        self.hint_icon = QLabel()
+        hint = QLabel("No spectrum? Enter λ in <b>Parameters</b> to convert it to a pressure.")
+        hint.setProperty("role", "muted-13")
+        self.demo_button = QPushButton(" Explore the demo session")
+        self.demo_button.setProperty("role", "link")
+        self.demo_button.setCursor(Qt.PointingHandCursor)
+        self.demo_button.setToolTip("Load the example spectra, fitted and logged")
+        icons.set_icon(self.demo_button, "play", "act", 14)
+        self.body.addSpacing(10)
+        hint_row = hbox(1, self.hint_icon, hint, spacing=6)
+        hint_row.addSpacing(24)
+        hint_row.addWidget(self.demo_button)
+        hint_row.addStretch(1)
+        self.body.addLayout(hint_row)
+        self.body.addStretch(3)
+        self.restyle()
+
+    def set_color(self, color):
+        """Colour of the spectrum glyph (the calibration selected in the inspector)."""
+        self._color = color
+        self.restyle()
+
+    def restyle(self):
+        self.glyph.setPixmap(_spectrum_glyph(self._color))
+        self.hint_icon.setPixmap(
+            icons.pixmap("chevron-right", theme.qcolor(theme.tokens()["mu"]).name(), 14))

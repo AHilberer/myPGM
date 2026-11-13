@@ -83,6 +83,7 @@ class Presenter(QObject):
         self.view.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
 
         self.view.file_list_widget.object_selected.connect(self.file_selected_from_file_list)
+        self.view.file_list_widget.set_object_lookup(self.model.get)
         self.view.file_list_widget.add_button.clicked.connect(self.add_new_file)
         self.view.file_list_widget.delete_button.clicked.connect(self.delete_current_file)
         self.view.file_list_widget.selectdir_button.clicked.connect(self.set_current_directory)
@@ -110,6 +111,8 @@ class Presenter(QObject):
         self.view.theme_switched.connect(self.on_theme_switched)
 
         self.view.add_point_requested.connect(self.add_current_PToolbox_to_table)
+        self.view.files_dropped.connect(self._add_files)
+        self.view.demo_requested.connect(self.load_demo)
 
         if self.test_mode or demo:
             self.initialize_example()
@@ -123,6 +126,9 @@ class Presenter(QObject):
         # automatic backup of the session, recovered after a crash (offer_recovery)
         self.backup_dir = backup_dir
         self.backup = SessionBackup(backup_dir) if backup_dir is not None else None
+        self._recovery_path = None              # backup offered in the recovery banner
+        self.view.recovery_banner.recover_clicked.connect(self.recover_session)
+        self.view.recovery_banner.discard_clicked.connect(self.discard_recovery)
         self.autosave_timer = None
         if self.backup is not None:
             self.autosave_timer = QTimer(self)
@@ -290,9 +296,7 @@ class Presenter(QObject):
         self._select_fit_model(getattr(newcalib, "default_fit_model", None))
 
         if toolbox == self.view.ptoolbox and buffer.calib is not None:
-            xlabel = f"{buffer.calib.xname} ({buffer.calib.xunit})"
-            self.view.data_widget.setLabel("bottom", xlabel)
-            self.view.deriv_widget.setLabel("bottom", xlabel)
+            self.view.set_x_axis(buffer.calib)
 
         # view method
         toolbox.set_state_from_buffer(buffer)
@@ -304,6 +308,7 @@ class Presenter(QObject):
 
         self.current_selected_file = obj_id
         self.view.current_file_label.setText(f"{obj.filename}")
+        self.view.set_current_point(obj_id)
 
         # show this file's own smoothing, without re-applying it
         was_blocked = self.view.smoothing_factor.blockSignals(True)
@@ -349,6 +354,7 @@ class Presenter(QObject):
         logger.debug("Loaded %s (%d points)", file_path, len(a.original_data))
 
     def _add_files(self, file_paths):
+        self.discard_recovery()                 # the banner goes once something is loaded
         failed = []
         for file in file_paths:
             try:
@@ -697,6 +703,7 @@ class Presenter(QObject):
         # For table-only entries, restore toolbox state from the recalled object.
         self.current_selected_file = None
         self.view.current_file_label.setText("No file selected")
+        self.view.set_current_point(obj_id)
         self.buffer = deepcopy(obj)
         self.view.ptoolbox.set_state_from_buffer(self.buffer)
 
@@ -726,12 +733,8 @@ class Presenter(QObject):
                 self.populate_file_list()
 
     def update_fit_model(self, newind):
+        # its colour follows the calibration (view: PressureToolbox._style_calib_combo)
         self.fit_mode = self.fit_models[self.view.fit_model_combo.currentText()]
-
-        tmp_color = self.view.fit_model_combo.model().item(newind).background().color().getRgb()
-        self.view.fit_model_combo.setStyleSheet(
-            "background-color: rgba{};".format(tmp_color)
-        )
 
     def fit_current_file(self, guess=None): 
         if self.current_selected_file is not None:
@@ -838,6 +841,14 @@ class Presenter(QObject):
             self.add_instance_from_path(current_file_path)
 
         self.populate_file_list()
+
+    def load_demo(self):
+        """"Explore the demo session" (empty state): the example spectra, fitted and
+        logged, as with --demo; nothing to save."""
+        self.discard_recovery()
+        self.initialize_example()
+        self.fit_examples()
+        self._saved_fingerprint = self._content_fingerprint()
 
     def fit_examples(self):
         """Fit the example spectra and add them to the PvPm table (demo session)."""
@@ -1007,6 +1018,8 @@ class Presenter(QObject):
         self._update_window_title()
         self.view.set_save_status("saved", os.path.getmtime(file_path))
         logger.debug("Session loaded from %s (%d spectra)", file_path, len(self.model))
+        if file_path != self._recovery_path:
+            self.discard_recovery()             # another session opened: banner gone
         return True
 
     # --- unsaved changes, automatic backup and recovery ----------------------------------------
@@ -1066,25 +1079,43 @@ class Presenter(QObject):
 
     def offer_recovery(self):
         """At startup: offer to recover the newest backup left by a window that did
-        not close normally. Declined backups, and backups that cannot be loaded
-        (offered again at every start otherwise), are kept as *.discarded.json."""
+        not close normally, in the recovery banner (recover_session / discard_recovery
+        answer it). Returns True if a backup is offered. Declined backups, and backups
+        that cannot be loaded (offered again at every start otherwise), are kept as
+        *.discarded.json."""
         orphans = self.backup.orphans() if self.backup is not None else []
         if not orphans:
             return False
-        path = orphans[0]
-        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(path)))
-        if self.view.ask_recover_session(when):
-            if self.load_session(path):
-                self._saved_fingerprint = None      # recovered work is not saved yet
-                self.session_path = None            # "Save" asks: never into the backup
-                self._update_window_title()
-                self.view.set_save_status(None)
-                os.remove(path)                     # now backed up by this window
-                logger.info("Session recovered from %s", path)
-                return True
-            discarded = SessionBackup.set_aside(path)   # load_session showed the error
-            logger.warning("Session backup could not be loaded, kept as %s", discarded)
+        self._recovery_path = orphans[0]
+        when = time.strftime("%d %b, %H:%M",
+                             time.localtime(os.path.getmtime(self._recovery_path)))
+        self.view.show_recovery_banner(when)
+        return True
+
+    def recover_session(self):
+        """"Recover session" in the banner: load the offered backup. True if loaded."""
+        path, self._recovery_path = self._recovery_path, None
+        self.view.hide_recovery_banner()
+        if path is None:
             return False
-        discarded = SessionBackup.set_aside(path)
-        logger.info("Session backup declined, kept as %s", discarded)
+        if self.load_session(path):
+            self._saved_fingerprint = None      # recovered work is not saved yet
+            self.session_path = None            # "Save" asks: never into the backup
+            self._update_window_title()
+            self.view.set_save_status(None)
+            os.remove(path)                     # now backed up by this window
+            logger.info("Session recovered from %s", path)
+            return True
+        discarded = SessionBackup.set_aside(path)   # load_session showed the error
+        logger.warning("Session backup could not be loaded, kept as %s", discarded)
+        return False
+
+    def discard_recovery(self):
+        """"Discard" in the banner, or something else loaded while it is shown: the
+        backup is not offered again (kept aside on disk). Always False."""
+        path, self._recovery_path = self._recovery_path, None
+        self.view.hide_recovery_banner()
+        if path is not None:
+            discarded = SessionBackup.set_aside(path)
+            logger.info("Session backup declined, kept as %s", discarded)
         return False

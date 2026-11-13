@@ -152,6 +152,20 @@ QAbstractSpinBox:focus, QLineEdit:focus, QComboBox:focus {
 QAbstractSpinBox:disabled, QLineEdit:disabled, QComboBox:disabled {
   color: $mu;
 }
+QComboBox {
+  padding-left: 10px;
+}
+QComboBox::drop-down {
+  subcontrol-origin: padding;
+  subcontrol-position: center right;
+  border: none;
+  width: 28px;
+}
+QComboBox::down-arrow {
+  image: url($chevron_icon);
+  width: 14px;
+  height: 14px;
+}
 QComboBox QAbstractItemView {
   background-color: $sf;
   color: $tx;
@@ -669,4 +683,33 @@ QDialog#AddPointDialog {
 }
 QDialog#AddPointDialog QLabel[role="field"] {
   font-size: 12px;
+}
+
+/* --- density and empty states (DESIGN.md sections 4b and 5) ------------------------- */
+
+QLabel#EmptyHint {
+  color: $mu;
+  font-size: 13px;
+}
+#EmptyBox {
+  background: transparent;
+  border: 1px dashed $bd;
+  border-radius: 10px;
+}
+#DropZone {
+  background-color: $hd;
+  border: 2px dashed $bd;
+  border-radius: 12px;
+}
+QLabel[role="empty-title"] {
+  font-size: 20px;
+  font-weight: 600;
+}
+#RecoveryBanner {
+  background-color: $acs;
+  border: 1px solid $ac;
+  border-radius: 12px;
+}
+#RecoveryBanner QLabel {
+  color: $tx;
 }

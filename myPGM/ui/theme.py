@@ -183,27 +183,66 @@ def stylesheet(dark=False):
     values["ui_font"] = f'"{fonts["ui"]}"'
     values["mono_font"] = f'"{fonts["mono"]}"'
     values["check_icon"] = f'"{_check_icon(qcolor(tokens(dark)["onac"]).name())}"'
-    return Template(load_style("theme.qss")).substitute(values)
+    values["chevron_icon"] = f'"{_chevron_icon(qcolor(tokens(dark)["mu"]).name())}"'
+    return Template(load_style("theme.qss")).substitute(values) + _selector_rules(dark)
 
 
-# check mark of the check boxes (Lucide "check"); the stylesheet needs an image file
+def _selector_rules(dark):
+    """Calibration-coloured selectors (DESIGN.md §3): the calibration combo on the solid
+    family colour, the fit model combo on a tint of it. The combos carry the family
+    in their `calib` property (PressureToolbox.set_calib)."""
+    t = tokens(dark)
+    theme = "dark" if dark else "light"
+    tint_alpha, border_alpha = (0.16, 0.55) if dark else (0.10, 0.45)
+    rules = ["\n/* --- calibration selectors (generated, theme.py) --- */"]
+    for family, colors in CALIB_COLORS.items():
+        solid, on_tint = colors[theme]
+        tint, border = qcolor(solid), qcolor(solid)
+        tint.setAlphaF(tint_alpha)
+        border.setAlphaF(border_alpha)
+        rules.append(
+            f'QComboBox#calibration_combo[calib="{family}"] {{\n'
+            f'  background-color: {solid}; color: {t["on_calib"]}; border-color: {solid};\n'
+            f'  font-weight: 600;\n}}\n'
+            f'QComboBox#calibration_combo[calib="{family}"]::down-arrow {{\n'
+            f'  image: url("{_chevron_icon(t["on_calib"])}");\n}}\n'
+            f'QComboBox#fit_model_combo[calib="{family}"] {{\n'
+            f'  background-color: {qss((solid, tint_alpha))}; color: {on_tint};\n'
+            f'  border-color: {qss((solid, border_alpha))}; font-weight: 600;\n}}\n'
+            f'QComboBox#fit_model_combo[calib="{family}"]::down-arrow {{\n'
+            f'  image: url("{_chevron_icon(on_tint)}");\n}}')
+    return "\n".join(rules) + "\n"
+
+
+# icons of the stylesheet (Lucide "check" and "chevron-down"): QSS needs image files
 _CHECK_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
               'fill="none" stroke="{color}" stroke-width="3" stroke-linecap="round" '
               'stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>')
+_CHEVRON_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+                'fill="none" stroke="{color}" stroke-width="2.2" stroke-linecap="round" '
+                'stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>')
 
 
-def _check_icon(color):
-    """Path of the check mark drawn in `color`, written once to a temporary folder;
-    '' if it cannot be written (checked boxes are then plain accent squares)."""
-    path = Path(tempfile.gettempdir()) / "myPGM-icons" / f"check-{color.lstrip('#')}.svg"
+def _icon_file(name, svg, color):
+    """Path of an icon drawn in `color`, written once to a temporary folder; '' if it
+    cannot be written (the stylesheet then falls back to no image)."""
+    path = Path(tempfile.gettempdir()) / "myPGM-icons" / f"{name}-{color.lstrip('#')}.svg"
     try:
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(_CHECK_SVG.format(color=color), encoding="utf-8")
+            path.write_text(svg.format(color=color), encoding="utf-8")
     except OSError as exc:
-        logger.warning("Could not write the check box icon: %s", exc)
+        logger.warning("Could not write the %s icon: %s", name, exc)
         return ""
     return path.as_posix()
+
+
+def _check_icon(color):
+    return _icon_file("check", _CHECK_SVG, color)
+
+
+def _chevron_icon(color):
+    return _icon_file("chevron", _CHEVRON_SVG, color)
 
 
 def palette(dark=False):

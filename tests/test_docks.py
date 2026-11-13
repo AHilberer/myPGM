@@ -52,7 +52,7 @@ def test_headers(demo):
 
 def test_point_count(gui):
     table = gui.view.PvPmTableWindow
-    assert table.count_label.text() == "0 points"
+    assert table.count_label.text() == "No points"          # step 5: empty state wording
     table.table_widget.rows_changed.emit(1)
     assert table.count_label.text() == "1 point"
 

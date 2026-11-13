@@ -12,9 +12,12 @@ from PyQt5.QtWidgets import (
     QAbstractItemView,
     QMenu,
     QMessageBox,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
 )
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
-from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
+from PyQt5.QtGui import QBrush, QColor, QFont, QFontMetrics, QIcon, QPainter, QPixmap
 
 from myPGM.settings import last_dir, remember_dir
 from myPGM.ui.PressureToolbox import PressureToolbox
@@ -31,7 +34,8 @@ ID_ROLE = Qt.UserRole + 1        # object ID, stored on the '#' item of each row
 COLUMNS = [
     ("#",      "#",           True,  True),
     ("Pm",     "Pm (bar)",    True,  True),
-    ("P",      "P (GPa)",     True,  True),    # P ± fit uncertainty
+    ("P",      "P (GPa)",     True,  True),    # the value alone (DESIGN.md §5)
+    ("P_err",  "σP (fit)",    True,  False),   # fit uncertainty of P
     ("x",      "x",           True,  True),    # unit in each cell (nm or cm⁻¹)
     ("x_err",  "σx (fit)", True, False),
     ("T",      "T (K)",       True,  False),   # shown automatically when a T is not 298 K
@@ -51,13 +55,23 @@ def _with_unit(value, calib, decimals):
     return "" if value is None else f"{float(value):.{decimals}f} {_unit(calib)}".rstrip()
 
 
-def _p_text(P, P_err):
-    if P is None:
-        return ""
+def _p_text(P):
+    return "" if P is None else f"{float(P):.3f}"
+
+
+def _p_err_text(P_err):
     if P_err is None:
-        return f"{P:.3f}"
-    err = f"{P_err:.3f}" if round(P_err, 3) > 0 else "<0.001"
-    return f"{P:.3f} ± {err}"
+        return ""
+    return f"{float(P_err):.3f}" if round(float(P_err), 3) > 0 else "<0.001"
+
+
+def _header_text(text):
+    """Header labels in capitals (DESIGN.md §5), Greek letters kept (σ, not Σ)."""
+    return "".join(c.upper() if c.isascii() else c for c in text)
+
+
+EMPTY_TEXT = ("No points yet. Fit a spectrum and use <b>Add fit to log</b>, "
+              "or <b>Add point to log</b> in Parameters.")
 
 
 def _csv_value(v):
@@ -91,6 +105,94 @@ class SortableItem(QTableWidgetItem):
         return bool(a < b)
 
 
+class LogHeader(QHeaderView):
+    """Header strip of the pressure log: `hd` background, small muted capitals,
+    numbers' headers right-aligned like their column. The sort arrow only shows when
+    the table is not in its default order (# ascending)."""
+
+    def __init__(self, parent=None):
+        super().__init__(Qt.Horizontal, parent)
+        self.setSectionsClickable(True)
+        self.setHighlightSections(False)
+        self.font_px = 12
+
+    def header_font(self):
+        font = QFont(theme.ui_family())
+        font.setPixelSize(self.font_px)
+        font.setWeight(QFont.DemiBold)
+        font.setLetterSpacing(QFont.PercentageSpacing, 104)
+        return font
+
+    def set_font_px(self, px):
+        self.font_px = px
+        self.setFixedHeight(px + 16)
+        self.viewport().update()
+
+    def _label(self, index):
+        data = self.model().headerData(index, Qt.Horizontal, Qt.DisplayRole)
+        text = _header_text("" if data is None else str(data))
+        sorted_here = self.isSortIndicatorShown() and self.sortIndicatorSection() == index
+        default = index == COLUMN_INDEX["#"] and self.sortIndicatorOrder() == Qt.AscendingOrder
+        if sorted_here and not default:
+            arrow = "▲" if self.sortIndicatorOrder() == Qt.AscendingOrder else "▼"
+            text = f"{arrow} {text}" if COLUMNS[index][2] else f"{text} {arrow}"
+        return text
+
+    def sectionSizeFromContents(self, index):
+        width = QFontMetrics(self.header_font()).horizontalAdvance(self._label(index)) + 22
+        return QSize(width, self.height())
+
+    def paintSection(self, painter, rect, index):
+        if not rect.isValid():
+            return
+        t = theme.tokens()
+        painter.save()
+        painter.fillRect(rect, theme.qcolor(t["hd"]))
+        painter.setPen(theme.qcolor(t["bd"]))
+        painter.drawLine(rect.bottomLeft(), rect.bottomRight())
+        painter.setFont(self.header_font())
+        painter.setPen(theme.qcolor(t["mu"]))
+        align = (Qt.AlignRight if COLUMNS[index][2] and index != COLUMN_INDEX["#"]
+                 else Qt.AlignLeft) | Qt.AlignVCenter
+        painter.drawText(rect.adjusted(10, 0, -10, 0), align, self._label(index))
+        painter.restore()
+
+
+class LogItemDelegate(QStyledItemDelegate):
+    """Cells of the pressure log: 8 px side padding, a line under each row, the row of
+    the current point (and the selected one) on `sel`, the T warning colour kept."""
+
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        option.backgroundBrush = QBrush()            # drawn by paint, on the full cell
+
+    def sizeHint(self, option, index):
+        hint = super().sizeHint(option, index)
+        return QSize(hint.width() + 16, hint.height())     # the side padding
+
+    def paint(self, painter, option, index):
+        t = theme.tokens()
+        table = self.parent()
+        rect = option.rect
+        background = index.data(Qt.BackgroundRole)
+        row_id = index.sibling(index.row(), COLUMN_INDEX["#"]).data(ID_ROLE)
+        highlighted = (option.state & QStyle.State_Selected
+                       or (table.current_id is not None and row_id == table.current_id))
+        if background is not None:
+            painter.fillRect(rect, background)
+        elif highlighted:
+            painter.fillRect(rect, theme.qcolor(t["sel"]))
+        inner = QStyleOptionViewItem(option)
+        inner.rect = rect.adjusted(8, 0, -8, 0)
+        inner.state &= ~QStyle.State_Selected          # no Qt selection colour on top
+        inner.state &= ~QStyle.State_HasFocus
+        super().paint(painter, inner, index)
+        painter.save()
+        painter.setPen(theme.qcolor(t["bd"]))
+        painter.drawLine(rect.bottomLeft(), rect.bottomRight())
+        painter.restore()
+
+
 class HPTableWidget(QTableWidget):
     """PvPm table: one row per point added to the table, built from the data manager."""
 
@@ -102,7 +204,10 @@ class HPTableWidget(QTableWidget):
         super().__init__()
 
         self.data_manager = None
+        self.current_id = None              # point of the shown spectrum: highlighted row
         self._shown_count = 0               # rows at the last update: new ones are scrolled to
+        self.setHorizontalHeader(LogHeader(self))
+        self.setItemDelegate(LogItemDelegate(self))
         self.user_column_visibility = {}   # columns shown/hidden from the header menu
         self.font_px = 18
 
@@ -118,7 +223,16 @@ class HPTableWidget(QTableWidget):
         h_header.customContextMenuRequested.connect(self._show_column_menu)
         self.verticalHeader().hide()          # the '#' column gives the order instead
 
-        self.setAlternatingRowColors(True)
+        # rows separated by lines (theme.qss), no vertical grid lines (DESIGN.md §5)
+        self.setAlternatingRowColors(False)
+        self.setShowGrid(False)
+        self.setWordWrap(False)
+
+        # empty log: one centred line (DESIGN.md §4b)
+        self.empty_label = QLabel(EMPTY_TEXT, self.viewport())
+        self.empty_label.setObjectName("EmptyHint")
+        self.empty_label.setAlignment(Qt.AlignCenter)
+        self.empty_label.setWordWrap(True)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -134,14 +248,11 @@ class HPTableWidget(QTableWidget):
     def set_font_size(self, size):
         self.font_px = size
         # this widget stylesheet overrides the app-wide font size, so it is set here
-        self.setStyleSheet(
-            f"QTableWidget {{ font-size: {size}px; }}"
-            f"QHeaderView::section {{ padding: 2px; font-size: {size}px; }}"
-            "QTableWidget::item { padding: 2px 6px; }"
-        )
-        # rows were fixed at 18 px high, which clipped larger fonts
-        self.verticalHeader().setDefaultSectionSize(size + 6)
-        self.setIconSize(QSize(size - 4, size - 4))
+        self.setStyleSheet(f"QTableWidget {{ font-size: {size}px; }}")
+        # dense rows (≈ 26 px at the default size, DESIGN.md §5), never clipping the text
+        self.verticalHeader().setDefaultSectionSize(max(26, size + 11))
+        self.horizontalHeader().set_font_px(max(10, round(size * 0.8)))
+        self.setIconSize(QSize(8, 8))
         if self.data_manager is not None:
             self.updatetable()          # numbers are drawn in a mono font of this size
 
@@ -154,7 +265,8 @@ class HPTableWidget(QTableWidget):
         return {
             "#": (str(number), number),
             "Pm": ("" if obj.Pm is None else f"{float(obj.Pm):.2f}", obj.Pm),
-            "P": (_p_text(obj.P, getattr(obj, "P_err", None)), obj.P),
+            "P": (_p_text(obj.P), obj.P),
+            "P_err": (_p_err_text(getattr(obj, "P_err", None)), getattr(obj, "P_err", None)),
             "x": (_with_unit(obj.x, calib, 3), obj.x),
             "x_err": (_with_unit(getattr(obj, "x_err", None), calib, 4), getattr(obj, "x_err", None)),
             "T": ("" if obj.T is None else f"{float(obj.T):.1f}", obj.T),
@@ -169,6 +281,8 @@ class HPTableWidget(QTableWidget):
     def updatetable(self):
         entries = self.data_manager.table_entries() if self.data_manager is not None else []
         mono = theme.mono_font(self.font_px)        # numbers in the mono font (DESIGN.md §2)
+        mono_p = theme.mono_font(self.font_px)
+        mono_p.setWeight(QFont.DemiBold)            # the pressure stands out
         # filling a sorted table moves rows while they are filled: sort afterwards
         self.setSortingEnabled(False)
         self.setRowCount(len(entries))
@@ -182,15 +296,45 @@ class HPTableWidget(QTableWidget):
                 item.setData(SORT_ROLE, sort_value)
                 if COLUMNS[col][2]:
                     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                    item.setFont(mono)
+                    item.setFont(mono_p if key == "P" else mono)
+                if key == "#":
+                    item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
                 self.setItem(row, col, item)
             self._decorate_row(row, obj)
         self.setSortingEnabled(True)
+        self._highlight_current()
         self._apply_column_visibility(entries)
+        self._update_empty_label()
         if len(entries) > self._shown_count:
             self._scroll_to_number(len(entries))        # the point just added
         self._shown_count = len(entries)
         self.rows_changed.emit(len(entries))
+
+    def set_current_id(self, obj_id):
+        """Highlight the row of this point (the spectrum shown), if it is in the log."""
+        self.current_id = obj_id
+        self._highlight_current()
+
+    def current_row(self):
+        for row in range(self.rowCount()):
+            if self.object_id_at(row) == self.current_id and self.current_id is not None:
+                return row
+        return None
+
+    def _highlight_current(self):
+        self.viewport().update()              # LogItemDelegate paints the current row
+
+    def _update_empty_label(self):
+        self.empty_label.setVisible(self.rowCount() == 0)
+        self._place_empty_label()
+
+    def _place_empty_label(self):
+        # near the top of the table, under the header
+        self.empty_label.setGeometry(24, 18, max(0, self.viewport().width() - 48), 60)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._place_empty_label()
 
     def _scroll_to_number(self, number):
         """Scroll the row numbered `number` ('#' column) into view, whatever the sort."""
@@ -312,7 +456,10 @@ class HPTableWindow(QWidget):
         self._update_count(0)
 
     def _update_count(self, count):
-        self.count_label.setText(f"{count} point{'' if count == 1 else 's'}")
+        if count == 0:
+            self.count_label.setText("No points")
+        else:
+            self.count_label.setText(f"{count} point{'' if count == 1 else 's'}")
 
     def _show_columns_menu(self):
         menu = self.table_widget.column_menu()
