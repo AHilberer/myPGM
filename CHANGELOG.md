@@ -51,6 +51,8 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
   function), instead of guessing them from the number of arguments.
 - Each window works on its own copies of the calibrations: editing x0 or T0 no longer changes the
   module-level calibration objects (which leaked between tests).
+- The automatic backup (file, lock, background writing, scan for orphans) moved from the presenter
+  to `myPGM/session_backup.py`.
 
 ## [1.0.0] - 2026-10-18
 

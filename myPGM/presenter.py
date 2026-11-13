@@ -1,17 +1,15 @@
 import os
-import glob
 import json
 import hashlib
 import logging
-import threading
 import time
-import uuid
 import numpy as np
 from copy import deepcopy
 from importlib.metadata import PackageNotFoundError, version
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
-from PyQt5.QtCore import Qt, QFileInfo, QObject, QTimer, QLockFile
+from PyQt5.QtCore import Qt, QFileInfo, QObject, QTimer
 from myPGM.data_model import PressureGaugeDataObject
+from myPGM.session_backup import SessionBackup, write_json
 import myPGM.calibrations
 import myPGM.fit_models
 from myPGM.helpers import pressure_valid, spectro_calibration_reader, PressureCalculationFailed
@@ -34,7 +32,6 @@ def get_app_version():
 
 class Presenter(QObject):
     AUTOSAVE_INTERVAL_MS = 30_000
-    BACKUP_PREFIX = "autosave_session"     # + _<pid>_<start time>_<random>.json, one per window
 
     def __init__(self, model, view, test_mode=False, demo=False, backup_dir=None):
         """test_mode: load the example spectra (used by the tests).
@@ -122,22 +119,9 @@ class Presenter(QObject):
 
         # automatic backup of the session, recovered after a crash (offer_recovery)
         self.backup_dir = backup_dir
-        self.backup_path = None
-        self._backup_lock = None
-        self._backup_fingerprint = None
-        self._backup_thread = None
-        self._backup_failed = False     # warned once, then only debug messages
+        self.backup = SessionBackup(backup_dir) if backup_dir is not None else None
         self.autosave_timer = None
-        if backup_dir is not None:
-            # each window has its own backup, locked while the window is open, so that
-            # several myPGM windows never recover or delete each other's backups
-            base = os.path.join(backup_dir, f"{self.BACKUP_PREFIX}_{os.getpid()}_"
-                                            f"{int(time.time())}_{uuid.uuid4().hex[:6]}")
-            self.backup_path = base + ".json"
-            self._backup_lock = QLockFile(base + ".lock")
-            self._backup_lock.setStaleLockTime(0)       # only the owner process being gone matters
-            if not self._backup_lock.tryLock(0):
-                logger.warning("Could not lock the session backup %s", base + ".lock")
+        if self.backup is not None:
             self.autosave_timer = QTimer(self)
             self.autosave_timer.timeout.connect(self.autosave)
             self.autosave_timer.start(self.AUTOSAVE_INTERVAL_MS)
@@ -911,15 +895,6 @@ class Presenter(QObject):
             "files": [obj.to_dict() for obj in self.model.values()],
         }
 
-    @staticmethod
-    def _write_json(session, file_path):
-        # write to a temporary file first, so a crash never leaves a half-written file;
-        # compact: indented, every number of every spectrum took a line (about 2x larger)
-        tmp_path = file_path + ".tmp"
-        with open(tmp_path, "w", encoding="utf-8") as file_handle:
-            json.dump(session, file_handle)
-        os.replace(tmp_path, file_path)
-
     def _update_window_title(self):
         title = f"myPGM - Pressure Gauge Monitor v{self.app_version}"
         if self.session_path:
@@ -935,7 +910,7 @@ class Presenter(QObject):
         if not file_path:
             return False
         try:
-            self._write_json(self._session_dict(), file_path)
+            write_json(self._session_dict(), file_path)
         except Exception as exc:
             self._show_error(f"Failed to save session: {exc}", title="Save error")
             return False
@@ -1049,96 +1024,44 @@ class Presenter(QObject):
                 return False
             if choice == "save" and not self.save_session():
                 return False            # save dialog cancelled or failed: keep the app open
-        self._remove_backup()           # closed normally: no recovery needed next time
-        if self._backup_lock is not None:
-            self._backup_lock.unlock()
+        if self.backup is not None:
+            self.backup.close()         # closed normally: no recovery needed next time
         return True
 
+    @property
+    def backup_path(self):
+        return self.backup.path if self.backup is not None else None
+
     def autosave(self):
-        """Write the backup if there are unsaved changes not backed up yet.
-        The session is collected here, then encoded and written in a background
-        thread (compact JSON), so that large sessions do not freeze the app."""
-        if self.backup_path is None:
+        """Write the backup if there are unsaved changes not backed up yet. The session
+        is collected here; SessionBackup encodes and writes it in a thread."""
+        if self.backup is None:
             return
         if not self.has_unsaved_changes():
-            self._remove_backup()
+            self.backup.remove()
             return
         fingerprint = self._content_fingerprint()
-        if fingerprint == self._backup_fingerprint:
-            return
-        if self._backup_thread is not None and self._backup_thread.is_alive():
-            return                      # previous backup still being written: next time
-        session = self._session_dict()
-        self._backup_fingerprint = fingerprint
-
-        def write():
-            try:
-                self._write_json(session, self.backup_path)
-                logger.debug("Session backup written to %s", self.backup_path)
-            except OSError as exc:
-                if not self._backup_failed:
-                    self._backup_failed = True
-                    logger.warning("Could not write the session backup (no automatic backup "
-                                   "until this is fixed): %s", exc)
-                else:
-                    logger.debug("Could not write the session backup: %s", exc)
-
-        self._backup_thread = threading.Thread(target=write, name="session-backup", daemon=True)
-        self._backup_thread.start()
+        if not self.backup.is_up_to_date(fingerprint):
+            self.backup.write(self._session_dict(), fingerprint)
 
     def flush_backup(self):
         """Wait for a backup being written, if any."""
-        if self._backup_thread is not None:
-            self._backup_thread.join(timeout=30)
+        if self.backup is not None:
+            self.backup.flush()
 
     def _remove_backup(self):
-        self.flush_backup()             # so that a write in progress cannot re-create it
-        self._backup_fingerprint = None
-        if self.backup_path is not None and os.path.exists(self.backup_path):
-            os.remove(self.backup_path)
-
-    def _orphan_backups(self):
-        """Backups left by windows that did not close normally (their lock is not
-        held any more), newest first. Backups of windows still open are skipped."""
-        if self.backup_dir is None:
-            return []
-        orphans = []
-        for path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.json")):
-            if path == self.backup_path or path.endswith(".discarded.json"):
-                continue
-            lock = QLockFile(os.path.splitext(path)[0] + ".lock")
-            lock.setStaleLockTime(0)
-            if not lock.tryLock(0):
-                continue                # another myPGM window is still using it
-            lock.unlock()               # stale lock of a crashed window: cleaned up
-            orphans.append(path)
-        # half-written backups of windows that crashed while writing one
-        for tmp_path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.json.tmp")):
-            lock = QLockFile(tmp_path[:-len(".json.tmp")] + ".lock")
-            lock.setStaleLockTime(0)
-            if lock.tryLock(0):         # its window is gone (a live one may be writing it)
-                lock.unlock()
-                os.remove(tmp_path)
-        # locks left by windows that crashed with nothing to back up
-        for lock_path in glob.glob(os.path.join(self.backup_dir, self.BACKUP_PREFIX + "*.lock")):
-            if os.path.exists(os.path.splitext(lock_path)[0] + ".json"):
-                continue
-            lock = QLockFile(lock_path)
-            lock.setStaleLockTime(0)
-            if lock.tryLock(0):
-                lock.unlock()           # removes the stale lock file
-        return sorted(orphans, key=os.path.getmtime, reverse=True)
+        if self.backup is not None:
+            self.backup.remove()
 
     def offer_recovery(self):
         """At startup: offer to recover the newest backup left by a window that did
         not close normally. Declined backups, and backups that cannot be loaded
         (offered again at every start otherwise), are kept as *.discarded.json."""
-        orphans = self._orphan_backups()
+        orphans = self.backup.orphans() if self.backup is not None else []
         if not orphans:
             return False
         path = orphans[0]
         when = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(path)))
-        discarded = os.path.splitext(path)[0] + ".discarded.json"
         if self.view.ask_recover_session(when):
             if self.load_session(path):
                 self._saved_fingerprint = None      # recovered work is not saved yet
@@ -1147,10 +1070,9 @@ class Presenter(QObject):
                 os.remove(path)                     # now backed up by this window
                 logger.info("Session recovered from %s", path)
                 return True
-            os.replace(path, discarded)             # load_session showed the error
+            discarded = SessionBackup.set_aside(path)   # load_session showed the error
             logger.warning("Session backup could not be loaded, kept as %s", discarded)
             return False
-        os.replace(path, discarded)
+        discarded = SessionBackup.set_aside(path)
         logger.info("Session backup declined, kept as %s", discarded)
-        return False
         return False

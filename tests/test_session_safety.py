@@ -206,7 +206,7 @@ def _crashed_session(app):
     app.fit()
     app.presenter.autosave()
     app.presenter.flush_backup()
-    app.presenter._backup_lock.unlock()
+    app.presenter.backup._lock.unlock()
     return app.presenter.model[app.presenter.current_selected_file].P
 
 
@@ -289,7 +289,7 @@ def test_stale_lock_of_a_crashed_process_is_detected(app):
     with open(base + ".lock", "w") as f:
         f.write(f"999999\npython3\n{socket.gethostname()}\n")
     view, presenter, asked = _new_app(app, answer=False)
-    assert presenter._orphan_backups() == [base + ".json"]
+    assert presenter.backup.orphans() == [base + ".json"]
     dispose(view)
 
 
@@ -336,7 +336,7 @@ def test_unwritable_backup_folder_warns_once(app, caplog, monkeypatch):
     import logging
     def fail(*args, **kwargs):
         raise PermissionError("read-only folder")
-    monkeypatch.setattr(app.presenter, "_write_json", fail)
+    monkeypatch.setattr("myPGM.session_backup.write_json", fail)
     with caplog.at_level(logging.DEBUG, logger="myPGM"):
         for window in (3, 5, 7):                       # three changes, three backup attempts
             app.fit()
