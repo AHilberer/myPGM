@@ -1,6 +1,7 @@
 """Settings window (DESIGN.md §4, IMPLEMENTATION_PLAN step 6): gear button, sections,
 Save / Cancel / Restore defaults, and each setting applied and kept between launches."""
 import logging
+import os
 
 import pytest
 
@@ -257,7 +258,8 @@ def test_open_log_folder(gui, monkeypatch, tmp_path):
     dialog = _settings(gui)
     dialog.log_dir = tmp_path
     dialog.log_folder_button.click()
-    assert [u.toLocalFile() for u in opened] == [str(tmp_path)]
+    # Qt gives '/' separators on Windows
+    assert [os.path.normpath(u.toLocalFile()) for u in opened] == [str(tmp_path)]
 
 
 def test_about(gui, monkeypatch):
