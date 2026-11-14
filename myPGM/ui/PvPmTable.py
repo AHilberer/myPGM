@@ -222,6 +222,8 @@ class HPTableWidget(QTableWidget):
         # widths set by fit_columns: the contents, plus the spare width shared out
         h_header.setSectionResizeMode(QHeaderView.Fixed)
         h_header.setStretchLastSection(False)
+        # the style's minimum (50 px on Linux and Windows) would widen the '#' column
+        h_header.setMinimumSectionSize(24)
         h_header.sortIndicatorChanged.connect(lambda *_args: self.fit_columns())
         h_header.setContextMenuPolicy(Qt.CustomContextMenu)
         h_header.customContextMenuRequested.connect(self._show_column_menu)
@@ -406,7 +408,8 @@ class HPTableWidget(QTableWidget):
         if not shown:
             return
         widths = {col: max(header.sectionSizeFromContents(col).width(),
-                           self.sizeHintForColumn(col)) for col in shown}
+                           self.sizeHintForColumn(col), header.minimumSectionSize())
+                  for col in shown}
         spread = [col for col in shown if COLUMNS[col][0] != "#"] or shown
         extra = self.viewport().width() - sum(widths.values())
         if extra > 0:
