@@ -58,6 +58,8 @@ Spacing: **4 px** between panels and around the window edge (`theme.GAP`; the mo
 
 Section titles: 12 px, semibold, uppercase, letter-spacing 0.06em, muted color.
 
+**Window width never depends on content.** Qt widens a window to its layout's minimum width, which pushed the window off the screen (macOS: off its right edge) when a long file name or a fit appeared. Text that varies is shortened with "…" (pills, session name, hints) or cut at the edge (P vs Pm legend, full text in the tooltip); the file pill gives way first, the model and position pills stay whole. One-line bars collapse in order when narrow (`widgets.Collapser`): fit toolbar "Background"/"Smoothing" labels, then Click-to-fit and Fit range as icons; top bar app name, "Session", then Export CSV / Open / Save as icons. A fitted pressure of 10 000 GPa or more (a fit gone wrong) is shown in scientific notation. If the window still grows, it is moved back inside the screen (only for a resize to its minimum size, never for one by the user). `tests/test_resizing.py` checks this.
+
 ## 2. Theme tokens
 
 | Token | Use | Light | Dark |

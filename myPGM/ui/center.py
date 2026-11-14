@@ -4,14 +4,15 @@ spectrum plot (fitted peak label, fit range edit handles).
 
 The widgets the presenter and tests use (buttons, spin boxes) are created by MainWindow
 and keep their attribute names there; these classes only lay them out and draw."""
-from PyQt5.QtCore import QPointF, QRectF, Qt
+from PyQt5.QtCore import QEvent, QPointF, QRectF, Qt
 from PyQt5.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QPixmap
 from PyQt5.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout, QLabel,
                              QPushButton, QVBoxLayout, QWidget)
 import pyqtgraph as pg
 
 from myPGM.ui import icons, theme
-from myPGM.ui.widgets import Card, DashedFrame, button, divider, hbox, label
+from myPGM.ui.widgets import (Card, Collapser, DashedFrame, ElidedLabel, button, divider,
+                              hbox, label)
 
 NO_VALUE = "—"
 
@@ -19,10 +20,13 @@ NO_VALUE = "—"
 # --- fitted pressure card --------------------------------------------------------------------
 
 class Pill(QLabel):
-    """Rounded tag of the pills row. Long text is shortened with '…' (full text in the
-    tooltip); text() returns the full text."""
+    """Rounded tag of the pills row. Long text is shortened with '…' to the width the
+    row gives it (at most MAX_WIDTH, at least MIN_TEXT), with the full text in the
+    tooltip; text() returns the full text. A long file name never widens the window.
+    Rich text (the calibration pill: a dot and a short name) is shown whole."""
 
     MAX_WIDTH = 320
+    MIN_TEXT = 40
 
     def __init__(self, text="", mono=False, muted=False, parent=None):
         super().__init__(parent)
@@ -36,16 +40,56 @@ class Pill(QLabel):
 
     def setText(self, text):
         self._full = text or ""
-        if self.textFormat() == Qt.RichText:        # short markup: eliding would cut it
-            super().setText(self._full)
-            return
-        metrics = self.fontMetrics()
-        shown = metrics.elidedText(self._full, Qt.ElideMiddle, self.MAX_WIDTH)
-        super().setText(shown)
-        self.setToolTip(self._full if shown != self._full else "")
+        self._show_text()
+        self.updateGeometry()
 
     def text(self):
         return self._full
+
+    def _plain(self):
+        return self.textFormat() != Qt.RichText
+
+    def _chrome(self):
+        """Padding and border around the text."""
+        return super().sizeHint().width() - self.fontMetrics().horizontalAdvance(super().text())
+
+    def _text_width(self):
+        return min(self.fontMetrics().horizontalAdvance(self._full), self.MAX_WIDTH)
+
+    def _show_text(self):
+        if not self._plain():
+            super().setText(self._full)
+            return
+        metrics = self.fontMetrics()
+        width = self._text_width()
+        if self.isVisible() and self.width() > 0:
+            width = min(width, self.width() - self._chrome())
+        # elidedText also shortens a text that fits within a pixel or two
+        shown = (self._full if metrics.horizontalAdvance(self._full) <= width
+                 else metrics.elidedText(self._full, Qt.ElideMiddle, max(width, 0)))
+        if shown != super().text():
+            super().setText(shown)
+        self.setToolTip(self._full if shown != self._full else "")
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        if self._plain():
+            hint.setWidth(self._chrome() + self._text_width() + 1)
+        return hint
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        if self._plain():
+            hint.setWidth(self._chrome() + min(self._text_width(), self.MIN_TEXT))
+        return hint
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._show_text()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._show_text()
 
 
 def dot_html(color, size_px=8):
@@ -87,8 +131,13 @@ class PressureCard(Card):
         self.calib_pill.setTextFormat(Qt.RichText)
         self.model_pill = Pill()
         self.x_pill = Pill(mono=True)
-        left.addLayout(hbox(self.calib_pill, self.model_pill, self.x_pill, file_label, 1,
-                            spacing=6))
+        # the file pill takes the room the others leave (_fit_file_pill): a long file
+        # name is shortened first, the model and position stay readable
+        self.pills_row = QWidget()
+        self.pills_row.setLayout(hbox(self.calib_pill, self.model_pill, self.x_pill,
+                                      file_label, 1, spacing=6))
+        self.pills_row.installEventFilter(self)
+        left.addWidget(self.pills_row)
 
         # Pm field (the spin box and "bar" in one input frame) and the add button,
         # vertically centred in the card
@@ -117,6 +166,22 @@ class PressureCard(Card):
         self.body.addLayout(row)
         self.clear()
 
+    def eventFilter(self, watched, event):
+        if watched is self.pills_row and event.type() in (QEvent.Resize, QEvent.LayoutRequest):
+            self._fit_file_pill()
+        return super().eventFilter(watched, event)
+
+    def _fit_file_pill(self):
+        """Box layouts shorten every widget alike when the row is too narrow: the file
+        pill is capped to the room left by the other pills instead."""
+        spacing = self.pills_row.layout().spacing()
+        others = [pill for pill in (self.calib_pill, self.model_pill, self.x_pill)
+                  if not pill.isHidden()]
+        room = self.pills_row.width() - sum(p.sizeHint().width() + spacing for p in others)
+        room = max(room, self.file_label.minimumSizeHint().width())
+        if self.file_label.maximumWidth() != room:
+            self.file_label.setMaximumWidth(room)
+
     def clear(self, calib=None):
         """Not fitted: "—", calibration pill only, button disabled."""
         self._calib = calib
@@ -126,8 +191,14 @@ class PressureCard(Card):
         self._update_calib_pill()
         self.add_button.setEnabled(False)
 
+    @staticmethod
+    def value_text(P):
+        """3 decimals; a value from a fit gone wrong (|P| >= 10000 GPa) in scientific
+        notation, so that it cannot widen the card and the window."""
+        return f"{P:.3f}" if abs(P) < 1e4 else f"{P:.3g}"
+
     def set_fit(self, P, model_name, position_text):
-        self.value_label.setText(f"{P:.3f}")
+        self.value_label.setText(self.value_text(P))
         self.model_pill.setText(model_name)
         self.model_pill.show()
         self.x_pill.setText(position_text)
@@ -217,37 +288,27 @@ class Stepper(QFrame):
 
 
 class FitToolbar(QFrame):
-    """Toolbar strip at the top of the spectrum card. Its text labels ("Background",
-    "Smoothing") are hidden when the toolbar is too narrow, so that it keeps one line."""
+    """Toolbar strip at the top of the spectrum card. It keeps one line without widening
+    the window: when it is too narrow its text labels ("Background", "Smoothing") are
+    hidden, then the `compact_buttons` show their icon only (widgets.Collapser)."""
 
-    def __init__(self, items, optional_labels, parent=None):
+    def __init__(self, items, optional_labels, compact_buttons=(), parent=None):
         super().__init__(parent)
         self.setObjectName("CardToolbar")
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.optional_labels = optional_labels
         layout = hbox(*items, spacing=8, margins=(12, 10, 12, 10))
         self.setLayout(layout)
-
-    def _width_with_labels(self):
-        width = self.layout().sizeHint().width()
-        for widget in self.optional_labels:
-            if widget.isHidden():
-                width += widget.sizeHint().width() + self.layout().spacing()
-        return width
+        self.collapser = Collapser(self, [*optional_labels, *compact_buttons])
 
     def minimumSizeHint(self):
         hint = super().minimumSizeHint()
-        for widget in self.optional_labels:
-            if not widget.isHidden():
-                hint.setWidth(hint.width() - widget.sizeHint().width() - self.layout().spacing())
+        hint.setWidth(hint.width() - self.collapser.min_width_saving())
         return hint
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        show = event.size().width() >= self._width_with_labels()
-        for widget in self.optional_labels:
-            if widget.isHidden() == show:
-                widget.setVisible(show)
+        self.collapser.fit(event.size().width())
 
 
 # --- legend row --------------------------------------------------------------------------------
@@ -272,7 +333,9 @@ class LegendRow(QWidget):
         super().__init__(parent)
         self.data_glyph, self.fit_glyph, self.range_glyph = QLabel(), QLabel(), QLabel()
         self.range_item = self._item(self.range_glyph, "Fit range")
-        self.hint = label("", "accent-12")
+        # elided: a long hint must not widen the card
+        self.hint = ElidedLabel("")
+        self.hint.setProperty("role", "accent-12")
         self.hint.hide()
         layout = hbox(self._item(self.data_glyph, "Data"), self._item(self.fit_glyph, "Fit"),
                       self.range_item, 1, self.hint, divider(length=18), derivative_button,

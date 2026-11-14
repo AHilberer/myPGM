@@ -59,6 +59,10 @@ open both ways with 1.1.
 - The Open and Save tooltips give the platform's shortcut (⌘O on macOS, Ctrl+O elsewhere).
 
 ### Fixed
+- Some actions (fitting a spectrum with a long file name, a larger font, a fit gone wrong)
+  widened the window, which then ran off the right edge of the screen. The window's minimum
+  width no longer depends on what it shows: long text is shortened with "…", the fit toolbar and
+  the top bar switch to icons when narrow, and a window that still grows is moved back on screen.
 - Opening a session did not offer to save unsaved changes first; they were lost.
 - The arrow keys moved the selection in the file list without loading the spectrum.
 - Moving a file up or down cleared the selection in the list.

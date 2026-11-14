@@ -24,7 +24,7 @@ from PyQt5.QtCore import (
     QTimer,
     pyqtSignal,
 )
-from PyQt5.QtGui import QGuiApplication, QKeySequence
+from PyQt5.QtGui import QGuiApplication, QKeySequence, QRegion
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -396,7 +396,8 @@ class MainWindow(QMainWindow):
              SplitButton(self.fit_range_enable_button, self.fit_range_edit_button),
              divider(length=22), self.background_label, self.bg_segment,
              divider(length=22), self.smoothing_label, stepper, 1],
-            optional_labels=[self.background_label, self.smoothing_label])
+            optional_labels=[self.background_label, self.smoothing_label],
+            compact_buttons=[self.click_fit_button, self.fit_range_enable_button])
         spectrum_card.body.addWidget(self.fit_toolbar)
         self.legend_row = LegendRow(self.Derivative_button)
         spectrum_card.body.addWidget(self.legend_row)
@@ -548,6 +549,14 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if hasattr(self, "_docks"):
             self._limit_dock_heights()
+        # widened or heightened by its content: Qt grows a window to its layout's new
+        # minimum size, which can push it off the screen (macOS: off its right edge).
+        # Such a resize lands exactly on the minimum; a resize by the user does not.
+        old, new = event.oldSize(), event.size()
+        if old.isValid() and ((new.width() > old.width() and new.width() == self.minimumWidth())
+                              or (new.height() > old.height()
+                                  and new.height() == self.minimumHeight())):
+            QTimer.singleShot(0, self._keep_on_screen)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -555,6 +564,9 @@ class MainWindow(QMainWindow):
             self._shown_once = True
             if not self._layout_restored:
                 self._default_dock_sizes()      # with the final window size
+            else:
+                # saved on a screen that may no longer be there (external display)
+                QTimer.singleShot(0, self._keep_on_screen)
             self._schedule_panel_update()
             # open at the last close (Settings › General › Additional pressure toolbox)
             if S.setting("additional_toolbox"):
@@ -612,17 +624,43 @@ class MainWindow(QMainWindow):
         screen = QGuiApplication.primaryScreen()
         if screen is None:
             return
-        area = screen.availableGeometry()
+        self._fit_in(screen.availableGeometry(), centre=True)
+
+    def _fit_in(self, area, centre):
+        """Size the window to `area` (never below its layout's minimum, which Qt applies
+        anyway) and place it inside: centred, or moved by as little as possible."""
         frame, inner = self.frameGeometry(), self.geometry()
         frame_w, frame_h = frame.width() - inner.width(), frame.height() - inner.height()
-        # never below the minimum size of the window's layout, which Qt applies anyway
         minimum = self.minimumSizeHint().expandedTo(self.minimumSize())
         width = max(min(inner.width(), area.width() - frame_w), minimum.width())
         height = max(min(inner.height(), area.height() - frame_h), minimum.height())
-        x = max(area.left(), area.left() + (area.width() - width - frame_w) // 2)
-        y = max(area.top(), area.top() + (area.height() - height - frame_h) // 2)
+        if centre:
+            x = area.left() + (area.width() - width - frame_w) // 2
+            y = area.top() + (area.height() - height - frame_h) // 2
+        else:
+            x = min(frame.left(), area.left() + area.width() - width - frame_w)
+            y = min(frame.top(), area.top() + area.height() - height - frame_h)
+        x, y = max(area.left(), x), max(area.top(), y)
         self.setGeometry(x + inner.left() - frame.left(), y + inner.top() - frame.top(),
                          width, height)
+
+    def _keep_on_screen(self):
+        """Bring the window back inside the screen if part of it is off every screen
+        (a window spanning two screens is left alone)."""
+        if (not self.isVisible() or self.isMinimized() or self.isMaximized()
+                or self.isFullScreen()):
+            return
+        frame = self.frameGeometry()
+        desktop = QRegion()
+        for screen in QGuiApplication.screens():
+            desktop += QRegion(screen.availableGeometry())
+        if QRegion(frame).subtracted(desktop).isEmpty():
+            return
+        screen = (QGuiApplication.screenAt(frame.center())
+                  or QGuiApplication.screenAt(frame.topLeft())
+                  or QGuiApplication.primaryScreen())
+        if screen is not None:
+            self._fit_in(screen.availableGeometry(), centre=False)
 
     def closeEvent(self, event):
         if self.close_guard is not None and not self.close_guard():

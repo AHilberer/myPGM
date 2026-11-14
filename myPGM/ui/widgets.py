@@ -3,7 +3,8 @@ titles, labels and icon buttons. Their look is in theme.qss (object names and th
 `role` property)."""
 from PyQt5.QtCore import QRectF, QSize, Qt
 from PyQt5.QtGui import QFont, QIcon, QPainter, QPen, QPixmap
-from PyQt5.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy,
+from PyQt5.QtWidgets import (QAbstractButton, QFrame, QHBoxLayout, QLabel, QPushButton,
+                             QSizePolicy,
                              QSplitter, QSplitterHandle, QStyledItemDelegate,
                              QStyleOptionViewItem, QVBoxLayout, QWidget)
 
@@ -70,6 +71,59 @@ class ElidedLabel(QLabel):
         text = self.fontMetrics().elidedText(self.text(), self._mode, rect.width())
         painter.setPen(self.palette().color(self.foregroundRole()))
         painter.drawText(rect, int(self.alignment()) | Qt.TextSingleLine, text)
+
+
+class Collapser:
+    """Keeps a one-line bar (fit toolbar, top bar) from widening the window: when the
+    bar is narrower than its full width, its optional parts collapse in the given
+    order, buttons to their icon (the text is in the tooltip) and other widgets
+    hidden; they come back as soon as there is room. The owner calls fit() from its
+    resizeEvent and subtracts min_width_saving() from its minimumSizeHint, so the
+    window's minimum width does not depend on these parts.
+
+    Items must be direct children of the owner's layout, and their visibility (or
+    button text) must not be changed elsewhere."""
+
+    def __init__(self, owner, items):
+        self.owner = owner
+        self.items = list(items)
+        self.texts = {w: w.text() for w in self.items if isinstance(w, QAbstractButton)}
+
+    def _saving(self, widget):
+        if widget in self.texts:
+            return widget.fontMetrics().horizontalAdvance(self.texts[widget])
+        return widget.sizeHint().width() + max(0, self.owner.layout().spacing())
+
+    def _collapsed(self, widget):
+        if widget in self.texts:
+            return widget.text() != self.texts[widget]
+        return widget.isHidden()
+
+    def full_width(self):
+        """Width of the bar with every item shown, whatever is collapsed now."""
+        return (self.owner.layout().sizeHint().width()
+                + sum(self._saving(w) for w in self.items if self._collapsed(w)))
+
+    def min_width_saving(self):
+        """Width the items still shown would free once collapsed."""
+        return sum(self._saving(w) for w in self.items if not self._collapsed(w))
+
+    def collapsed(self):
+        return [w for w in self.items if self._collapsed(w)]
+
+    def fit(self, width):
+        needed, count = self.full_width(), 0
+        while count < len(self.items) and width < needed:
+            needed -= self._saving(self.items[count])
+            count += 1
+        for index, widget in enumerate(self.items):
+            collapse = index < count
+            if widget in self.texts:
+                text = "" if collapse else self.texts[widget]
+                if widget.text() != text:
+                    widget.setText(text)
+            elif widget.isHidden() != collapse:
+                widget.setVisible(not collapse)
 
 
 class Button(QPushButton):

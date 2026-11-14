@@ -8,7 +8,7 @@ from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from myPGM.ui import icons, theme
-from myPGM.ui.widgets import ElidedLabel, button, divider, icon_button, label
+from myPGM.ui.widgets import Collapser, ElidedLabel, button, divider, icon_button, label
 
 HEIGHT = 48
 
@@ -34,7 +34,10 @@ class TopBar(QWidget):
         self.mark = QLabel()
         self.mark.setObjectName("AppMark")
         layout.addWidget(self.mark)
-        names = QVBoxLayout()
+        # (in a widget of its own: hidden as a whole when the bar is narrow)
+        self.names = QWidget()
+        names = QVBoxLayout(self.names)
+        names.setContentsMargins(0, 0, 0, 0)
         names.setSpacing(0)
         self.app_name = QLabel("myPGM")
         self.app_name.setObjectName("AppName")
@@ -45,13 +48,14 @@ class TopBar(QWidget):
         names.addWidget(self.app_name)
         names.addWidget(self.app_subtitle)
         names.addStretch(1)
-        layout.addLayout(names)
+        layout.addWidget(self.names)
         layout.addSpacing(10)
         layout.addWidget(divider(length=28))
         layout.addSpacing(10)
 
         # session name and save status
-        layout.addWidget(label("Session", "muted-13"))
+        self.session_caption = label("Session", "muted-13")
+        layout.addWidget(self.session_caption)
         self.session_label = ElidedLabel("Untitled session")
         self.session_label.setObjectName("SessionName")
         self.session_label.setMinimumWidth(60)
@@ -89,6 +93,12 @@ class TopBar(QWidget):
         self.settings_button.setProperty("role", "quiet-icon")
         layout.addWidget(self.settings_button)
 
+        # narrow window: the app name, "Session", then the button texts make room, so
+        # the bar never sets the window's minimum width (widgets.Collapser)
+        self.collapser = Collapser(self, [self.names, self.session_caption,
+                                          self.export_button, self.open_button,
+                                          self.save_button])
+
         self.app_version = "dev"
         # save status: "Not saved yet", or the time since the last save / backup
         self._saved_at = None
@@ -97,6 +107,15 @@ class TopBar(QWidget):
         self._pill_timer.timeout.connect(self._update_pill)
         self._pill_timer.start(5000)
         self.restyle()
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        hint.setWidth(hint.width() - self.collapser.min_width_saving())
+        return hint
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.collapser.fit(event.size().width())
 
     @staticmethod
     def _text_button(icon_name, text, tooltip):

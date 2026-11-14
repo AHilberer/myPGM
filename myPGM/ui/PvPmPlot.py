@@ -34,6 +34,9 @@ class PvPmPlotWindow(QWidget):
         self.font_px = 18
         self.legend_label = QLabel()
         self.legend_label.setObjectName("PlotLegend")
+        # one entry per calibration: cut at the header's edge rather than widening the
+        # docks, hence the window (the full legend is in the tooltip)
+        self.legend_label.setMinimumWidth(40)
 
         self.lines = {}
         self.error_bars = {}
@@ -188,9 +191,10 @@ class PvPmPlotWindow(QWidget):
         return [(self.labels[group], self._series_color(group).name()) for group in self.lines]
 
     def _update_legend(self):
+        entries = self.legend_entries()
         self.legend_label.setText("&nbsp;&nbsp;&nbsp;".join(
-            f'<span style="color:{color}">●</span>&nbsp;{text}'
-            for text, color in self.legend_entries()))
+            f'<span style="color:{color}">●</span>&nbsp;{text}' for text, color in entries))
+        self.legend_label.setToolTip(" · ".join(text for text, _color in entries))
 
     def updateplot(self):
         if self.data_manager is None:
