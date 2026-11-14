@@ -49,13 +49,16 @@ Once the application is running, a typical workflow is:
 
 ### With pip
 
-myPGM requires Python 3.10 or newer:
+myPGM requires Python 3.10 or newer. Update pip first, then install myPGM:
 
 ```bash
+python3 -m pip install --upgrade pip
 python3 -m pip install mypgm
 ```
 
 Then start it with `mypgm` (add `--demo` to open an example session, see below). Installing in a [virtual environment](https://docs.python.org/3/library/venv.html) keeps its dependencies (PyQt5, pyqtgraph, NumPy, SciPy) apart from your other Python projects.
+
+If the installation stops while building PyQt5 (`Preparing metadata (pyproject.toml) ... error`, with `PyProjectOptionException` and `qmake` in the message), pip is too old: it did not recognise your system, so it tried to build PyQt5 from source instead of downloading it ready-made. This happens on macOS with some Python installations (e.g. Anaconda) whose pip predates macOS 11. Run the `--upgrade pip` line above, then install myPGM again.
 
 ### Windows executable
 
