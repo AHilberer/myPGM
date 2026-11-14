@@ -2,12 +2,13 @@
 
 All notable changes to myPGM are listed here. Versions follow [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [2.0.0] - 2026-11-14
 
 A redesigned interface (docs/design/DESIGN.md): one window with the spectra on the left, the
 fitted pressure and the spectrum in the center, the pressure gauge and parameters on the right,
-and the pressure log and P vs Pm plot docked below. Fits, calibrations and session files are
-unchanged: sessions open both ways with 1.1.
+and the pressure log and P vs Pm plot docked below. The menus and separate windows of 1.x are
+replaced, hence the major version. Fits, calibrations and session files are unchanged: sessions
+open both ways with 1.1.
 
 ### Added
 - Light and dark themes built on one set of colours, with the bundled Inter and JetBrains Mono
@@ -68,6 +69,27 @@ unchanged: sessions open both ways with 1.1.
   too, as in the pressure log.
 - Spectrum files with non-UTF-8 characters in their header (e.g. µ or ° from some spectrometers on
   Windows) could not be opened on some systems.
+
+### Development
+- The interface is built from shared widgets (`myPGM/ui/widgets.py`: cards, buttons, pills,
+  dashed frames), a theme module (`myPGM/ui/theme.py` and the `theme.qss` template, one set of
+  colour tokens for both themes) and Lucide icons (`myPGM/resources/icons/ui/`). Inter and
+  JetBrains Mono are bundled (SIL OFL); no new runtime dependency.
+- Messages use `myPGM/ui/dialogs.py` instead of the platform's message boxes.
+- 400 tests (291 in 1.1), including layout, theme and dialog checks; they pass on Linux, macOS and
+  Windows.
+
+### Known limitations
+- Ruby temperature correction (under review): the Datchi 2007 polynomial for 296-900 K is used at
+  every temperature. Below room temperature it likely overestimates the ruby shift, hence the
+  pressure (by several GPa at cryogenic temperatures).
+- σx and σP are the statistical precision of the fit only, and are underestimated when the spectrum
+  is smoothed (smoothed points are not independent).
+- The Raman edge model needs a fit range around the edge: on the whole spectrum it can pick an
+  unrelated feature.
+- The "system" theme follows the operating system at startup and when the settings are saved, not
+  while the app is open.
+- Windows has not been tested by hand yet. No standalone executables yet.
 
 ## [1.1.0] - 2026-11-13
 
