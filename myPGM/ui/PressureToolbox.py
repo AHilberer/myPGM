@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QWidget,
                              QHBoxLayout,
                              QVBoxLayout,)
 from PyQt5.QtGui import QColor
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import QEvent, pyqtSignal, Qt
 
 from myPGM.calibrations import HPCalibration
 from myPGM.helpers import SmartDoubleSpinBox
@@ -56,6 +56,14 @@ class PressureToolbox(QWidget):
         self.P_spinbox.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.x_spinbox = self._spinbox("x_spinbox", decimals=3, step=0.01)
         self.x0_spinbox = self._spinbox("x0_spinbox", decimals=3, step=0.01)
+        # λ from the fit: accent border and a small "fit" tag (DESIGN.md §1, Parameters)
+        self.x_fit_tag = QLabel("fit", self.x_spinbox)
+        self.x_fit_tag.setObjectName("FitTag")
+        self.x_fit_tag.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.x_fit_tag.setToolTip("Value from the fit of the spectrum")
+        self.x_fit_tag.hide()
+        self.x_spinbox.setProperty("fitted", False)
+        self.x_spinbox.installEventFilter(self)
         self.T_spinbox = self._spinbox("T_spinbox", decimals=1, step=1)
         self.T0_spinbox = self._spinbox("T0_spinbox", decimals=1, step=1)
 
@@ -167,6 +175,9 @@ class PressureToolbox(QWidget):
         self.T_spinbox.valueChanged.connect(self.TChanged.emit)
         self.x0_spinbox.valueChanged.connect(self.x0Changed.emit)
         self.T0_spinbox.valueChanged.connect(self.T0Changed.emit)
+        # λ typed, or computed from a typed P: no longer the fitted value
+        for spinbox in (self.x_spinbox, self.P_spinbox):
+            spinbox.valueChanged.connect(lambda _value: self.set_x_fitted(False))
 
     def init_calib_combo(self):
         if self.calibrations is not None:
@@ -284,6 +295,51 @@ class PressureToolbox(QWidget):
         self.set_Tval(buffer.T)
         self.set_T0val(buffer.T0)
         self.set_calib(buffer.calib)
+        self.set_x_fitted(self.x_from_fit(buffer))
+
+    @staticmethod
+    def fitted_position(fit_model, fit_result):
+        """x found by a fit (the peak used for the pressure, or the edge), or None."""
+        if fit_model is None or fit_result is None:
+            return None
+        try:
+            opti = fit_result["opti"]
+            return float(opti if fit_model.type == "edge" else opti[fit_model.position_index(opti)])
+        except (KeyError, IndexError, TypeError, ValueError):
+            return None
+
+    @classmethod
+    def x_from_fit(cls, buffer):
+        """True if the buffer's x is the position found by its fit."""
+        fitted = cls.fitted_position(getattr(buffer, "fit_model", None),
+                                     getattr(buffer, "fit_result", None))
+        return (fitted is not None and buffer.x is not None
+                and bool(np.isclose(fitted, float(buffer.x), rtol=0, atol=1e-9)))
+
+    def shows_fit(self, fit_model, fit_result):
+        """True if the λ field shows the position of this fit (to its 3 decimals)."""
+        fitted = self.fitted_position(fit_model, fit_result)
+        return fitted is not None and abs(fitted - self.x_spinbox.value()) < 0.0005 + 1e-12
+
+    def set_x_fitted(self, fitted):
+        if self.x_spinbox.property("fitted") == fitted:
+            return
+        self.x_spinbox.setProperty("fitted", fitted)
+        self.x_spinbox.style().unpolish(self.x_spinbox)
+        self.x_spinbox.style().polish(self.x_spinbox)
+        self.x_fit_tag.setVisible(fitted)
+        self._place_fit_tag()
+
+    def _place_fit_tag(self):
+        tag = self.x_fit_tag
+        tag.adjustSize()
+        box = self.x_spinbox.rect()
+        tag.move(box.right() - tag.width() - 9, (box.height() - tag.height()) // 2)
+
+    def eventFilter(self, obj, event):
+        if obj is self.x_spinbox and event.type() == QEvent.Resize:
+            self._place_fit_tag()
+        return super().eventFilter(obj, event)
 
     def set_valid_colors(self, valid):
         """No colour while x and P are valid (the P row is always highlighted); a red

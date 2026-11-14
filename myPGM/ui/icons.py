@@ -20,11 +20,8 @@ STROKE_WIDTH = "1.8"
 _SCALE = 2                       # rendered at 2x, sharp on high-density screens
 _buttons = weakref.WeakSet()     # buttons to redraw when the theme changes
 
-# app mark of the top bar (DESIGN.md mockup): two accent trapezoids, ruby dot
-_APP_MARK = """<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26"
- fill="none" stroke="{accent}" stroke-width="1.6" stroke-linejoin="round">
- <path d="M5 3h16l-5 8h-6z"/><path d="M5 23h16l-5-8h-6z"/>
- <circle cx="13" cy="13" r="1.4" fill="{dot}" stroke="none"/></svg>"""
+# the app icon, shown in the top bar and in Settings › About
+_APP_ICON_SIZES = (16, 32, 64, 128, 256, 512, 1024)
 
 
 @lru_cache(maxsize=None)
@@ -81,8 +78,13 @@ def refresh():
 
 
 def app_mark(size=26):
-    t = theme.tokens()
-    from myPGM import calibrations
-    svg = _APP_MARK.format(accent=theme.qcolor(t["ac"]).name(),
-                           dot=theme.calib_color(calibrations.Ruby2020))
-    return _render(svg, size)
+    """The app icon (resources/icons/AppIcon*.png) at size x size logical pixels, from
+    the smallest file that is sharp at 2x."""
+    source = next((n for n in _APP_ICON_SIZES if n >= size * _SCALE), _APP_ICON_SIZES[-1])
+    pixmap = QPixmap(str(files("myPGM").joinpath(f"resources/icons/AppIcon{source}.png")))
+    if pixmap.isNull():
+        return pixmap
+    pixmap = pixmap.scaled(size * _SCALE, size * _SCALE, Qt.KeepAspectRatio,
+                           Qt.SmoothTransformation)
+    pixmap.setDevicePixelRatio(_SCALE)
+    return pixmap

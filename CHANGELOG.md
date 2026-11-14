@@ -2,6 +2,50 @@
 
 All notable changes to myPGM are listed here. Versions follow [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+A redesigned interface (docs/design/DESIGN.md): one window with the spectra on the left, the
+fitted pressure and the spectrum in the center, the pressure gauge and parameters on the right,
+and the pressure log and P vs Pm plot docked below. Fits, calibrations and session files are
+unchanged: sessions open both ways with 1.1.
+
+### Added
+- Light and dark themes built on one set of colours, with the bundled Inter and JetBrains Mono
+  fonts (numbers in mono). Each calibration family has one colour, used for its file-list dot, its
+  pill, its log rows, its P vs Pm markers and the calibration selector.
+- Top bar: session name and save status ("Autosaved 12 s ago"), toggles for the two bottom panels,
+  Open, Save, Export CSV, the theme toggle and a Settings button.
+- Fitted pressure card above the spectrum: the pressure in large type, the calibration, fit model,
+  λ and file as pills, and the Pm field with **Add fit to log**. The fitted peak gets a dashed
+  marker and a label on the plot.
+- Fit toolbar on one line: Fit, Click-to-fit, a Fit range split button (on/off, and edit with
+  draggable edges), Background (Auto / Manual / None), Smoothing − n +, and a dI/dλ toggle that
+  shows the derivative under the spectrum.
+- **Add point to log** in the Parameters card asks for Pm in a small dialog (a point without a
+  spectrum or a fit).
+- The pressure log and the P vs Pm plot are docks: side by side under the workspace, resizable,
+  each can be hidden or opened in its own window, and the layout is kept between launches.
+- Pressure log: an optional **σP (fit)** column (the P column shows the value alone), the row of
+  the spectrum shown is highlighted and its point ringed in P vs Pm. The visible columns are kept
+  between launches.
+- File list: one line per spectrum with its calibration dot and fitted pressure; the calibration and
+  fit model in the tooltip.
+- Startup screen: a drop zone with Add spectra, Select acquisition folder, Open session and a link
+  to the demo session; spectra can be dropped anywhere on the window.
+- After an abnormal exit, a banner offers to recover the unsaved session instead of a blocking
+  question; loading something else sets the backup aside (kept as `*.discarded.json`).
+- Settings window (gear button, Files › Settings…, ⌘, on macOS): theme (light, dark or following
+  the system), interface font size, the additional pressure toolbox, autosave on/off and its
+  interval, the offer to recover a session, the pressure log columns, debug logging, the log folder,
+  and an About section.
+- The λ field shows a "fit" tag while it holds the fitted position.
+
+### Changed
+- The fit model selector is coloured by kind of model (Double red, Single green, Raman edge grey).
+- The PToolbox and Font size menus are replaced by the Settings window.
+- Buttons take keyboard focus from Tab only, with a visible focus border on every control; the Tab
+  order follows the cards.
+
 ## [1.1.0] - 2026-11-13
 
 Fixes found in a review of the whole code (fits that could corrupt table points, background

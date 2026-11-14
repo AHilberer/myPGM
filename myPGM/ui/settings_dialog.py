@@ -49,6 +49,8 @@ def _row(title, description, control, line=True):
     text.addWidget(note)
     content.addLayout(text, 1)
     if isinstance(control, QWidget):
+        if not control.accessibleName():
+            control.setAccessibleName(title)        # check boxes have no text of their own
         content.addWidget(control, 0, Qt.AlignVCenter)
     else:
         content.addLayout(control)

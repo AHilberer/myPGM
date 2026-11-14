@@ -1,7 +1,7 @@
 <h1 align="center"> myPGM - Pressure Gauge Monitor </h1>
 
 <div align="center">
-<img alt="myPGM main window with the PvPm table and plot (mypgm --demo)" src="docs/myPGM_screenshot.png">
+<img alt="myPGM main window with the pressure log and the P vs Pm plot (mypgm --demo)" src="docs/myPGM_screenshot.png">
 </div>
 
 <br>

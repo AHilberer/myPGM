@@ -28,8 +28,8 @@ The mockup is the target for look and layout, not for behavior: everything the a
 
 One main window instead of three. From top to bottom:
 
-1. **Top bar** (≈ 56 px, panel color, bottom border)
-   - Left: app mark + "myPGM" (bold 15 px) over "Pressure Gauge Monitor · vX.Y.Z" (11 px, muted).
+1. **Top bar** (48 px, panel color, bottom border; 24 px app icon, 34 px buttons)
+   - Left: the app icon (`resources/icons/AppIcon*.png`, not the mockup's drawn mark) + "myPGM" (bold 15 px) over "Pressure Gauge Monitor · vX.Y.Z" (11 px, muted).
    - Vertical divider, then "Session" (muted) + session name (semibold) + an "Autosaved N s ago" pill.
    - Right: two panel toggles (icon only, 34 px: table icon = Pressure log, scatter icon = P vs Pm; pressed = `acs` background, `ac` border, `act` icon), a divider, then Open, Save, Export CSV (icon + label buttons), theme toggle (icon only), Settings (gear, icon only, opens the Settings window, §4).
 2. **Workspace**: three columns in a horizontal splitter

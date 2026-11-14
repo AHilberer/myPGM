@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from myPGM.ui import icons, theme
 from myPGM.ui.widgets import ElidedLabel, button, divider, icon_button, label
 
-HEIGHT = 56
+HEIGHT = 48
 
 
 class TopBar(QWidget):
@@ -34,8 +34,11 @@ class TopBar(QWidget):
         self.app_name.setObjectName("AppName")
         self.app_subtitle = QLabel("Pressure Gauge Monitor")
         self.app_subtitle.setObjectName("AppSubtitle")
+        # stretches keep the two lines together instead of splitting the bar's height
+        names.addStretch(1)
         names.addWidget(self.app_name)
         names.addWidget(self.app_subtitle)
+        names.addStretch(1)
         layout.addLayout(names)
         layout.addSpacing(10)
         layout.addWidget(divider(length=28))
@@ -135,5 +138,5 @@ class TopBar(QWidget):
 
     def restyle(self):
         """Colours that are not in the stylesheet (app mark, pill dot)."""
-        self.mark.setPixmap(icons.app_mark(26))
+        self.mark.setPixmap(icons.app_mark(24))
         self._update_pill()

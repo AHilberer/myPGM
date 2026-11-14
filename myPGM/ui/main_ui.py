@@ -43,7 +43,8 @@ from myPGM.ui.PressureToolbox import PressureToolbox
 from myPGM.ui.TopBar import TopBar
 from myPGM.ui.docks import MIN_HEIGHT as MIN_DOCK_HEIGHT, PanelDock
 from myPGM.ui import icons, theme
-from myPGM.ui.widgets import (GAP, Button, Card, ElidedLabel, ModelItemDelegate, button,
+from myPGM.ui.widgets import (GAP, Button, Card, DashedSplitter, ElidedLabel,
+                              ModelItemDelegate, button,
                               divider, hbox, label,
                               x_symbol, x_unit)
 from myPGM.ui.center import (EmptyCenter, FitRangeEditOverlay, FitToolbar, LegendRow,
@@ -305,6 +306,7 @@ class MainWindow(QMainWindow):
         self.LoadSpectro_button.setToolTip("Load a spectrometer calibration file")
         self.Spectro_use_button = QCheckBox(self)
         self.Spectro_use_button.setToolTip("Use spectrometer calibration")
+        self.Spectro_use_button.setAccessibleName("Use spectrometer calibration")
         self.Spectro_filename_label = ElidedLabel("No calibration file", self)
 
         # fit -> pressure log (center), and point from the parameters alone (inspector)
@@ -320,7 +322,7 @@ class MainWindow(QMainWindow):
         self.PToolbox_toTable_button.clicked.connect(self.add_point_to_log)
 
     def _create_plots(self):
-        self.splitter = QSplitter(Qt.Vertical)
+        self.splitter = DashedSplitter(Qt.Vertical)
         self.splitter.setObjectName("PlotSplitter")
         self.splitter.setHandleWidth(9)             # dashed line between spectrum and dI/dx
 
@@ -462,6 +464,9 @@ class MainWindow(QMainWindow):
         self.ptoolbox.fit_model_slot.addWidget(self.fit_model_combo)
         self.ptoolbox._style_calib_combo()
         self.ptoolbox.add_point_slot.addWidget(self.PToolbox_toTable_button)
+        # Tab follows the cards: calibration, fit model, then the parameters
+        QWidget.setTabOrder(self.ptoolbox.calibration_combo, self.fit_model_combo)
+        QWidget.setTabOrder(self.fit_model_combo, self.ptoolbox.x_spinbox)
 
         spectro_card = Card("Spectrometer", spacing=10)
         self.Spectro_filename_label.setProperty("role", "muted-13")
@@ -481,6 +486,7 @@ class MainWindow(QMainWindow):
 
         scroll = QScrollArea()
         scroll.setObjectName("InspectorScroll")
+        scroll.setFocusPolicy(Qt.NoFocus)           # Tab goes to its fields, not to it
         scroll.setWidget(inspector)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
@@ -922,6 +928,8 @@ class MainWindow(QMainWindow):
         self.set_x_axis(calib)
         # not fitted until plot_fit: "—" in the fitted pressure card
         self.pressure_card.clear(calib)
+        # "fit" tag on λ: set again by plot_fit if Parameters shows this spectrum's fit
+        self.ptoolbox.set_x_fitted(False)
         # the fit line of this spectrum is drawn in its calibration's colour
         self._set_fit_color(theme.calib_color(calib))
 
@@ -1015,6 +1023,8 @@ class MainWindow(QMainWindow):
         and the value in the fitted pressure card (without the fit uncertainty,
         DESIGN.md §5)."""
         self._clear_fit_items()
+        if self.ptoolbox.shows_fit(fit_model, fit_result):
+            self.ptoolbox.set_x_fitted(True)
 
         if fit_model.type == "peak":
             # drawn over the whole spectrum, not only the fitting range

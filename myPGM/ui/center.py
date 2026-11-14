@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout, QLa
 import pyqtgraph as pg
 
 from myPGM.ui import icons, theme
-from myPGM.ui.widgets import Card, button, divider, hbox, label
+from myPGM.ui.widgets import Card, DashedFrame, button, divider, hbox, label
 
 NO_VALUE = "—"
 
@@ -486,9 +486,8 @@ class EmptyCenter(Card):
         self._color = theme.calib_color(None)
         self.body.addStretch(2)
 
-        self.drop_zone = QFrame()
+        self.drop_zone = DashedFrame(width=2, radius=12, dash=(6, 4))
         self.drop_zone.setObjectName("DropZone")
-        self.drop_zone.setAttribute(Qt.WA_StyledBackground, True)
         self.drop_zone.setMaximumWidth(560)
         zone = QVBoxLayout(self.drop_zone)
         zone.setContentsMargins(32, 36, 32, 36)

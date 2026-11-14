@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (
     QStyledItemDelegate,
     QStyleOptionViewItem,
 )
-from PyQt5.QtCore import pyqtSignal, Qt, QSize
+from PyQt5.QtCore import QEvent, pyqtSignal, Qt, QSize
 from PyQt5.QtGui import QBrush, QColor, QFont, QFontMetrics, QIcon, QPainter, QPixmap
 
 from myPGM.settings import column_visibility, last_dir, remember_dir, set_column_visibility
@@ -219,9 +219,10 @@ class HPTableWidget(QTableWidget):
         self.setHorizontalHeaderLabels([header for _, header, _, _ in COLUMNS])
 
         h_header = self.horizontalHeader()
-        for col in range(len(COLUMNS) - 1):
-            h_header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
-        h_header.setSectionResizeMode(COLUMN_INDEX["file"], QHeaderView.Stretch)
+        # widths set by fit_columns: the contents, plus the spare width shared out
+        h_header.setSectionResizeMode(QHeaderView.Fixed)
+        h_header.setStretchLastSection(False)
+        h_header.sortIndicatorChanged.connect(lambda *_args: self.fit_columns())
         h_header.setContextMenuPolicy(Qt.CustomContextMenu)
         h_header.customContextMenuRequested.connect(self._show_column_menu)
         self.verticalHeader().hide()          # the '#' column gives the order instead
@@ -307,6 +308,7 @@ class HPTableWidget(QTableWidget):
         self.setSortingEnabled(True)
         self._highlight_current()
         self._apply_column_visibility(entries)
+        self.fit_columns()
         self._update_empty_label()
         if len(entries) > self._shown_count:
             self._scroll_to_number(len(entries))        # the point just added
@@ -338,6 +340,12 @@ class HPTableWidget(QTableWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._place_empty_label()
+
+    def viewportEvent(self, event):
+        # the viewport also narrows when the vertical scroll bar appears
+        if event.type() == QEvent.Resize:
+            self.fit_columns()
+        return super().viewportEvent(event)
 
     def _scroll_to_number(self, number):
         """Scroll the row numbered `number` ('#' column) into view, whatever the sort."""
@@ -387,6 +395,28 @@ class HPTableWidget(QTableWidget):
         self.user_column_visibility[key] = visible
         self.setColumnHidden(COLUMN_INDEX[key], not visible)
         set_column_visibility(key, visible)
+        self.fit_columns()
+
+    def fit_columns(self):
+        """Each shown column as wide as its header and cells; the width left over is
+        shared between the columns after '#', so that they spread over the table as in
+        the mockups (an empty log too), and a narrow table scrolls instead of eliding."""
+        header = self.horizontalHeader()
+        shown = [col for col in range(self.columnCount()) if not self.isColumnHidden(col)]
+        if not shown:
+            return
+        widths = {col: max(header.sectionSizeFromContents(col).width(),
+                           self.sizeHintForColumn(col)) for col in shown}
+        spread = [col for col in shown if COLUMNS[col][0] != "#"] or shown
+        extra = self.viewport().width() - sum(widths.values())
+        if extra > 0:
+            share, rest = divmod(extra, len(spread))
+            for col in spread:
+                widths[col] += share
+            widths[spread[-1]] += rest
+        for col, width in widths.items():
+            if header.sectionSize(col) != width:
+                header.resizeSection(col, width)
 
     def is_column_shown(self, key):
         return not self.isColumnHidden(COLUMN_INDEX[key])

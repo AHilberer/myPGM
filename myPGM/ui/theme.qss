@@ -675,8 +675,7 @@ QPushButton[role="pill"]:checked {
   color: $act;
 }
 QSplitter#PlotSplitter::handle {
-  background: transparent;
-  border-top: 1px dashed $bd;
+  background: transparent;       /* dashed line painted by widgets.DashedSplitter */
 }
 QDialog#AddPointDialog {
   background-color: $sf;
@@ -692,13 +691,10 @@ QLabel#EmptyHint {
   font-size: 13px;
 }
 #EmptyBox {
-  background: transparent;
-  border: 1px dashed $bd;
-  border-radius: 10px;
+  background: transparent;     /* dashed border painted by widgets.DashedFrame */
 }
 #DropZone {
-  background-color: $hd;
-  border: 2px dashed $bd;
+  background-color: $hd;       /* dashed border painted by widgets.DashedFrame */
   border-radius: 12px;
 }
 QLabel[role="empty-title"] {
@@ -785,4 +781,48 @@ QPushButton[role="text"]:hover {
 QLabel#AboutName {
   font-size: 16px;
   font-weight: 700;
+}
+
+/* λ from the fit (Parameters card) */
+QAbstractSpinBox[fitted="true"] {
+  border-color: $ac;
+  padding-right: 30px;
+}
+QLabel#FitTag {
+  color: $mu;
+  font-size: 11px;
+}
+
+/* --- keyboard focus (buttons take focus from Tab only: widgets.Button) ------------- */
+
+QCheckBox::indicator:focus {
+  border-color: $ac;
+}
+/* borderless buttons: a 1 px accent border, the padding 1 px smaller so the text stays */
+QPushButton[role="segment"]:focus {
+  border: 1px solid $ac;
+  padding: 0px 11px;
+}
+QPushButton[role="nav"]:focus {
+  border: 1px solid $ac;
+  padding: 0px 9px;
+}
+QPushButton[role="text"]:focus {
+  border: 1px solid $ac;
+  border-radius: 7px;
+  padding: 0px 11px;
+}
+QPushButton[role="link"]:focus {
+  border: 1px solid $ac;
+  border-radius: 4px;
+  padding: 0px 1px;
+}
+QPushButton[role="step"]:focus, QPushButton[role="close"]:focus {
+  border: 1px solid $ac;
+}
+
+/* acquisition folder box: the link at the caption size, so that the folder name fits */
+#FolderBox QPushButton[role="link"] {
+  font-size: 12px;
+  padding: 0px;
 }

@@ -2,9 +2,10 @@
 titles, labels and icon buttons. Their look is in theme.qss (object names and the
 `role` property)."""
 from PyQt5.QtCore import QRectF, QSize, Qt
-from PyQt5.QtGui import QFont, QIcon, QPainter, QPixmap
+from PyQt5.QtGui import QFont, QIcon, QPainter, QPen, QPixmap
 from PyQt5.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy,
-                             QStyledItemDelegate, QStyleOptionViewItem, QVBoxLayout, QWidget)
+                             QSplitter, QSplitterHandle, QStyledItemDelegate,
+                             QStyleOptionViewItem, QVBoxLayout, QWidget)
 
 from myPGM.ui import icons, theme
 
@@ -84,6 +85,8 @@ class Button(QPushButton):
 
     def __init__(self, text="", height=None, width=None, parent=None):
         super().__init__(text, parent)
+        # focus from the keyboard only: a click does not leave a focus border behind
+        self.setFocusPolicy(Qt.TabFocus)
         self._fixed = (width, height)
         if height is not None:
             self.setMaximumHeight(height)
@@ -200,3 +203,50 @@ class ModelItemDelegate(QStyledItemDelegate):
         option.features |= QStyleOptionViewItem.HasDecoration
         option.icon = QIcon(pixmap)
         option.decorationSize = QSize(self.DOT, self.DOT)
+
+
+class DashedFrame(QFrame):
+    """Frame with a dashed rounded border (empty states, DESIGN.md §4b). Qt's QSS
+    `dashed` border is drawn as faint dots with broken corners: it is painted here.
+    The background, if any, comes from the stylesheet (object name)."""
+
+    def __init__(self, width=1.0, radius=10, dash=(4, 3), parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.border_width, self.radius, self.dash = width, radius, dash
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(theme.qcolor(theme.tokens()["bd"]), self.border_width)
+        # dash pattern in units of the pen width
+        pen.setDashPattern([d / self.border_width for d in self.dash])
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        inset = self.border_width / 2
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(inset, inset, -inset, -inset),
+                                self.radius, self.radius)
+        painter.end()
+
+
+class _DashedHandle(QSplitterHandle):
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        pen = QPen(theme.qcolor(theme.tokens()["bd"]), 1)
+        pen.setDashPattern([4, 3])
+        painter.setPen(pen)
+        if self.orientation() == Qt.Vertical:
+            y = self.height() // 2
+            painter.drawLine(0, y, self.width(), y)
+        else:
+            x = self.width() // 2
+            painter.drawLine(x, 0, x, self.height())
+        painter.end()
+
+
+class DashedSplitter(QSplitter):
+    """Splitter whose handle is a dashed line (spectrum | dI/dλ, DESIGN.md §1)."""
+
+    def createHandle(self):
+        return _DashedHandle(self.orientation(), self)

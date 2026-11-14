@@ -21,7 +21,8 @@ from PyQt5.QtCore import (
 from PyQt5.QtGui import QFont, QFontInfo, QFontMetrics, QPainter, QPen
 
 from myPGM.ui import icons, theme
-from myPGM.ui.widgets import Card, ElidedLabel, button, divider, hbox, icon_button, label
+from myPGM.ui.widgets import (Card, DashedFrame, ElidedLabel, button, divider, hbox,
+                              icon_button, label)
 
 ROW_HEIGHT = 30          # DESIGN.md §5: one line per file
 NO_VALUE = "—"
@@ -155,8 +156,9 @@ class FileListViewerWidget(Card):
         self.selectdir_button.setProperty("role", "link")
         self.selectdir_button.setCursor(Qt.PointingHandCursor)
         self.selectdir_button.setToolTip("Select the acquisition folder")
-        folder_layout.addLayout(hbox(self.folder_icon, self.dir_label, self.selectdir_button, 1,
-                                     spacing=6))
+        folder_row = hbox(self.folder_icon, self.dir_label, self.selectdir_button, spacing=5)
+        folder_row.setStretchFactor(self.dir_label, 1)          # the name gets the room
+        folder_layout.addLayout(folder_row)
 
         self.loadlatest_button = button(
             "Load latest", 36, primary=True, icon_name="refresh-cw",
@@ -174,9 +176,8 @@ class FileListViewerWidget(Card):
         self.list_widget.itemClicked.connect(self.on_item_selected)
 
         # empty state: dashed box instead of the list
-        self.empty_box = QFrame()
+        self.empty_box = DashedFrame(width=1, radius=10)
         self.empty_box.setObjectName("EmptyBox")
-        self.empty_box.setAttribute(Qt.WA_StyledBackground, True)
         empty_layout = QVBoxLayout(self.empty_box)
         empty_layout.setSpacing(6)
         empty_layout.addStretch(1)
