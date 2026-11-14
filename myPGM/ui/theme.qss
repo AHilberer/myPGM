@@ -66,17 +66,6 @@ QCheckBox::indicator:disabled {
   border-color: $bd;
 }
 
-MyVSeparator {
-  background-color: $bd;
-  border: none;
-  max-width: 1px;
-}
-MyHSeparator {
-  background-color: $bd;
-  border: none;
-  max-height: 1px;
-}
-
 QToolTip {
   background-color: $sf;
   color: $tx;
@@ -337,10 +326,6 @@ QLabel#AppName {
 QLabel#AppSubtitle {
   font-size: 11px;
   color: $mu;
-}
-QLabel#CurrentFile {
-  font-size: 15px;
-  font-weight: 600;
 }
 QLabel#SessionName {
   font-weight: 600;

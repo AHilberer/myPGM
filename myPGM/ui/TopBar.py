@@ -4,12 +4,18 @@ the Settings button on the right."""
 import time
 
 from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from myPGM.ui import icons, theme
 from myPGM.ui.widgets import ElidedLabel, button, divider, icon_button, label
 
 HEIGHT = 48
+
+
+def _shortcut_text(key):
+    """The platform's text for a standard shortcut: ⌘O on macOS, Ctrl+O elsewhere."""
+    return QKeySequence(key).toString(QKeySequence.NativeText)
 
 
 class TopBar(QWidget):
@@ -67,8 +73,10 @@ class TopBar(QWidget):
         layout.addWidget(divider(length=24))
         layout.addSpacing(4)
 
-        self.open_button = self._text_button("folder-open", "Open", "Open a session (Ctrl+O)")
-        self.save_button = self._text_button("save", "Save", "Save the session (Ctrl+S)")
+        self.open_button = self._text_button(
+            "folder-open", "Open", f"Open a session ({_shortcut_text(QKeySequence.Open)})")
+        self.save_button = self._text_button(
+            "save", "Save", f"Save the session ({_shortcut_text(QKeySequence.Save)})")
         self.export_button = self._text_button("download", "Export CSV",
                                                "Export the pressure log to a CSV file")
         for text_button in (self.open_button, self.save_button, self.export_button):

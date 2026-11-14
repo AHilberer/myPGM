@@ -28,9 +28,7 @@ from PyQt5.QtGui import QGuiApplication, QKeySequence
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import InterpolatedUnivariateSpline
-from myPGM.helpers import (get_app_icon,
-                          set_app_font_size,
-                          current_app_font_px,)
+from myPGM.helpers import get_app_icon, set_app_font_size
 from myPGM import log_setup
 from myPGM import settings as S
 from myPGM.settings import app_settings, last_dir, remember_dir
@@ -105,13 +103,10 @@ class MainWindow(QMainWindow):
         theme.set_current(False)
         self.plot_label_color = theme.tokens()["mu"]
         self.fit_color = theme.calib_color(None)      # set from the plotted calibration
-        # plots and the PvPm table use the app font size, kept in sync by set_font_size
-        self.plot_font_px = current_app_font_px()
-        # font size chosen in a previous launch (the slider range)
-        saved_font_px = app_settings().value("font_size", 0, type=int)
-        if 8 <= saved_font_px <= 30:
-            set_app_font_size(saved_font_px)
-            self.plot_font_px = saved_font_px
+        # font size of the Settings window (13 px base, DESIGN.md §2); plots and the
+        # PvPm table use it too, kept in sync by set_font_size
+        self.plot_font_px = S.setting("font_size")
+        set_app_font_size(self.plot_font_px)
         self.settings_dialog = None             # created when first opened
 
         self._create_fit_controls()
@@ -155,7 +150,7 @@ class MainWindow(QMainWindow):
         self.workspace_splitter.setStretchFactor(0, 0)
         self.workspace_splitter.setStretchFactor(1, 1)
         self.workspace_splitter.setStretchFactor(2, 0)
-        self.workspace_splitter.setSizes([SIDEBAR_WIDTH, 1440 - SIDEBAR_WIDTH - INSPECTOR_WIDTH,
+        self.workspace_splitter.setSizes([SIDEBAR_WIDTH, DEFAULT_WIDTH - SIDEBAR_WIDTH - INSPECTOR_WIDTH,
                                           INSPECTOR_WIDTH])
         self._style_plots()
 
@@ -333,10 +328,10 @@ class MainWindow(QMainWindow):
         self.data_scatter = pg.ScatterPlotItem(symbol='o', size=3, pen=None)
         self.data_widget.addItem(self.data_scatter)
         self.data_fit_pen = pg.mkPen(color=self.fit_color, width=2)
-        self.data_bg_pen = pg.mkPen(color='darkviolet', width=3)
-        self.data_bg_scatter = pg.ScatterPlotItem(symbol='s', size=8, brush='darkviolet')
         self.data_fit_line = pg.PlotDataItem(name='Fit',pen=self.data_fit_pen,)
-        self.data_bg_line = pg.PlotDataItem(name='Bg',pen=self.data_bg_pen)
+        # manual background being picked: points and spline (accent, set by _style_plots)
+        self.data_bg_scatter = pg.ScatterPlotItem(symbol='s', size=8, pen=None)
+        self.data_bg_line = pg.PlotDataItem(name='Bg')
         # dashed marker at the fitted peak or edge, with its label (no plot title:
         # the pressure is in the card above)
         self.data_edge_marker = pg.InfiniteLine(pos=None, angle=90, movable=False)
@@ -721,6 +716,8 @@ class MainWindow(QMainWindow):
             marker.setPen(dashed_marker_pen())
         self.peak_label.restyle()
         self.deriv_zero_line.setPen(pg.mkPen(theme.qcolor(t["grid"]), width=1))
+        self.data_bg_line.setPen(pg.mkPen(theme.qcolor(t["ac"]), width=2))
+        self.data_bg_scatter.setBrush(pg.mkBrush(theme.qcolor(t["ac"])))
         self._set_deriv_title()
         self.legend_row.restyle()
         self.update_plot_fonts()
@@ -936,8 +933,7 @@ class MainWindow(QMainWindow):
         if not preserve_view:
             self.data_widget.autoRange()
 
-    # derivative data
-
+        # derivative data
         # along increasing x, as the Raman edge search (files can store x decreasing)
         order = np.argsort(x, kind="stable")
         dI = np.empty(len(y))
@@ -945,6 +941,17 @@ class MainWindow(QMainWindow):
         self.deriv_scatter.setData(x, dI)
         if not preserve_view:
             self.deriv_widget.autoRange()
+
+    def clear_spectrum(self):
+        """No spectrum selected (deleted, or a session opened without one): empty plots
+        instead of the previous spectrum."""
+        self._clear_fit_items()
+        self.data_scatter.setData([], [])
+        self.deriv_scatter.setData([], [])
+        self.pressure_card.clear(getattr(self, "_plot_calib", None))
+        self.ptoolbox.set_x_fitted(False)
+        self.show_background(None, False)
+        self.set_current_point(None)
 
     def _clear_fit_items(self):
         for widget, item in ((self.data_widget, self.data_edge_marker),
@@ -1051,9 +1058,9 @@ class MainWindow(QMainWindow):
         self.pressure_card.set_fit(P, fit_model.name, position_text)
         self.file_list_widget.refresh()            # fitted P and dot of the row
 
-    def ask_save_changes(self):
+    def ask_save_changes(self, action="closing"):
         """'save', 'discard' or 'cancel'."""
-        return dialogs.ask_save_changes(self)
+        return dialogs.ask_save_changes(self, action)
 
     def show_recovery_banner(self, when):
         """Offer to recover a backup (banner under the top bar; it replaced the startup
@@ -1066,9 +1073,6 @@ class MainWindow(QMainWindow):
     def fit_error_popup_window(self, reason=""):
         # why, e.g. not enough points in the fit range (it was only in the log)
         dialogs.show_error(self, "The fit failed", reason, window_title="Fit error")
-
-    def toggle_additional_ptoolbox(self):
-        self.set_additional_toolbox_visible(not self.additional_toolbox_window.isVisible())
 
     def set_additional_toolbox_visible(self, visible):
         self.additional_toolbox_window.setVisible(visible)
@@ -1119,7 +1123,7 @@ class MainWindow(QMainWindow):
         if values["font_size"] != self.plot_font_px:
             set_app_font_size(values["font_size"])
             self.set_font_size(values["font_size"])
-        app_settings().setValue("font_size", values["font_size"])
+        S.set_setting("font_size", values["font_size"])
         self.set_additional_toolbox_visible(values["additional_toolbox"])
         S.set_setting("additional_toolbox", values["additional_toolbox"])
         table = self.PvPmTableWindow.table_widget

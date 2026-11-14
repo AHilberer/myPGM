@@ -27,13 +27,6 @@ def label(text="", role=None, parent=None):
     return widget
 
 
-def set_role(widget, role):
-    """Change a widget's style role and restyle it."""
-    widget.setProperty("role", role)
-    widget.style().unpolish(widget)
-    widget.style().polish(widget)
-
-
 class Card(QFrame):
     """Panel: surface colour, 1 px border, 12 px radius. Optional header row with an
     uppercase title and widgets on its right; content goes in self.body."""

@@ -15,6 +15,12 @@ from myPGM.ui import theme
 from myPGM.ui.widgets import GAP, Card, DotItemDelegate, label, x_symbol, x_unit
 
 INPUT_HEIGHT = 36
+ROOM_T = 298            # K: other temperatures are highlighted (toolbox T field, log T column)
+
+
+def is_room_temperature(T):
+    return T is None or abs(T - ROOM_T) <= 0.05
+
 
 class PressureToolbox(QWidget):
 
@@ -67,7 +73,6 @@ class PressureToolbox(QWidget):
         self.T0_spinbox = self._spinbox("T0_spinbox", decimals=1, step=1)
 
         self._valid = True
-        self._T_bgcolor = None
         self._calib = None              # current calibration, gives the selector colour
 
         # --- PRESSURE GAUGE card -------------------------------------------------------
@@ -350,12 +355,9 @@ class PressureToolbox(QWidget):
         self.x_spinbox.setStyleSheet(style)
 
     def update_T_spinbox_style(self, T):
-        if T > 298:
-            self.T_spinbox.setStyleSheet(f"background: {PressureToolbox.ORANGE};")
-            self._T_bgcolor = PressureToolbox.ORANGE
-        else:
-            self.T_spinbox.setStyleSheet("")
-            self._T_bgcolor = None
+        """Orange when T is not room temperature (above or below, as in the log)."""
+        self.T_spinbox.setStyleSheet(
+            "" if is_room_temperature(T) else f"background: {PressureToolbox.ORANGE};")
 
     def _set_mode_colors(self, dark):
         PressureToolbox.GREEN = PressureToolbox.DARKMODEGREEN if dark else PressureToolbox.LIGHTMODEGREEN

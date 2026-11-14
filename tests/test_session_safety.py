@@ -31,7 +31,7 @@ def app(qapp, tmp_path, monkeypatch):
     a.backup_dir = backup_dir
     a.session_file = tmp_path / "saved.json"
     monkeypatch.setattr(view, "ask_save_changes",
-                        lambda: a.asked.append("save?") or (a.answers.pop(0) if a.answers else "discard"))
+                        lambda *args: a.asked.append("save?") or (a.answers.pop(0) if a.answers else "discard"))
     monkeypatch.setattr(view, "get_save_session_filename_dialog", lambda: str(a.session_file))
     monkeypatch.setattr(view, "get_open_session_filename_dialog", lambda: str(a.session_file))
     presenter._error_dialog = lambda text, title="": a.asked.append(title)
@@ -362,3 +362,20 @@ def test_unwritable_backup_folder_warns_once(app, caplog, monkeypatch):
             app.presenter.flush_backup()
     failures = [r for r in caplog.records if "Could not write the session backup" in r.getMessage()]
     assert [r.levelname for r in failures] == ["WARNING", "DEBUG", "DEBUG"]
+
+
+def test_opening_a_session_offers_to_save_first(app, monkeypatch):
+    app.fit()
+    app.presenter.save_session()
+    app.fit("Example_Ruby_2.asc")
+    opened = []
+    monkeypatch.setattr(app.view, "get_open_session_filename_dialog",
+                        lambda: opened.append(1) or str(app.session_file))
+    app.answers = ["cancel"]
+    assert not app.presenter.load_session()             # Cancel: nothing opened
+    assert app.asked == ["save?"] and opened == []
+    assert app.presenter.has_unsaved_changes()
+    app.answers = ["save"]
+    assert app.presenter.load_session()                 # saved, then opened
+    assert len(json.loads(app.session_file.read_text())["files"]) == 5
+    assert app.presenter.load_session() and app.asked == ["save?", "save?"]  # no changes: no question

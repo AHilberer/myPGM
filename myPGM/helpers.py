@@ -1,9 +1,7 @@
 import numpy as np
-from PyQt5.QtWidgets import (QFrame,
-                             QDoubleSpinBox,
-                             QApplication)
+from PyQt5.QtWidgets import QApplication, QDoubleSpinBox
 from PyQt5.QtCore import QLocale
-from PyQt5.QtGui import QIcon, QFontInfo
+from PyQt5.QtGui import QIcon
 from functools import wraps
 from importlib.resources import files
 
@@ -14,18 +12,6 @@ def set_app_theme(style):
     app = QApplication.instance()
     _, marker, font_rule = app.styleSheet().partition(FONT_RULE_MARKER)
     app.setStyleSheet(style + marker + font_rule)
-
-DEFAULT_FONT_PX = 15
-
-def current_app_font_px():
-    """Pixel size of the font currently used by the application widgets. Qt gives
-    -1 when it cannot resolve one (seen on Windows): the point size is then
-    converted, and DEFAULT_FONT_PX used as a last resort (-1 px fonts were set)."""
-    font = QApplication.font()
-    size = QFontInfo(font).pixelSize()
-    if size <= 0 and font.pointSizeF() > 0:
-        size = round(font.pointSizeF() * QApplication.primaryScreen().logicalDotsPerInch() / 72)
-    return size if size > 0 else DEFAULT_FONT_PX
 
 def set_app_font_size(size):
     """Set the global font size, keeping the current theme stylesheet."""
@@ -43,18 +29,6 @@ class SmartDoubleSpinBox(QDoubleSpinBox):
     def validate(self, text, pos):
         text = text.replace(",", ".")
         return super().validate(text, pos)
-
-class MyHSeparator(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setFrameShape(QFrame.HLine)
-        self.setFrameShadow(QFrame.Sunken)
-
-class MyVSeparator(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setFrameShape(QFrame.VLine)
-        self.setFrameShadow(QFrame.Sunken)
 
 class PressureCalculationFailed(Exception):
     pass
@@ -119,7 +93,7 @@ def customparse_file2data(f):
     def _to_float(token):
         return float(token.strip().replace(',', '.'))
 
-    with open(f, 'r') as file:
+    with open(f, encoding="utf-8", errors="replace") as file:
         lines = file.readlines()
 
     # Evaluate candidate delimiters by counting how many lines can be parsed
@@ -166,7 +140,7 @@ def customparse_file2data(f):
 
 def _single_column_values(f):
     """Values of a one-number-per-line file (header/footer lines skipped), or None."""
-    with open(f, 'r') as file:
+    with open(f, encoding="utf-8", errors="replace") as file:
         data_lines = []
         for line in file:
             try:

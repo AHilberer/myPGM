@@ -291,10 +291,11 @@ class Presenter(QObject):
         # data model method!
         buffer.set_calibration(newcalib)
 
-        self._select_fit_model(getattr(newcalib, "default_fit_model", None))
-
-        if toolbox == self.view.ptoolbox and buffer.calib is not None:
-            self.view.set_x_axis(buffer.calib)
+        if toolbox == self.view.ptoolbox:
+            # the fit model goes with the main toolbox: the additional one is a calculator
+            self._select_fit_model(getattr(newcalib, "default_fit_model", None))
+            if buffer.calib is not None:
+                self.view.set_x_axis(buffer.calib)
 
         # view method
         toolbox.set_state_from_buffer(buffer)
@@ -331,8 +332,7 @@ class Presenter(QObject):
 
         self.update_data_plots(obj_id)
         
-        # toolbox is updated (is it what we want?)
-        obj = self.model.get(obj_id, None)
+        # a fitted file shows its fit in the pressure toolbox
         if obj.fit_result is not None:
             self.buffer = deepcopy(obj)
             self.view.ptoolbox.set_state_from_buffer(self.buffer)
@@ -429,6 +429,7 @@ class Presenter(QObject):
             self.current_selected_file = None
             self.populate_file_list()
             self.update_PvPm_table()
+            self.view.clear_spectrum()
             self.view.current_file_label.setText(message)
         else:
             self._show_error("No file selected to delete.")
@@ -653,8 +654,11 @@ class Presenter(QObject):
         obj.reset_spectro_recalib()
         self.update_data_plots(self.current_selected_file)
 
-    def populate_file_list(self): 
-        self.view.file_list_widget.list_widget.clear()
+    def populate_file_list(self):
+        """Rebuild the file list in display order, the current file still selected."""
+        list_widget = self.view.file_list_widget.list_widget
+        was_blocked = list_widget.blockSignals(True)       # not a selection by the user
+        list_widget.clear()
 
         self.ordered_files_to_display = [
             obj_id
@@ -671,15 +675,21 @@ class Presenter(QObject):
             obj = self.model.get(obj_id)
             text = f"{obj.filename}"
             item = QListWidgetItem(text)
-            item.setData(Qt.UserRole, obj.id)  # Store only object ID 
-            self.view.file_list_widget.list_widget.addItem(item)
+            item.setData(Qt.UserRole, obj.id)  # Store only object ID
+            list_widget.addItem(item)
+        list_widget.blockSignals(was_blocked)
+        if self.current_selected_file is not None:
+            self.select_file_in_list(self.current_selected_file)
 
     def select_file_in_list(self, obj_id):
+        """Highlight a file in the list, without loading it (the caller does)."""
         list_widget = self.view.file_list_widget.list_widget
         for i in range(list_widget.count()):
             item = list_widget.item(i)
             if item.data(Qt.UserRole) == obj_id:
+                was_blocked = list_widget.blockSignals(True)
                 list_widget.setCurrentItem(item)
+                list_widget.blockSignals(was_blocked)
                 return
 
     def recall_from_table(self, obj_id):
@@ -731,7 +741,7 @@ class Presenter(QObject):
                 self.populate_file_list()
 
     def update_fit_model(self, newind):
-        # its colour follows the calibration (view: PressureToolbox._style_calib_combo)
+        # its tint follows the model kind (view: MainWindow._style_fit_model_combo)
         self.fit_mode = self.fit_models[self.view.fit_model_combo.currentText()]
 
     def fit_current_file(self, guess=None): 
@@ -835,7 +845,7 @@ class Presenter(QObject):
 
     def initialize_example(self):
         for current_file in self.example_files:
-            current_file_path = os.path.dirname(__file__) + "/resources/" + current_file
+            current_file_path = os.path.join(os.path.dirname(__file__), "resources", current_file)
             self.add_instance_from_path(current_file_path)
 
         self.populate_file_list()
@@ -940,8 +950,11 @@ class Presenter(QObject):
         return True
 
     def load_session(self, file_path=None):
-        """Load a session file (asked for if not given). Returns True if loaded."""
+        """Load a session file (asked for if not given). Returns True if loaded.
+        Opened from the menu: unsaved changes are offered for saving first."""
         if file_path is None:
+            if not self._resolve_unsaved_changes("opening another session"):
+                return False
             file_path = self.view.get_open_session_filename_dialog()
         if not file_path:
             return False
@@ -1009,6 +1022,9 @@ class Presenter(QObject):
             self.current_selected_file = selected_id
             self.select_file_in_list(selected_id)
             self.file_selected_from_file_list(selected_id)
+        else:
+            self.view.clear_spectrum()
+            self.view.current_file_label.setText("No file selected")
 
         self.update_PvPm_table()
         self._saved_fingerprint = self._content_fingerprint()
@@ -1037,14 +1053,20 @@ class Presenter(QObject):
     def has_unsaved_changes(self):
         return self._content_fingerprint() != self._saved_fingerprint
 
+    def _resolve_unsaved_changes(self, action):
+        """Ask 'Save changes before <action>?' if needed. False to stop the action
+        (Cancel, or the save dialog cancelled or failed)."""
+        if not self.has_unsaved_changes():
+            return True
+        choice = self.view.ask_save_changes(action)
+        if choice == "cancel":
+            return False
+        return choice != "save" or self.save_session()
+
     def confirm_close(self):
         """Called when the main window is closed: True to let it close."""
-        if self.has_unsaved_changes():
-            choice = self.view.ask_save_changes()
-            if choice == "cancel":
-                return False
-            if choice == "save" and not self.save_session():
-                return False            # save dialog cancelled or failed: keep the app open
+        if not self._resolve_unsaved_changes("closing"):
+            return False                # keep the app open
         if self.backup is not None:
             self.backup.close()         # closed normally: no recovery needed next time
         return True

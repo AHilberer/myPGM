@@ -19,13 +19,12 @@ from PyQt5.QtCore import QEvent, pyqtSignal, Qt, QSize
 from PyQt5.QtGui import QBrush, QColor, QFont, QFontMetrics, QIcon, QPainter, QPixmap
 
 from myPGM.settings import column_visibility, last_dir, remember_dir, set_column_visibility
-from myPGM.ui.PressureToolbox import PressureToolbox
+from myPGM.ui.PressureToolbox import PressureToolbox, is_room_temperature
 from myPGM.ui import dialogs, theme
 from myPGM.ui.widgets import button
 
 logger = logging.getLogger(__name__)
 
-ROOM_T = 298
 SORT_ROLE = Qt.UserRole          # numeric value used for sorting
 ID_ROLE = Qt.UserRole + 1        # object ID, stored on the '#' item of each row
 
@@ -364,14 +363,14 @@ class HPTableWidget(QTableWidget):
             calib_item.setToolTip(obj.calib.name)
         if obj.full_path:
             self.item(row, COLUMN_INDEX["file"]).setToolTip(obj.full_path)
-        if obj.T is not None and abs(obj.T - ROOM_T) > 0.05:
+        if not is_room_temperature(obj.T):
             # same colour as the T field of the pressure toolbox (follows the theme)
             self.item(row, COLUMN_INDEX["T"]).setBackground(QColor(PressureToolbox.ORANGE))
 
     # --- columns -------------------------------------------------------------------------
 
     def _apply_column_visibility(self, entries):
-        not_room_T = any(o.T is not None and abs(o.T - ROOM_T) > 0.05 for o in entries)
+        not_room_T = not all(is_room_temperature(o.T) for o in entries)
         for col, (key, _header, _numeric, shown) in enumerate(COLUMNS):
             if key == "T":
                 shown = shown or not_room_T
@@ -490,7 +489,7 @@ class HPTableWindow(QWidget):
 
         self.columns_button.clicked.connect(self._show_columns_menu)
         self.remove_selected_button.clicked.connect(self.delete_selected)
-        self.clear_table_button.clicked.connect(self.clear_table)
+        self.clear_table_button.clicked.connect(self.confirm_clear_table)
         self.table_widget.rows_changed.connect(self._update_count)
         self._update_count(0)
 
@@ -512,6 +511,13 @@ class HPTableWindow(QWidget):
         if obj is not None:
             self.data_manager.remove_from_table(obj)
         self.table_changed.emit()
+
+    def confirm_clear_table(self):
+        """Clear button: asks first, points added from the toolbox are deleted for good."""
+        if self.data_manager is None or not self.data_manager.table_entries():
+            return
+        if dialogs.ask_clear_log(self, len(self.data_manager.table_entries())):
+            self.clear_table()
 
     def clear_table(self):
         if self.data_manager is None:

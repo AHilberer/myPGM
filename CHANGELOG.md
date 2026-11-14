@@ -51,6 +51,23 @@ unchanged: sessions open both ways with 1.1.
   calibration without scrolling.
 - The additional pressure toolbox window keeps its cards at their natural height, and the P vs Pm
   plot's axis menus and Export… dialog follow the theme.
+- The interface starts at the font size of the Settings window (13 px unless changed), not the
+  system font size.
+- **Clear** in the pressure log asks first: points added from the pressure toolbox are deleted.
+- The manual background points and curve are drawn in the theme's accent colour.
+- The Open and Save tooltips give the platform's shortcut (⌘O on macOS, Ctrl+O elsewhere).
+
+### Fixed
+- Opening a session did not offer to save unsaved changes first; they were lost.
+- The arrow keys moved the selection in the file list without loading the spectrum.
+- Moving a file up or down cleared the selection in the list.
+- After deleting the spectrum shown, or opening a session without a selected spectrum, the plots
+  still showed the previous spectrum and its fit.
+- Changing the calibration of the additional pressure toolbox changed the fit model of the main fit.
+- The T field of the pressure toolbox was highlighted above 298 K only; it is now highlighted below
+  too, as in the pressure log.
+- Spectrum files with non-UTF-8 characters in their header (e.g. µ or ° from some spectrometers on
+  Windows) could not be opened on some systems.
 
 ## [1.1.0] - 2026-11-13
 

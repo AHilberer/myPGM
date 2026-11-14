@@ -354,33 +354,22 @@ def test_light_mode_does_not_colour_T_at_room_temperature(gui):
     gui.view.switch_to_dark()
     gui.view.switch_to_light()
     assert toolbox.T_spinbox.styleSheet() == f"background: {toolbox.LIGHTMODEORANGE};"
+    toolbox.set_Tval(80)                                   # below room T too, as in the log
+    assert toolbox.T_spinbox.styleSheet() == f"background: {toolbox.LIGHTMODEORANGE};"
 
 
 def test_consistent_font_size_at_startup(gui):
-    from myPGM.helpers import current_app_font_px
-    # (QFontInfo.pixelSize() can be -1, on Windows: the app converts the point size)
-    app_px = current_app_font_px()
+    # the Settings window value (13 px base, DESIGN.md §2), not the system font
+    from myPGM import settings as S
+    app_px = S.DEFAULTS["font_size"]
+    assert gui.view.plot_font_px == app_px
+    assert f"font-size: {app_px}px" in gui.app.styleSheet()
     axis = gui.view.data_widget.getAxis("bottom")
     assert axis.labelStyle["font-size"] == f"{app_px}px"
     assert axis.style["tickFont"].pixelSize() == app_px
     pvpm_axis = gui.view.PvPmPlotWindow.plot_graph.getAxis("left")
     assert pvpm_axis.labelStyle["font-size"] == f"{app_px}px"
     assert f"font-size: {app_px}px" in gui.view.PvPmTableWindow.table_widget.styleSheet()
-
-
-@pytest.mark.parametrize("point_size", [9.0, -1.0])
-def test_font_size_without_a_pixel_size_from_qt(qapp, monkeypatch, point_size):
-    # Qt gave -1 on Windows CI, and "font-size: -1px" was applied everywhere
-    from PyQt5.QtGui import QFont, QFontInfo
-    from myPGM.helpers import DEFAULT_FONT_PX, current_app_font_px
-    monkeypatch.setattr(QFontInfo, "pixelSize", lambda self: -1)
-    monkeypatch.setattr(QFont, "pointSizeF", lambda self: point_size)
-    size = current_app_font_px()
-    if point_size > 0:
-        dpi = qapp.primaryScreen().logicalDotsPerInch()
-        assert size == round(9.0 * dpi / 72) > 0
-    else:
-        assert size == DEFAULT_FONT_PX
 
 
 def _save_font_size(gui, size):
@@ -978,3 +967,50 @@ def test_load_latest_recognises_a_file_loaded_through_another_path(gui, resource
     p.add_latest_file()
     assert [p.model[i].filename for i in p.ordered_files_to_display] == ["spectrum.asc"]
     assert "No new file since spectrum.asc" in gui.view.current_file_label.text()
+
+
+# --- file list selection ----------------------------------------------------------------------
+
+def test_arrow_keys_in_the_file_list_load_the_spectrum(gui):
+    from PyQt5.QtCore import Qt
+    from PyQt5.QtTest import QTest
+    lw = gui.view.file_list_widget.list_widget
+    first, second = gui.presenter.ordered_files_to_display[:2]
+    gui.presenter.select_file_in_list(first)                # highlights, does not load
+    assert gui.presenter.current_selected_file is None
+    gui.presenter.file_selected_from_file_list(first)
+    QTest.keyClick(lw, Qt.Key_Down)
+    assert gui.presenter.current_selected_file == second
+    assert gui.view.current_file_label.text() == gui.presenter.model[second].filename
+
+
+def test_reordering_keeps_the_file_selected(gui):
+    lw = gui.view.file_list_widget.list_widget
+    fid = gui.presenter.ordered_files_to_display[1]
+    gui.presenter.select_file_in_list(fid)
+    gui.presenter.file_selected_from_file_list(fid)
+    gui.presenter.move_up()
+    assert gui.presenter.ordered_files_to_display[0] == fid
+    assert lw.currentItem().data(Qt.UserRole) == fid
+    gui.presenter.move_up()                                 # still the selected one
+    assert lw.currentRow() == 0 and gui.presenter.current_selected_file == fid
+
+
+def test_deleting_the_shown_file_clears_the_plots(gui):
+    gui.presenter.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
+    gui.presenter.fit_mode = F.DoubleVoigt
+    gui.presenter.fit_current_file()
+    assert len(gui.view.data_scatter.getData()[0]) > 0
+    gui.presenter.delete_current_file()
+    assert gui.view.data_scatter.getData()[0] is None or len(gui.view.data_scatter.getData()[0]) == 0
+    assert gui.view.data_fit_line not in gui.view.data_widget.items()
+    assert gui.view.pressure_card.value_label.text() == "—"
+
+
+def test_additional_toolbox_calibration_leaves_the_fit_model(gui):
+    window = gui.view.additional_toolbox_window
+    model = gui.view.fit_model_combo.currentText()
+    window.calibration_combo.setCurrentText("Diamond Raman Edge Hilberer 2026")
+    assert gui.view.fit_model_combo.currentText() == model
+    gui.view.ptoolbox.calibration_combo.setCurrentText("Diamond Raman Edge Hilberer 2026")
+    assert gui.view.fit_model_combo.currentText() == "Raman Edge"

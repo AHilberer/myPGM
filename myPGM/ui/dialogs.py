@@ -191,10 +191,22 @@ def show_error(parent, title, text="", window_title=None):
     MessageDialog(title, text, "error", window_title=window_title, parent=parent).exec_()
 
 
-def ask_save_changes(parent):
-    """'save', 'discard' or 'cancel' for a session with unsaved changes."""
+def ask_save_changes(parent, action="closing"):
+    """'save', 'discard' or 'cancel' for a session with unsaved changes, before
+    `action` ('closing', 'opening another session')."""
     return MessageDialog(
-        "Save changes before closing?",
+        f"Save changes before {action}?",
         "The session has unsaved changes (spectra, fits or table points).",
         "question", buttons=(("Discard", "-discard"), ("Cancel", "cancel"), ("Save", "save")),
         default="save", escape="cancel", window_title="Unsaved changes", parent=parent).ask()
+
+
+def ask_clear_log(parent, count):
+    """True to remove every point of the pressure log."""
+    points = f"{count} point" + ("s" if count != 1 else "")
+    return MessageDialog(
+        "Clear the pressure log?",
+        f"{points} will be removed. Spectra stay in the file list; points added "
+        "from the pressure toolbox are deleted.",
+        "question", buttons=(("Cancel", "cancel"), ("Clear log", "clear")),
+        default="clear", escape="cancel", window_title="Clear log", parent=parent).ask() == "clear"

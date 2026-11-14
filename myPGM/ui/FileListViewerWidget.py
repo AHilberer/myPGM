@@ -1,6 +1,7 @@
 import os
 
 from PyQt5.QtWidgets import (
+    QApplication,
     QFrame,
     QLabel,
     QListWidget,
@@ -174,6 +175,7 @@ class FileListViewerWidget(Card):
         self.delegate = FileItemDelegate(parent=self.list_widget)
         self.list_widget.setItemDelegate(self.delegate)
         self.list_widget.itemClicked.connect(self.on_item_selected)
+        self.list_widget.currentItemChanged.connect(self._on_current_changed)
 
         # empty state: dashed box instead of the list
         self.empty_box = DashedFrame(width=1, radius=10)
@@ -243,3 +245,9 @@ class FileListViewerWidget(Card):
 
     def on_item_selected(self, item):
         self.object_selected.emit(item.data(Qt.UserRole))
+
+    def _on_current_changed(self, current, _previous):
+        """Arrow keys, Home / End: load the spectrum as a click does. A click also
+        changes the current item, on press: it loads on release (itemClicked)."""
+        if current is not None and QApplication.mouseButtons() == Qt.NoButton:
+            self.on_item_selected(current)

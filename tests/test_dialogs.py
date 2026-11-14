@@ -118,3 +118,25 @@ def test_export_dialog_in_the_app_style(gui):
         assert all(isinstance(w, QWidget) for w in dialog.findChildren(QWidget))
     finally:
         dialog.close()
+
+
+def test_clear_log_asks_first(gui, monkeypatch):
+    d = _messages()
+    log = gui.view.PvPmTableWindow
+    asked = []
+    monkeypatch.setattr(d.MessageDialog, "exec_",
+                        lambda self: (asked.append(self.title()), self.buttons["cancel"].click()))
+    log.clear_table_button.click()                          # empty log: nothing to ask
+    assert asked == []
+    gui.presenter.add_current_PToolbox_to_table()
+    log.clear_table_button.click()                          # Cancel: kept
+    assert asked == ["Clear the pressure log?"] and len(gui.presenter.model.table_entries()) == 1
+    monkeypatch.setattr(d.MessageDialog, "exec_", lambda self: self.buttons["clear"].click())
+    log.clear_table_button.click()
+    assert gui.presenter.model.table_entries() == []
+
+
+def test_top_bar_tooltips_use_the_platform_shortcut_text(gui):
+    from PyQt5.QtGui import QKeySequence
+    bar = gui.view.top_bar
+    assert QKeySequence(QKeySequence.Open).toString(QKeySequence.NativeText) in bar.open_button.toolTip()

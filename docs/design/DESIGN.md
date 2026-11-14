@@ -103,7 +103,7 @@ Each calibration family has one color, used everywhere the calibration appears: 
 
 All popups follow the theme; none uses the platform's message box.
 
-- **Messages** (`dialogs.MessageDialog`: errors, fit failure, unsaved changes): `sf` background like the Add point dialog, a 36 px circle with a Lucide icon (errors: `circle-alert` in `err` on `bad`; questions: `circle-help` in `ac` on `info`), a title (15 px semibold), the text (wrapped at 360 px, selectable), buttons on the right with the default one primary and focused; a destructive choice (Discard) sits on the left. Esc gives the safe choice (OK / Cancel).
+- **Messages** (`dialogs.MessageDialog`: errors, fit failure, unsaved changes, clearing the log): `sf` background like the Add point dialog, a 36 px circle with a Lucide icon (errors: `circle-alert` in `err` on `bad`; questions: `circle-help` in `ac` on `info`), a title (15 px semibold), the text (wrapped at 360 px, selectable), buttons on the right with the default one primary and focused; a destructive choice (Discard) sits on the left. Esc gives the safe choice (OK / Cancel).
 - **Additional pressure toolbox** window: the two cards side by side at their natural height; a taller window leaves the space below them.
 - **Menus** (menu bar on Windows / Linux, log header, P vs Pm plot): `sf`, 1 px `bd` border, items with a 6 px radius and an `acs` hover. The plot's X / Y axis forms (pyqtgraph) are not capped at 200 px so the labels fit.
 - **Export…** (pyqtgraph, P vs Pm plot menu): `sf` background, field labels, list heights for their few items, Export primary, no "params" heading over the options, the exported area outlined in `ac`.
