@@ -80,7 +80,7 @@ open both ways with 1.1.
   colour tokens for both themes) and Lucide icons (`myPGM/resources/icons/ui/`). Inter and
   JetBrains Mono are bundled (SIL OFL); no new runtime dependency.
 - Messages use `myPGM/ui/dialogs.py` instead of the platform's message boxes.
-- 400 tests (291 in 1.1), including layout, theme and dialog checks; they pass on Linux, macOS and
+- 408 tests (291 in 1.1), including layout, theme, dialog and window-size checks; they pass on Linux, macOS and
   Windows.
 
 ### Known limitations
