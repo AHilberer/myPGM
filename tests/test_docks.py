@@ -1,4 +1,4 @@
-"""Bottom panels (DESIGN.md §1 "Bottom dock area", IMPLEMENTATION_PLAN step 3): the
+"""Bottom panels (DESIGN.md §1 "Bottom dock area"): the
 pressure log and the P vs Pm plot in docks, undockable, closable, sized and saved."""
 import pytest
 from PyQt5.QtCore import Qt
@@ -15,7 +15,7 @@ def _settle(app):
 
 @pytest.fixture
 def shown(gui):
-    """The gui window shown at the mockup size (dock sizes need a shown window)."""
+    """The gui window shown at the default size, 1440 x 1010 (dock sizes need a shown window)."""
     gui.view.resize(1440, 1010)
     gui.view.show()
     _settle(gui.app)

@@ -358,7 +358,7 @@ class MainWindow(QMainWindow):
         # #? Setup derivative plotting section
         self.deriv_widget = pg.PlotWidget()
         # no axis titles (the spectrum's x title is just above): a small "dI/dλ" at the
-        # top left (mockup_light_derivative.png), and raw values without an SI prefix
+        # top left, and raw values without an SI prefix
         self.deriv_widget.getAxis("left").enableAutoSIPrefix(False)
         self._deriv_symbol = "x"
 

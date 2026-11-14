@@ -1,4 +1,4 @@
-"""Theme tokens, calibration colours and fonts (docs/design/DESIGN.md §2, §3, §6).
+"""Theme tokens, calibration colours and fonts (docs/DESIGN.md §2, §3, §6).
 
 The application stylesheet is the template theme.qss filled with the tokens of the
 light or dark theme. pyqtgraph plots are not reached by the stylesheet: the widgets

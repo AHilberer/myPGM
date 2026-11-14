@@ -1,4 +1,4 @@
-"""Density, colours and empty state (DESIGN.md §3, §4b, §5; IMPLEMENTATION_PLAN step 5):
+"""Density, colours and empty state (DESIGN.md §3, §4b, §5):
 file list rows, pressure log, calibration-coloured selectors, startup state and the
 recovery banner."""
 import os

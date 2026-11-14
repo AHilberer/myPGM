@@ -1,4 +1,4 @@
-"""Settings window (DESIGN.md §4, mockup_settings_*.png): a section list on the left,
+"""Settings window (DESIGN.md §4): a section list on the left,
 the section on the right, Restore defaults / Cancel / Save at the bottom.
 
 The window only edits values: set_values() fills it, `saved` gives the edited values

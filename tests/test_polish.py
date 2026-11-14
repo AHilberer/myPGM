@@ -1,4 +1,4 @@
-"""Polish (IMPLEMENTATION_PLAN step 7): λ from the fit, log columns spread over the
+"""Polish of the 2.0 redesign: λ from the fit, log columns spread over the
 table, keyboard focus and navigation, names of icon-only controls."""
 import re
 

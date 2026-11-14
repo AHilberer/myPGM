@@ -550,7 +550,7 @@ def _spectrum_glyph(color, size=48):
 
 
 class EmptyCenter(Card):
-    """Center column with no spectrum loaded (mockup_startup.png): a dashed drop zone
+    """Center column with no spectrum loaded (DESIGN.md §4b): a dashed drop zone
     with the accepted files and three actions, then a hint about the Parameters card
     and a link to the demo session. Files can be dropped anywhere on the window."""
 

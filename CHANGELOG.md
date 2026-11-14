@@ -4,7 +4,7 @@ All notable changes to myPGM are listed here. Versions follow [semantic versioni
 
 ## [2.0.0] - 2026-11-14
 
-A redesigned interface (docs/design/DESIGN.md): one window with the spectra on the left, the
+A redesigned interface (docs/DESIGN.md): one window with the spectra on the left, the
 fitted pressure and the spectrum in the center, the pressure gauge and parameters on the right,
 and the pressure log and P vs Pm plot docked below. The menus and separate windows of 1.x are
 replaced, hence the major version. Fits, calibrations and session files are unchanged: sessions
@@ -80,6 +80,9 @@ open both ways with 1.1.
   colour tokens for both themes) and Lucide icons (`myPGM/resources/icons/ui/`). Inter and
   JetBrains Mono are bundled (SIL OFL); no new runtime dependency.
 - Messages use `myPGM/ui/dialogs.py` instead of the platform's message boxes.
+- The design mockups and the implementation plan of the redesign were removed once the app matched
+  them (about 6 MB; they remain in the git history); the spec is now `docs/DESIGN.md`. An unused
+  screenshot is no longer shipped in the package.
 - 408 tests (291 in 1.1), including layout, theme, dialog and window-size checks; they pass on Linux, macOS and
   Windows.
 

@@ -657,7 +657,7 @@ def test_axis_units_follow_the_selected_spectrum(gui):
     select_and_fit(gui, "Example_Ruby_1.asc")
     gui.presenter.buffer.set_calibration(C.H2Vibron)
     select_and_fit(gui, "Example_H2.txt", F.SingleLorentzian)
-    # step 4: axis labels use the symbols of the mockups (ν, λ, cm⁻¹)
+    # axis labels use the symbols of the redesign (ν, λ, cm⁻¹)
     assert gui.view.data_widget.getAxis("bottom").labelText == "ν (cm⁻¹)"
     gui.presenter.file_selected_from_file_list(gui.file_id("Example_Ruby_1.asc"))
     assert gui.view.data_widget.getAxis("bottom").labelText == "λ (nm)"

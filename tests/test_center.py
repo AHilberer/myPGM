@@ -1,4 +1,4 @@
-"""Center column (DESIGN.md §1, IMPLEMENTATION_PLAN step 4): fitted pressure card, fit
+"""Center column (DESIGN.md §1): fitted pressure card, fit
 toolbar, legend row with the dI/dλ toggle, and the "Add point to log" dialog."""
 import pytest
 from PyQt5.QtCore import Qt

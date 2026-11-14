@@ -1,4 +1,4 @@
-"""Recovery banner under the top bar (DESIGN.md §4b, mockup_startup_recover.png). It
+"""Recovery banner under the top bar (DESIGN.md §4b). It
 replaces the startup message box: the window stays usable while it is shown."""
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import QFrame, QHBoxLayout, QLabel

@@ -1,4 +1,4 @@
-"""Main window layout (DESIGN.md §1, IMPLEMENTATION_PLAN step 2): top bar, spectra
+"""Main window layout (DESIGN.md §1): top bar, spectra
 sidebar | center | inspector, and the pressure toolbox as inspector cards."""
 import time
 

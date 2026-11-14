@@ -399,8 +399,8 @@ class HPTableWidget(QTableWidget):
 
     def fit_columns(self):
         """Each shown column as wide as its header and cells; the width left over is
-        shared between the columns after '#', so that they spread over the table as in
-        the mockups (an empty log too), and a narrow table scrolls instead of eliding."""
+        shared between the columns after '#', so that they spread over the table (an
+        empty log too), and a narrow table scrolls instead of eliding."""
         header = self.horizontalHeader()
         shown = [col for col in range(self.columnCount()) if not self.isColumnHidden(col)]
         if not shown:

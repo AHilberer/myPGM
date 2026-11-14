@@ -1,4 +1,4 @@
-"""Settings window (DESIGN.md §4, IMPLEMENTATION_PLAN step 6): gear button, sections,
+"""Settings window (DESIGN.md §4): gear button, sections,
 Save / Cancel / Restore defaults, and each setting applied and kept between launches."""
 import logging
 import os

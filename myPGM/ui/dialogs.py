@@ -19,7 +19,7 @@ MESSAGE_KINDS = {
 
 
 class AddPointDialog(QDialog):
-    """"Add point to log" (Parameters card, mockup_light_add_point_dialog.png): the
+    """"Add point to log" (Parameters card): the
     point's summary, a focused Pm field prefilled with the last Pm, Cancel / Add to log.
     Enter confirms, Esc cancels."""
 
