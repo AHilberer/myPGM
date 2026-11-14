@@ -87,7 +87,7 @@ open both ways with 1.1.
 - The design mockups and the implementation plan of the redesign were removed once the app matched
   them (about 6 MB; they remain in the git history); the spec is now `docs/DESIGN.md`. An unused
   screenshot is no longer shipped in the package.
-- 408 tests (291 in 1.1), including layout, theme, dialog and window-size checks; they pass on Linux, macOS and
+- 409 tests (291 in 1.1), including layout, theme, dialog and window-size checks; they pass on Linux, macOS and
   Windows.
 
 ### Known limitations

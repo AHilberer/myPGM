@@ -257,6 +257,30 @@ def test_smoothing_keeps_spectrometer_recalibration_in_app(gui, resources, monke
     assert gui.errors == []
 
 
+def test_loading_a_new_spectrometer_calibration_while_in_use_applies_it(gui, resources, tmp_path,
+                                                                     monkeypatch):
+    # no need to uncheck and check "Use spectrometer calibration" again
+    p, view = gui.presenter, gui.view
+    fid = gui.file_id("Example_Ruby_1.asc")
+    p.select_file_in_list(fid)
+    p.file_selected_from_file_list(fid)
+    first = resources / "alternate_spectro_calib.asc"
+    second = tmp_path / "second_calib.asc"
+    np.savetxt(second, np.loadtxt(first) + 5.0)
+    monkeypatch.setattr(view, "get_file_via_dialog", lambda: [str(first)])
+    p.load_spectro_calibration()
+    view.Spectro_use_button.setChecked(True)
+
+    monkeypatch.setattr(view, "get_file_via_dialog", lambda: [str(second)])
+    p.load_spectro_calibration()
+    assert view.Spectro_use_button.isChecked()
+    assert view.Spectro_filename_label.text() == "second_calib.asc"
+    shown_x = view.data_scatter.getData()[0]
+    assert shown_x == pytest.approx(np.loadtxt(second))
+    assert p.model[fid].get_data_to_process()[0] == pytest.approx(np.loadtxt(second))
+    assert gui.errors == []
+
+
 # --- clicks and manual background ------------------------------------------------------
 
 def test_clicks_outside_plot_are_ignored(gui):
