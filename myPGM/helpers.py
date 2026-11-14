@@ -1,13 +1,8 @@
 import numpy as np
 from PyQt5.QtWidgets import (QFrame,
                              QDoubleSpinBox,
-                             QDialog,
-                             QVBoxLayout,
-                             QHBoxLayout,
-                             QLabel,
-                             QPushButton,
                              QApplication)
-from PyQt5.QtCore import Qt, QLocale
+from PyQt5.QtCore import QLocale
 from PyQt5.QtGui import QIcon, QFontInfo
 from functools import wraps
 from importlib.resources import files
@@ -48,40 +43,6 @@ class SmartDoubleSpinBox(QDoubleSpinBox):
     def validate(self, text, pos):
         text = text.replace(",", ".")
         return super().validate(text, pos)
-
-class SmartDoubleDialog(QDialog):
-    def __init__(self, valuename='Value:', parent=None):
-        super().__init__(parent)
-        
-        self.setObjectName("SmartDoubleDialog")
-        self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setAutoFillBackground(True)
-        
-        self.spinbox = SmartDoubleSpinBox()
-        self.spinbox.setDecimals(2)
-        self.spinbox.setRange(-np.inf, np.inf)
-        self.spinbox.setSingleStep(0.1)
-        
-        layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(valuename))
-        layout.addWidget(self.spinbox)
-
-        # Buttons
-        btn_layout = QHBoxLayout()
-
-        ok_btn = QPushButton("OK")
-        cancel_btn = QPushButton("Cancel")
-
-        ok_btn.clicked.connect(self.accept)
-        cancel_btn.clicked.connect(self.reject)
-
-        btn_layout.addWidget(ok_btn)
-        btn_layout.addWidget(cancel_btn)
-
-        layout.addLayout(btn_layout)
-
-    def value(self):
-        return self.spinbox.value()
 
 class MyHSeparator(QFrame):
     def __init__(self):

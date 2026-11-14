@@ -11,7 +11,6 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QAbstractItemView,
     QMenu,
-    QMessageBox,
     QStyle,
     QStyledItemDelegate,
     QStyleOptionViewItem,
@@ -21,7 +20,7 @@ from PyQt5.QtGui import QBrush, QColor, QFont, QFontMetrics, QIcon, QPainter, QP
 
 from myPGM.settings import column_visibility, last_dir, remember_dir, set_column_visibility
 from myPGM.ui.PressureToolbox import PressureToolbox
-from myPGM.ui import theme
+from myPGM.ui import dialogs, theme
 from myPGM.ui.widgets import button
 
 logger = logging.getLogger(__name__)
@@ -537,7 +536,8 @@ class HPTableWindow(QWidget):
             except OSError as exc:
                 # e.g. no permission, or the file is open in Excel on Windows
                 logger.warning("Could not export the table to %s: %s", file_path, exc)
-                QMessageBox.critical(self, "Export error", f"Could not export the table:\n{exc}")
+                dialogs.show_error(self, "Could not export the table", str(exc),
+                                   window_title="Export error")
 
     def get_save_filename_dialog(self):
         options = QFileDialog.Options()

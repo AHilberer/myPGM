@@ -123,13 +123,13 @@ def demo(qapp):
     errors = []
     # record error popups instead of showing them, before the demo is built
     view.fit_error_popup_window = lambda reason="": errors.append("Fit error")
-    from PyQt5.QtWidgets import QMessageBox
-    original_exec = QMessageBox.exec_
-    QMessageBox.exec_ = lambda self: errors.append(self.windowTitle())
+    from myPGM.ui.dialogs import MessageDialog
+    original_exec = MessageDialog.exec_
+    MessageDialog.exec_ = lambda self: errors.append(self.windowTitle())
     try:
         presenter = Presenter(PressureGaugeDataManager(), view, demo=True)
     finally:
-        QMessageBox.exec_ = original_exec
+        MessageDialog.exec_ = original_exec
     yield presenter, view, errors
     dispose(view)
     qapp.setStyleSheet("")

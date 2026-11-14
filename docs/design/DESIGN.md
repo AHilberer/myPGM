@@ -49,12 +49,12 @@ One main window instead of three. From top to bottom:
 3. **Bottom dock area**: "PRESSURE LOG" (wide) and "P VS PM" side by side, each in a `QDockWidget`.
    - Each header has an undock button (arrow-out-of-box icon). Undocked, it becomes a floating window with a compact title bar (grip, title, "myPGM", dock-back button); its place in the main window shows a dashed placeholder "<Name> is open in a separate window [Dock back]" (with real `QDockWidget`s the native float/dock behavior is fine: the placeholder is optional).
    - Pressure log header: count pill ("4 points"), then Columns, Remove selected, Clear, undock, close (×).
-   - **Bottom area sizing (docked).** The bottom area never pushes the workspace off screen: it has its own height, set by a horizontal splitter handle between the workspace and the panels (8 px gap with a 44 × 4 px grip, row-resize cursor). Default ≈ 28 % of the window height (280 px at 1010 px), min 160 px, max 50 %; the user's height is remembered. Inside it, the docked panels share the full height: the table scrolls inside its card with a sticky header row (the newest/current row is scrolled into view when a point is added), and the P vs Pm plot stretches to the card height. Width split: log ≈ 70 %, plot ≈ 30 %, adjustable with a vertical splitter between them; if one is hidden or floating, the other takes the full width. Floating windows keep their own size and do not affect the bottom area.
+   - **Bottom area sizing (docked).** The bottom area never pushes the workspace off screen: it has its own height, set by a horizontal splitter handle between the workspace and the panels (4 px gap, row-resize cursor). Default ≈ 28 % of the window height (280 px at 1010 px), min 160 px, max 50 %; the user's height is remembered. Inside it, the docked panels share the full height: the table scrolls inside its card with a sticky header row (the newest/current row is scrolled into view when a point is added), and the P vs Pm plot stretches to the card height. Width split: log ≈ 70 %, plot ≈ 30 %, adjustable with a vertical splitter between them; if one is hidden or floating, the other takes the full width. Floating windows keep their own size and do not affect the bottom area.
    - **Optional panels** (`mockup_light_plot_hidden.png`, `mockup_light_panels_hidden.png`): both panels can be hidden with their top-bar toggle or the × (muted, borderless 30 px icon button, tooltip "Hide …") at the right of their header, docked or floating. The top-bar toggle shows them again where they were (docked or floating). When one is hidden the other takes the whole width; when both are hidden the bottom area disappears and the workspace takes the full height. Hiding never deletes logged points. Visibility is saved with the dock layout (`saveState()`).
    - P vs Pm header: legend dots per calibration, then undock, close (×).
    - The row of the current point is highlighted (`--sel`); the current point in the plot gets a ring.
 
-Spacing: **8 px** between panels and around the window edge; 14 px inside panels; 8–12 px between controls. Panels have 12 px radius, 1 px border and, in light theme only, a soft shadow (`0 1px 2px rgba(16,24,40,.07), 0 2px 6px rgba(16,24,40,.06)`; in QSS a shadow needs `QGraphicsDropShadowEffect`; if that is costly, a slightly darker border is fine).
+Spacing: **4 px** between panels and around the window edge (`theme.GAP`; the mockups show 8 px, reduced at the user's request); 14 px inside panels; 8–12 px between controls. Panels have 12 px radius, 1 px border and, in light theme only, a soft shadow (`0 1px 2px rgba(16,24,40,.07), 0 2px 6px rgba(16,24,40,.06)`; in QSS a shadow needs `QGraphicsDropShadowEffect`; if that is costly, a slightly darker border is fine).
 
 Section titles: 12 px, semibold, uppercase, letter-spacing 0.06em, muted color.
 
@@ -95,9 +95,18 @@ Each calibration family has one color, used everywhere the calibration appears: 
 | Diamond Raman edge | `#0B6E60` / `#085A4E` | `#4CC7B4` / `#8ADBCE` |
 | cBN (not in mockup) | pick a fifth hue with the same lightness, e.g. `#2F6FA8` / `#8DBDE6` | |
 
-- **Calibration selector**: background = solid color, text = white (light) or `#12151B` (dark), semibold, custom chevron.
+- **Calibration selector**: background = solid color, text = white (light) or `#12151B` (dark), semibold, custom chevron. Its list is neutral like the fit model list (regular weight, `acs` selection), each item with a dot in its family's color, all calibrations visible without scrolling.
 - **Fit model selector**: colored by the kind of model, not by the calibration (as before the redesign): Double models red, Single models green, Raman edge grey (`theme.MODEL_COLORS`, light and dark variants). Background = that color at 10 % (light) / 16 % (dark), 1 px border at 45 % / 55 %, text = its "text on tint" color, semibold; each item of the list has a dot in its kind's color.
 - Today `HPCalibration.color` holds one named color per calibration (`firebrick`, `crimson`…). Either replace it by a family key mapped to the table above, or keep per-calibration shades but make sure each has a light and a dark variant with ≥ 4.5:1 contrast for the selector text.
+
+## 3b. Dialogs and popups
+
+All popups follow the theme; none uses the platform's message box.
+
+- **Messages** (`dialogs.MessageDialog`: errors, fit failure, unsaved changes): `sf` background like the Add point dialog, a 36 px circle with a Lucide icon (errors: `circle-alert` in `err` on `bad`; questions: `circle-help` in `ac` on `info`), a title (15 px semibold), the text (wrapped at 360 px, selectable), buttons on the right with the default one primary and focused; a destructive choice (Discard) sits on the left. Esc gives the safe choice (OK / Cancel).
+- **Additional pressure toolbox** window: the two cards side by side at their natural height; a taller window leaves the space below them.
+- **Menus** (menu bar on Windows / Linux, log header, P vs Pm plot): `sf`, 1 px `bd` border, items with a 6 px radius and an `acs` hover. The plot's X / Y axis forms (pyqtgraph) are not capped at 200 px so the labels fit.
+- **Export…** (pyqtgraph, P vs Pm plot menu): `sf` background, field labels, list heights for their few items, Export primary, no "params" heading over the options, the exported area outlined in `ac`.
 
 ## 4. Settings window (gear button)
 

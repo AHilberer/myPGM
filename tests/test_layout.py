@@ -26,7 +26,7 @@ def test_workspace_columns(gui):
                    view.Spectro_filename_label):
         assert inspector.widget().isAncestorOf(widget)
     assert isinstance(view.Spectro_use_button, QCheckBox)
-    assert splitter.handleWidth() == 8
+    assert splitter.handleWidth() == theme.GAP
 
 
 def test_window_fits_a_1280_px_screen(gui):

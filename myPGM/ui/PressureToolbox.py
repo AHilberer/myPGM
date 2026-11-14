@@ -7,13 +7,12 @@ from PyQt5.QtWidgets import (QWidget,
                              QLabel,
                              QHBoxLayout,
                              QVBoxLayout,)
-from PyQt5.QtGui import QColor
 from PyQt5.QtCore import QEvent, pyqtSignal, Qt
 
 from myPGM.calibrations import HPCalibration
 from myPGM.helpers import SmartDoubleSpinBox
 from myPGM.ui import theme
-from myPGM.ui.widgets import GAP, Card, label, x_symbol, x_unit
+from myPGM.ui.widgets import GAP, Card, DotItemDelegate, label, x_symbol, x_unit
 
 INPUT_HEIGHT = 36
 
@@ -139,13 +138,21 @@ class PressureToolbox(QWidget):
         if inspector:
             layout = QVBoxLayout(self)
             layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(GAP)
+            layout.addWidget(self.gauge_card)
+            layout.addWidget(self.params_card)
         else:
-            layout = QHBoxLayout(self)
-            layout.setContentsMargins(GAP, GAP, GAP, GAP)
+            # the two cards side by side, as high as their contents: a taller window
+            # leaves the space under them instead of stretching the cards
+            outer = QVBoxLayout(self)
+            outer.setContentsMargins(GAP, GAP, GAP, GAP)
+            layout = QHBoxLayout()
+            layout.setSpacing(GAP)
             self.gauge_card.body.addStretch(1)
-        layout.setSpacing(GAP)
-        layout.addWidget(self.gauge_card)
-        layout.addWidget(self.params_card)
+            layout.addWidget(self.gauge_card)
+            layout.addWidget(self.params_card)
+            outer.addLayout(layout)
+            outer.addStretch(1)
 
     @staticmethod
     def _spinbox(name, decimals, step):
@@ -182,22 +189,15 @@ class PressureToolbox(QWidget):
     def init_calib_combo(self):
         if self.calibrations is not None:
             self.calibration_combo.addItems(self.calibrations.keys())
-
-            self._color_calib_items()
+            # the whole list, without scrolling
+            self.calibration_combo.setMaxVisibleItems(len(self.calibrations))
+            # a dot in the family colour (DESIGN.md §3), as in the fit model list
+            self.calibration_combo.setItemDelegate(DotItemDelegate(
+                lambda name: (theme.calib_color(self.calibrations[name])
+                              if name in self.calibrations else None),
+                self.calibration_combo))
         else:
             raise ImportError('Error loading calibrations.')
-
-    def _color_calib_items(self):
-        """Each calibration of the list on its family colour (DESIGN.md §3)."""
-        on_calib = QColor(theme.tokens()["on_calib"])
-        # changing the current item's data emits currentTextChanged, which would be
-        # taken for a calibration change (and reset the toolbox values)
-        was_blocked = self.calibration_combo.blockSignals(True)
-        for k, v in self.calibrations.items():
-            item = self.calibration_combo.model().item(self.calibration_combo.findText(k))
-            item.setBackground(QColor(theme.calib_color(v)))
-            item.setForeground(on_calib)
-        self.calibration_combo.blockSignals(was_blocked)
 
     def _style_calib_combo(self):
         """The calibration selector follows the calibration family (DESIGN.md §3): the
@@ -374,6 +374,4 @@ class PressureToolbox(QWidget):
         self._set_mode_colors(dark=False)
 
     def _restyle_calibrations(self):
-        if getattr(self, "calibrations", None):
-            self._color_calib_items()
         self._style_calib_combo()

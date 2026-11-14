@@ -3,7 +3,7 @@ import os
 import ctypes
 import logging
 import time
-from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QLocale, QLoggingCategory
 
 from myPGM.helpers import get_app_icon
@@ -54,7 +54,8 @@ def _install_excepthook():
                 text += f"\n\nDetails were saved in the log file:\n{log_setup.log_file_path}"
             state["dialog_open"] = True
             try:
-                QMessageBox.critical(QApplication.activeWindow(), "Unexpected error", text)
+                from myPGM.ui import dialogs
+                dialogs.show_error(QApplication.activeWindow(), "Unexpected error", text)
             finally:
                 state["dialog_open"] = False
                 state["closed_at"][key] = time.monotonic()

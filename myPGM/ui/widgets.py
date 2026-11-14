@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QSizePoli
 from myPGM.ui import icons, theme
 
 PANEL_PADDING = 14      # inside panels
-GAP = 8                 # between panels and around the window edge
+GAP = theme.GAP         # between panels and around the window edge
 
 
 def label(text="", role=None, parent=None):
@@ -176,21 +176,24 @@ def x_unit(calib):
     return _UNITS.get(calib.xunit, calib.xunit) if calib is not None else ""
 
 
-class ModelItemDelegate(QStyledItemDelegate):
-    """Item of the fit model list: a dot in the colour of the model's kind (Double,
-    Single, Raman edge; theme.MODEL_COLORS) before its name."""
+class DotItemDelegate(QStyledItemDelegate):
+    """Item of a selector's list: a dot in the colour `color_of(text)` gives (None: no
+    dot) before the name, in normal weight. The calibration list (family colours) and
+    the fit model list (kind colours) look the same; the colour is on the selector."""
 
     DOT = 8
 
-    def __init__(self, lookup, parent=None):
+    def __init__(self, color_of, parent=None):
         super().__init__(parent)
-        self.lookup = lookup            # item text -> fit model
+        self.color_of = color_of
 
     def initStyleOption(self, option, index):
         super().initStyleOption(option, index)
         # the combo's list draws its items in the combo's font, semibold here
         option.font.setWeight(QFont.Normal)
-        color = theme.model_color(self.lookup(index.data(Qt.DisplayRole)))
+        color = self.color_of(index.data(Qt.DisplayRole))
+        if color is None:
+            return
         pixmap = QPixmap(self.DOT * 2, self.DOT * 2)
         pixmap.setDevicePixelRatio(2)
         pixmap.fill(Qt.transparent)
@@ -203,6 +206,15 @@ class ModelItemDelegate(QStyledItemDelegate):
         option.features |= QStyleOptionViewItem.HasDecoration
         option.icon = QIcon(pixmap)
         option.decorationSize = QSize(self.DOT, self.DOT)
+
+
+class ModelItemDelegate(DotItemDelegate):
+    """Item of the fit model list: a dot in the colour of the model's kind (Double,
+    Single, Raman edge; theme.MODEL_COLORS) before its name."""
+
+    def __init__(self, lookup, parent=None):
+        super().__init__(lambda text: theme.model_color(lookup(text)), parent)
+        self.lookup = lookup            # item text -> fit model
 
 
 class DashedFrame(QFrame):

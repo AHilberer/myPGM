@@ -3,7 +3,6 @@ import json
 import numpy as np
 import os
 import shutil
-import sys
 import time
 
 import pytest
@@ -112,12 +111,12 @@ def test_too_narrow_fit_range_shows_fit_error(gui):
 
 
 def test_dialogs_open_over_the_main_window(gui, monkeypatch):
-    from PyQt5.QtWidgets import QFileDialog, QMessageBox
+    from PyQt5.QtWidgets import QFileDialog
     from myPGM.presenter import Presenter
-    from myPGM.ui.dialogs import AddPointDialog
+    from myPGM.ui.dialogs import AddPointDialog, MessageDialog
     from myPGM.ui.main_ui import MainWindow
     parents = []
-    for dialog in (QMessageBox, QFileDialog, AddPointDialog):
+    for dialog in (MessageDialog, QFileDialog, AddPointDialog):
         monkeypatch.setattr(dialog, "exec_", lambda self: parents.append(self.parent()) or 0)
     Presenter._error_dialog(gui.presenter, "text", "Error")    # the fixture replaces it
     MainWindow.fit_error_popup_window(gui.view, "reason")
@@ -129,15 +128,13 @@ def test_dialogs_open_over_the_main_window(gui, monkeypatch):
 
 
 def test_fit_error_dialog_shows_the_reason(gui, monkeypatch):
-    from PyQt5.QtWidgets import QMessageBox
+    from myPGM.ui.dialogs import MessageDialog
     shown = []
-    monkeypatch.setattr(QMessageBox, "exec_", lambda self: shown.append(
-        (self.windowTitle(), self.text(), self.informativeText())))
+    monkeypatch.setattr(MessageDialog, "exec_", lambda self: shown.append(
+        (self.windowTitle(), self.title(), self.text())))
     from myPGM.ui.main_ui import MainWindow
     MainWindow.fit_error_popup_window(gui.view, "Ruby_1.asc: 3 points in the fit range")
-    # message boxes have no title on macOS (Apple guidelines): Qt ignores it there
-    title = "" if sys.platform == "darwin" else "Fit error"
-    assert shown == [(title, "The fit failed.", "Ruby_1.asc: 3 points in the fit range")]
+    assert shown == [("Fit error", "The fit failed", "Ruby_1.asc: 3 points in the fit range")]
 
 
 def test_add_fit_to_table(gui):
@@ -543,9 +540,10 @@ def test_table_plot_and_csv_show_uncertainty(gui, tmp_path, monkeypatch):
 
 
 def test_csv_export_error_is_shown(gui, tmp_path, monkeypatch, caplog):
-    from PyQt5.QtWidgets import QMessageBox
+    from myPGM.ui import dialogs
     shown = []
-    monkeypatch.setattr(QMessageBox, "critical", lambda parent, title, text: shown.append(title))
+    monkeypatch.setattr(dialogs, "show_error", lambda parent, title, text="", window_title=None:
+                        shown.append(window_title))
     window = gui.view.PvPmTableWindow
     monkeypatch.setattr(window, "get_save_filename_dialog", lambda: str(tmp_path / "missing" / "t.csv"))
     window.save_data_to_csv()                       # raised FileNotFoundError

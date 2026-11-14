@@ -42,6 +42,7 @@ LIGHT = {
     "bad": "#FBE1E4",
     "warn": "#FCEAD2",
     "info": "#E6ECFB",
+    "err": "#C42B3B",           # error icon of the message dialogs (on `bad`)
     "on_calib": "#FFFFFF",      # text on a solid calibration colour
 }
 
@@ -64,6 +65,7 @@ DARK = {
     "bad": "#3B1C22",
     "warn": "#3A2A13",
     "info": "#1D2542",
+    "err": "#F2697A",
     "on_calib": "#12151B",
 }
 
@@ -204,12 +206,16 @@ def mono_font(pixel_size=None):
 
 # --- application --------------------------------------------------------------------------
 
+GAP = 4         # px between panels and around the window edge (DESIGN.md §1)
+
+
 def stylesheet(dark=False):
     """The application stylesheet of the light or dark theme."""
     fonts = load_fonts()
     values = {key: qss(value) for key, value in tokens(dark).items()}
     values["ui_font"] = f'"{fonts["ui"]}"'
     values["mono_font"] = f'"{fonts["mono"]}"'
+    values["gap"] = f"{GAP}px"
     values["check_icon"] = f'"{_check_icon(qcolor(tokens(dark)["onac"]).name())}"'
     values["chevron_icon"] = f'"{_chevron_icon(qcolor(tokens(dark)["mu"]).name())}"'
     sheet = Template(load_style("theme.qss")).substitute(values) + _selector_rules(dark)

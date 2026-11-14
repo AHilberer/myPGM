@@ -6,7 +6,7 @@ import time
 import numpy as np
 from copy import deepcopy
 from importlib.metadata import PackageNotFoundError, version
-from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
+from PyQt5.QtWidgets import QListWidgetItem
 from PyQt5.QtCore import Qt, QFileInfo, QObject, QTimer
 from myPGM.data_model import PressureGaugeDataObject
 from myPGM.session_backup import SessionBackup, write_json
@@ -14,6 +14,7 @@ from myPGM.settings import setting
 import myPGM.calibrations
 import myPGM.fit_models
 from myPGM.helpers import pressure_valid, spectro_calibration_reader, PressureCalculationFailed
+from myPGM.ui import dialogs
 
 logger = logging.getLogger(__name__)
 
@@ -154,11 +155,7 @@ class Presenter(QObject):
 
     def _error_dialog(self, text, title):
         # over the main window (without a parent it could open behind it)
-        msg = QMessageBox(self.view)
-        msg.setIcon(QMessageBox.Critical)
-        msg.setText(text)
-        msg.setWindowTitle(title)
-        msg.exec_()
+        dialogs.show_error(self.view, title, text)
 
     def _get_spectro_reference_object(self):
         if self.current_selected_file is not None:

@@ -45,6 +45,12 @@ unchanged: sessions open both ways with 1.1.
 - The PToolbox and Font size menus are replaced by the Settings window.
 - Buttons take keyboard focus from Tab only, with a visible focus border on every control; the Tab
   order follows the cards.
+- Error messages and the unsaved changes question are dialogs in the app's style (theme colours,
+  the default button primary, Discard set apart), instead of the platform's message boxes.
+- The calibration list shows a dot in each family's colour, like the fit model list, and every
+  calibration without scrolling.
+- The additional pressure toolbox window keeps its cards at their natural height, and the P vs Pm
+  plot's axis menus and Export… dialog follow the theme.
 
 ## [1.1.0] - 2026-11-13
 

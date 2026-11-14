@@ -62,8 +62,54 @@ class PvPmPlotWindow(QWidget):
         menu = self.plot_graph.plotItem.vb.menu
         menu.addSeparator()
         menu.addAction(self.lines_action)
+        # pyqtgraph caps the X / Y axis forms at 200 px, too narrow for the app's font
+        for form in menu.ctrl:
+            form.mouseCheck.parentWidget().setMaximumWidth(16777215)
+        # pyqtgraph's Export… (same menu), in the app's style
+        export_action = self.plot_graph.scene().contextMenu[0]
+        export_action.triggered.disconnect()
+        export_action.triggered.connect(self.show_export_dialog)
 
         self.updateplot()
+
+    def show_export_dialog(self):
+        """pyqtgraph's export dialog with the spacing, labels and buttons of the app's
+        dialogs, and the exported area outlined in the accent colour."""
+        scene = self.plot_graph.scene()
+        first = scene.exportDialog is None
+        scene.showExportDialog()
+        dialog = scene.exportDialog
+        if first:
+            ui = dialog.ui
+            dialog.setObjectName("ExportDialog")
+            dialog.setAttribute(Qt.WA_StyledBackground, True)
+            dialog.setWindowTitle("Export plot")
+            ui.gridLayout.setContentsMargins(16, 14, 16, 16)
+            ui.gridLayout.setHorizontalSpacing(8)
+            ui.gridLayout.setVerticalSpacing(6)
+            for text_label, text in ((ui.label, "Item to export"), (ui.label_2, "Format"),
+                                     (ui.label_3, "Options")):
+                text_label.setText(text)
+                text_label.setProperty("role", "field")
+                text_label.setContentsMargins(0, 6, 0, 0)
+            # short lists (a few items each), the rest for the options
+            ui.itemTree.setMaximumHeight(110)
+            ui.formatList.setMaximumHeight(150)
+            ui.exportBtn.setProperty("primary", True)
+            ui.exportBtn.setDefault(True)
+            # no 'params' heading over the options
+            set_parameters = ui.paramTree.setParameters
+            ui.paramTree.setParameters = (
+                lambda params, showTop=False: set_parameters(params, showTop))
+            if dialog.currentExporter is not None:
+                ui.paramTree.setParameters(dialog.currentExporter.parameters())
+            # the rules match on the object name, given after pyqtgraph built the widgets
+            for widget in [dialog, *dialog.findChildren(QWidget)]:
+                widget.style().unpolish(widget)
+                widget.style().polish(widget)
+            dialog.resize(440, 560)
+        dialog.selectBox.setPen(pg.mkPen(theme.qcolor(theme.tokens()["ac"]), width=2,
+                                         style=Qt.DashLine))
 
     def set_data_manager(self, data_manager):
         self.data_manager = data_manager

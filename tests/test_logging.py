@@ -120,10 +120,10 @@ def test_loaded_files_are_logged_in_debug_mode(gui, resources, caplog):
 
 def test_unexpected_error_dialog_points_to_log_file(qapp, clean_logger, tmp_path, monkeypatch):
     import myPGM
-    from PyQt5.QtWidgets import QMessageBox
+    from myPGM.ui import dialogs
     log_setup.setup_logging(log_dir=tmp_path)
     shown = []
-    monkeypatch.setattr(QMessageBox, "critical", lambda parent, title, text: shown.append(text))
+    monkeypatch.setattr(dialogs, "show_error", lambda parent, title, text: shown.append(text))
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)   # restored after the test
     myPGM._install_excepthook()
     try:
@@ -136,9 +136,9 @@ def test_unexpected_error_dialog_points_to_log_file(qapp, clean_logger, tmp_path
 
 def test_repeated_error_shows_one_dialog(qapp, clean_logger, tmp_path, monkeypatch, caplog):
     import myPGM
-    from PyQt5.QtWidgets import QMessageBox
+    from myPGM.ui import dialogs
     shown = []
-    monkeypatch.setattr(QMessageBox, "critical", lambda parent, title, text: shown.append(text))
+    monkeypatch.setattr(dialogs, "show_error", lambda parent, title, text: shown.append(text))
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)   # restored after the test
     clock = [1000.0]
     monkeypatch.setattr(myPGM.time, "monotonic", lambda: clock[0])
@@ -164,7 +164,7 @@ def test_repeated_error_shows_one_dialog(qapp, clean_logger, tmp_path, monkeypat
 
 def test_errors_raised_while_the_dialog_is_open_are_only_logged(qapp, clean_logger, monkeypatch):
     import myPGM
-    from PyQt5.QtWidgets import QMessageBox
+    from myPGM.ui import dialogs
     shown = []
 
     def critical(parent, title, text):
@@ -175,7 +175,7 @@ def test_errors_raised_while_the_dialog_is_open_are_only_logged(qapp, clean_logg
             except KeyError:
                 sys.excepthook(*sys.exc_info())
 
-    monkeypatch.setattr(QMessageBox, "critical", critical)
+    monkeypatch.setattr(dialogs, "show_error", critical)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     myPGM._install_excepthook()
     try:

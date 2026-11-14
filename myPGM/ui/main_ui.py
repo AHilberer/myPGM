@@ -11,7 +11,6 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QFrame,
     QVBoxLayout,
-    QMessageBox,
     QAction,
     QScrollArea,
     QSizePolicy,
@@ -42,7 +41,7 @@ from myPGM.ui.FileListViewerWidget import FileListViewerWidget
 from myPGM.ui.PressureToolbox import PressureToolbox
 from myPGM.ui.TopBar import TopBar
 from myPGM.ui.docks import MIN_HEIGHT as MIN_DOCK_HEIGHT, PanelDock
-from myPGM.ui import icons, theme
+from myPGM.ui import dialogs, icons, theme
 from myPGM.ui.widgets import (GAP, Button, Card, DashedSplitter, ElidedLabel,
                               ModelItemDelegate, button,
                               divider, hbox, label,
@@ -1054,13 +1053,7 @@ class MainWindow(QMainWindow):
 
     def ask_save_changes(self):
         """'save', 'discard' or 'cancel'."""
-        answer = QMessageBox.question(
-            self, "Unsaved changes",
-            "The session has unsaved changes (spectra, fits or table points).\n"
-            "Save them before closing?",
-            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
-            QMessageBox.Save)
-        return {QMessageBox.Save: "save", QMessageBox.Discard: "discard"}.get(answer, "cancel")
+        return dialogs.ask_save_changes(self)
 
     def show_recovery_banner(self, when):
         """Offer to recover a backup (banner under the top bar; it replaced the startup
@@ -1071,13 +1064,8 @@ class MainWindow(QMainWindow):
         self.recovery_banner.hide()
 
     def fit_error_popup_window(self, reason=""):
-        msg = QMessageBox(self)
-        msg.setIcon(QMessageBox.Critical)
-        msg.setText("The fit failed.")
         # why, e.g. not enough points in the fit range (it was only in the log)
-        msg.setInformativeText(reason)
-        msg.setWindowTitle("Fit error")
-        msg.exec_()
+        dialogs.show_error(self, "The fit failed", reason, window_title="Fit error")
 
     def toggle_additional_ptoolbox(self):
         self.set_additional_toolbox_visible(not self.additional_toolbox_window.isVisible())

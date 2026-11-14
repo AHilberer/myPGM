@@ -132,7 +132,7 @@ class PanelDock(QDockWidget):
         return super().eventFilter(watched, event)
 
     def update_margins(self):
-        """8 px from the window edges it touches (the separators give the gaps between
+        """GAP from the window edges it touches (the separators give the gaps between
         panels and above them); none when floating, the window is the card."""
         left = right = bottom = 0
         if not self.isFloating() and self.parentWidget() is not None:
