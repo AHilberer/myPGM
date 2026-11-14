@@ -105,7 +105,7 @@ jobs:
           $alive = -not $p.HasExited
           if ($alive) { taskkill /F /T /PID $p.Id | Out-Null }
           $log = Join-Path $env:APPDATA "myPGM\mypgm.log"
-          if (-not (Test-Path $log)) { throw "no log file at $log: the app did not start" }
+          if (-not (Test-Path $log)) { throw "the app did not start (no log file at ${log})" }
           Get-Content $log
           if (-not $alive) { throw "the exe exited after less than 45 s (exit code $($p.ExitCode))" }
           if (Select-String -Path $log -Pattern " (WARNING|ERROR|CRITICAL) " -Quiet) {
