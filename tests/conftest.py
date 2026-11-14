@@ -18,7 +18,11 @@ def resources():
 
 def dispose(view):
     """Close a main window and delete it with its side windows. Windows that are
-    only closed stay alive and slow down every later stylesheet change."""
+    only closed stay alive and slow down every later stylesheet change. They are
+    deleted now: processEvents() leaves deleteLater() pending outside an event loop,
+    and restyling a closed window waiting for deletion (the fixtures reset the
+    stylesheet next) crashed the Windows tests at random."""
+    from PyQt5.QtCore import QEvent
     from PyQt5.QtWidgets import QApplication
     view.close_guard = None
     view.close()
@@ -27,6 +31,7 @@ def dispose(view):
         if window is not None:
             window.deleteLater()
     QApplication.processEvents()
+    QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
 
 
 @pytest.fixture(autouse=True)

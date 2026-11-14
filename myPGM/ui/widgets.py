@@ -112,6 +112,17 @@ class Collapser:
         return [w for w in self.items if self._collapsed(w)]
 
     def fit(self, width):
+        # nothing to arrange while hidden (e.g. a closed window being restyled), and
+        # the changes below must not run this again before it is done
+        if getattr(self, "_fitting", False) or not self.owner.isVisible():
+            return
+        self._fitting = True
+        try:
+            self._fit(width)
+        finally:
+            self._fitting = False
+
+    def _fit(self, width):
         needed, count = self.full_width(), 0
         while count < len(self.items) and width < needed:
             needed -= self._saving(self.items[count])

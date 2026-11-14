@@ -57,6 +57,15 @@ class Pill(QLabel):
         return min(self.fontMetrics().horizontalAdvance(self._full), self.MAX_WIDTH)
 
     def _show_text(self):
+        if getattr(self, "_showing", False):
+            return
+        self._showing = True
+        try:
+            self._elide()
+        finally:
+            self._showing = False
+
+    def _elide(self):
         if not self._plain():
             super().setText(self._full)
             return
@@ -167,7 +176,8 @@ class PressureCard(Card):
         self.clear()
 
     def eventFilter(self, watched, event):
-        if watched is self.pills_row and event.type() in (QEvent.Resize, QEvent.LayoutRequest):
+        if (watched is self.pills_row and event.type() in (QEvent.Resize, QEvent.LayoutRequest)
+                and self.pills_row.isVisible()):
             self._fit_file_pill()
         return super().eventFilter(watched, event)
 
