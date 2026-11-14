@@ -1,7 +1,10 @@
 <h1 align="center"> myPGM - Pressure Gauge Monitor </h1>
 
+<!-- The screenshot URL names the commit that last changed docs/myPGM_screenshot.png, so the
+     GitHub page of every branch and the PyPI page of each version show the matching picture:
+     update the commit after changing the screenshot. -->
 <div align="center">
-<img alt="myPGM main window with the pressure log and the P vs Pm plot (mypgm --demo)" src="https://raw.githubusercontent.com/AHilberer/myPGM/main/docs/myPGM_screenshot.png">
+<img alt="myPGM main window with the pressure log and the P vs Pm plot (mypgm --demo)" src="https://raw.githubusercontent.com/AHilberer/myPGM/4799a8f7b0e16bb96ed81d22e764b56fbce6e377/docs/myPGM_screenshot.png">
 </div>
 
 <br>
