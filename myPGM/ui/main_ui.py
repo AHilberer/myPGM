@@ -93,6 +93,13 @@ class MainWindow(QMainWindow):
         if not app_icon.isNull():
             self.setWindowIcon(app_icon)
 
+        # keeps the window on screen after a resize (resizeEvent); owned by the window,
+        # so it cannot fire once the window is deleted (QTimer.singleShot with a method
+        # of the window could, which crashed the Windows tests)
+        self._screen_timer = QTimer(self)
+        self._screen_timer.setSingleShot(True)
+        self._screen_timer.setInterval(0)
+        self._screen_timer.timeout.connect(self._keep_on_screen)
         self.resize(DEFAULT_WIDTH, DEFAULT_HEIGHT)   # fitted to the screen by _place_window
 
         pg.setConfigOption('leftButtonPan', False)
@@ -556,7 +563,7 @@ class MainWindow(QMainWindow):
         if old.isValid() and ((new.width() > old.width() and new.width() == self.minimumWidth())
                               or (new.height() > old.height()
                                   and new.height() == self.minimumHeight())):
-            QTimer.singleShot(0, self._keep_on_screen)
+            self._screen_timer.start()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -566,7 +573,7 @@ class MainWindow(QMainWindow):
                 self._default_dock_sizes()      # with the final window size
             else:
                 # saved on a screen that may no longer be there (external display)
-                QTimer.singleShot(0, self._keep_on_screen)
+                self._screen_timer.start()
             self._schedule_panel_update()
             # open at the last close (Settings › General › Additional pressure toolbox)
             if S.setting("additional_toolbox"):
