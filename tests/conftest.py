@@ -18,15 +18,44 @@ def resources():
 
 def dispose(view):
     """Close a main window and delete it with its side windows. Windows that are
-    only closed stay alive and slow down every later stylesheet change."""
+    only closed stay alive and slow down every later stylesheet change. They are
+    deleted now: processEvents() leaves deleteLater() pending outside an event loop,
+    and restyling a closed window waiting for deletion (the fixtures reset the
+    stylesheet next) crashed the Windows tests at random."""
+    from PyQt5.QtCore import QEvent
     from PyQt5.QtWidgets import QApplication
     view.close_guard = None
     view.close()
     for window in (view.PvPmTableWindow, view.PvPmPlotWindow,
-                   view.additional_toolbox_window, view.font_size_window, view):
+                   view.additional_toolbox_window, view):
         if window is not None:
             window.deleteLater()
     QApplication.processEvents()
+    QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+
+
+@pytest.fixture(autouse=True)
+def delete_leftover_windows():
+    """Delete the top-level widgets a test leaves behind. Disposing a main window does
+    not delete everything: pyqtgraph's plot option panels and menus stay alive as
+    parentless widgets (about 2000 per window). Each later stylesheet change restyles
+    all of them, and the tests got slower and slower (6 s per window at the end)."""
+    from PyQt5 import sip
+    from PyQt5.QtCore import QEvent
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance()
+    before = ({sip.unwrapinstance(w) for w in app.topLevelWidgets()}
+              if app is not None else set())
+    yield
+    app = QApplication.instance()
+    if app is None:
+        return
+    for widget in app.topLevelWidgets():
+        # a top-level widget with a parent (combo box popup, submenu) belongs to it
+        if (sip.unwrapinstance(widget) not in before and not sip.isdeleted(widget)
+                and widget.parent() is None):
+            widget.deleteLater()
+    QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
 
 
 @pytest.fixture(autouse=True)
@@ -40,11 +69,10 @@ def isolated_settings(tmp_path):
 
 @pytest.fixture(autouse=True)
 def no_blocking_questions(monkeypatch):
-    """Closing a window with unsaved changes asks Save/Discard/Cancel, and startup
-    may offer to recover a backup: answer them in tests instead of blocking."""
+    """Closing a window with unsaved changes asks Save/Discard/Cancel: answer it in
+    tests instead of blocking. (Recovering a backup is a non-blocking banner.)"""
     from myPGM.ui.main_ui import MainWindow
-    monkeypatch.setattr(MainWindow, "ask_save_changes", lambda self: "discard")
-    monkeypatch.setattr(MainWindow, "ask_recover_session", lambda self, when: False)
+    monkeypatch.setattr(MainWindow, "ask_save_changes", lambda self, *args: "discard")
 
 
 @pytest.fixture(scope="session")
@@ -61,12 +89,12 @@ def gui(qapp):
 
     Error popups are recorded in gui.errors instead of being shown.
     """
-    from myPGM.helpers import load_style
+    from myPGM.ui import theme
     from myPGM.ui.main_ui import MainWindow
     from myPGM.data_model import PressureGaugeDataManager
     from myPGM.presenter import Presenter
 
-    qapp.setStyleSheet(load_style("light-mode.qss"))
+    qapp.setStyleSheet(theme.stylesheet(dark=False))
     view = MainWindow()
     presenter = Presenter(PressureGaugeDataManager(), view, test_mode=True)
 
@@ -91,22 +119,22 @@ def gui(qapp):
 
 @pytest.fixture
 def demo(qapp):
-    from myPGM.helpers import load_style
+    from myPGM.ui import theme
     from myPGM.ui.main_ui import MainWindow
     from myPGM.data_model import PressureGaugeDataManager
     from myPGM.presenter import Presenter
-    qapp.setStyleSheet(load_style("light-mode.qss"))
+    qapp.setStyleSheet(theme.stylesheet(dark=False))
     view = MainWindow()
     errors = []
     # record error popups instead of showing them, before the demo is built
     view.fit_error_popup_window = lambda reason="": errors.append("Fit error")
-    from PyQt5.QtWidgets import QMessageBox
-    original_exec = QMessageBox.exec_
-    QMessageBox.exec_ = lambda self: errors.append(self.windowTitle())
+    from myPGM.ui.dialogs import MessageDialog
+    original_exec = MessageDialog.exec_
+    MessageDialog.exec_ = lambda self: errors.append(self.windowTitle())
     try:
         presenter = Presenter(PressureGaugeDataManager(), view, demo=True)
     finally:
-        QMessageBox.exec_ = original_exec
+        MessageDialog.exec_ = original_exec
     yield presenter, view, errors
     dispose(view)
     qapp.setStyleSheet("")

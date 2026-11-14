@@ -5,7 +5,7 @@ class HPCalibration():
     ''' A general HP calibration object '''
     def __init__(self, name, func, Tcor_name, 
                     xname, xunit, x0default, T0default, xstep, color,
-                    default_fit_model=None, uses_x0=True, short_name=None):
+                    default_fit_model=None, uses_x0=True, short_name=None, family=None):
         self.name = name
         self.func = func
         self.Tcor_name = Tcor_name
@@ -18,6 +18,7 @@ class HPCalibration():
         self.default_fit_model = default_fit_model
         self.uses_x0 = uses_x0  # False when P(x) does not depend on x0 (x0 is then not shown)
         self.short_name = short_name or name  # for the PvPm table
+        self.family = family  # gauge family, gives the colour (myPGM.ui.theme.CALIB_COLORS)
 
     def __repr__(self):
         return 'HPCalibration : ' + str( self.__dict__ )
@@ -154,6 +155,7 @@ Ruby2020 = HPCalibration(name = 'Ruby2020',
                                  T0default = 298,
                                  xstep = .01,
                                  color = 'firebrick',
+                                 family = 'ruby',
                                  default_fit_model='Double Voigt')
 
 RubyMao1986 = HPCalibration(name = 'Ruby Mao 1986',
@@ -165,6 +167,7 @@ RubyMao1986 = HPCalibration(name = 'Ruby Mao 1986',
                                  T0default = 298,
                                  xstep = .01,
                                  color = 'crimson',
+                                 family = 'ruby',
                                  default_fit_model='Double Voigt')
 
 RubyMao1986_DatchiF = HPCalibration(name = 'Ruby Mao 1986 (Datchi form)',
@@ -177,6 +180,7 @@ RubyMao1986_DatchiF = HPCalibration(name = 'Ruby Mao 1986 (Datchi form)',
                                     T0default = 298,
                                     xstep = .01,
                                     color = 'deeppink',
+                                    family = 'ruby',
                                     default_fit_model='Double Voigt')
 
 RubyHolzapfel2005 = HPCalibration(name = 'Ruby Holzapfel 2005',
@@ -188,6 +192,7 @@ RubyHolzapfel2005 = HPCalibration(name = 'Ruby Holzapfel 2005',
                                   T0default = 298,
                                   xstep = .01,
                                   color = 'tomato',
+                                  family = 'ruby',
                                   default_fit_model='Double Voigt')
 
 RubyDO2007 = HPCalibration(name = 'Ruby Dorogokupets-Oganov 2007',
@@ -200,6 +205,7 @@ RubyDO2007 = HPCalibration(name = 'Ruby Dorogokupets-Oganov 2007',
                                   T0default = 298,
                                   xstep = .01,
                                   color = 'orangered',
+                                  family = 'ruby',
                                   default_fit_model='Double Voigt')
 
 SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
@@ -212,6 +218,7 @@ SamariumDatchi = HPCalibration(name = 'Samarium SrB4O7 Datchi 1997',
                                        T0default = 298,
                                        xstep = .01,
                                        color = 'mediumseagreen',
+                                       family = 'samarium',
                                        default_fit_model='Single Voigt')
 
 SamRashchenko2015 = HPCalibration(name = 'Samarium SrB4O7 Rashchenko 2015',
@@ -224,6 +231,7 @@ SamRashchenko2015 = HPCalibration(name = 'Samarium SrB4O7 Rashchenko 2015',
                                   T0default = 298,
                                   xstep = .01,
                                   color = 'springgreen',
+                                  family = 'samarium',
                                   default_fit_model='Single Voigt')
 
 Hilberer2026 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2026',
@@ -236,6 +244,7 @@ Hilberer2026 = HPCalibration(name = 'Diamond Raman Edge Hilberer 2026',
                                     T0default = 298,
                                     xstep = .1,
                                     color = 'deepskyblue',
+                                    family = 'diamond',
                                     default_fit_model='Raman Edge')
 
 Akahama2006 = HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
@@ -248,6 +257,7 @@ Akahama2006 = HPCalibration(name = 'Diamond Raman Edge Akahama 2006',
                                     T0default = 298,
                                     xstep = .1,
                                     color = 'royalblue',
+                                    family = 'diamond',
                                     default_fit_model='Raman Edge')
 
 Eremets2023 = HPCalibration(name = 'Diamond Raman Edge Eremets 2023',
@@ -260,6 +270,7 @@ Eremets2023 = HPCalibration(name = 'Diamond Raman Edge Eremets 2023',
                                     T0default = 298,
                                     xstep = .1,
                                     color = 'steelblue',
+                                    family = 'diamond',
                                     default_fit_model='Raman Edge')
         
 cBNDatchi = HPCalibration(name = 'cBN Raman Datchi 2007',
@@ -272,6 +283,7 @@ cBNDatchi = HPCalibration(name = 'cBN Raman Datchi 2007',
                                   T0default = 298,
                                   xstep = .1,
                                   color = 'violet',
+                                  family = 'cbn',
                                   default_fit_model='Single Voigt')
 
 H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
@@ -284,6 +296,7 @@ H2Vibron = HPCalibration(name = 'H2 Vibron <30GPa',
                                   T0default = 298,
                                   xstep = .1,
                                   color = 'tan',
+                                  family = 'h2',
                                   default_fit_model='Single Voigt',
                                   uses_x0=False)
 

@@ -2,6 +2,106 @@
 
 All notable changes to myPGM are listed here. Versions follow [semantic versioning](https://semver.org).
 
+## [2.0.0] - 2026-11-14
+
+A redesigned interface (docs/DESIGN.md): one window with the spectra on the left, the
+fitted pressure and the spectrum in the center, the pressure gauge and parameters on the right,
+and the pressure log and P vs Pm plot docked below. The menus and separate windows of 1.x are
+replaced, hence the major version. Fits, calibrations and session files are unchanged: sessions
+open both ways with 1.1.
+
+### Added
+- Light and dark themes built on one set of colours, with the bundled Inter and JetBrains Mono
+  fonts (numbers in mono). Each calibration family has one colour, used for its file-list dot, its
+  pill, its log rows, its P vs Pm markers and the calibration selector.
+- Top bar: session name and save status ("Autosaved 12 s ago"), toggles for the two bottom panels,
+  Open, Save, Export CSV, the theme toggle and a Settings button.
+- Fitted pressure card above the spectrum: the pressure in large type, the calibration, fit model,
+  λ and file as pills, and the Pm field with **Add fit to log**. The fitted peak gets a dashed
+  marker and a label on the plot.
+- Fit toolbar on one line: Fit, Click-to-fit, a Fit range split button (on/off, and edit with
+  draggable edges), Background (Auto / Manual / None), Smoothing − n +, and a dI/dλ toggle that
+  shows the derivative under the spectrum.
+- **Add point to log** in the Parameters card asks for Pm in a small dialog (a point without a
+  spectrum or a fit).
+- The pressure log and the P vs Pm plot are docks: side by side under the workspace, resizable,
+  each can be hidden or opened in its own window, and the layout is kept between launches.
+- Pressure log: an optional **σP (fit)** column (the P column shows the value alone), the row of
+  the spectrum shown is highlighted and its point ringed in P vs Pm. The visible columns are kept
+  between launches.
+- File list: one line per spectrum with its calibration dot and fitted pressure; the calibration and
+  fit model in the tooltip.
+- Startup screen: a drop zone with Add spectra, Select acquisition folder, Open session and a link
+  to the demo session; spectra can be dropped anywhere on the window.
+- After an abnormal exit, a banner offers to recover the unsaved session instead of a blocking
+  question; loading something else sets the backup aside (kept as `*.discarded.json`).
+- Settings window (gear button, Files › Settings…, ⌘, on macOS): theme (light, dark or following
+  the system), interface font size, the additional pressure toolbox, autosave on/off and its
+  interval, the offer to recover a session, the pressure log columns, debug logging, the log folder,
+  and an About section.
+- The λ field shows a "fit" tag while it holds the fitted position.
+- myPGM is published on PyPI (`pip install mypgm`), and each GitHub release comes with a Windows
+  program (`myPGM-<version>-windows-x64.exe`) that needs no Python installation. Both are built
+  and checked by `.github/workflows/release.yml` (the Windows build is started for real on GitHub,
+  but has not been tried by hand yet).
+
+### Changed
+- The fit model selector is coloured by kind of model (Double red, Single green, Raman edge grey).
+- The PToolbox and Font size menus are replaced by the Settings window.
+- Buttons take keyboard focus from Tab only, with a visible focus border on every control; the Tab
+  order follows the cards.
+- Error messages and the unsaved changes question are dialogs in the app's style (theme colours,
+  the default button primary, Discard set apart), instead of the platform's message boxes.
+- The calibration list shows a dot in each family's colour, like the fit model list, and every
+  calibration without scrolling.
+- The additional pressure toolbox window keeps its cards at their natural height, and the P vs Pm
+  plot's axis menus and Export… dialog follow the theme.
+- The interface starts at the font size of the Settings window (13 px unless changed), not the
+  system font size.
+- **Clear** in the pressure log asks first: points added from the pressure toolbox are deleted.
+- The manual background points and curve are drawn in the theme's accent colour.
+- The Open and Save tooltips give the platform's shortcut (⌘O on macOS, Ctrl+O elsewhere).
+
+### Fixed
+- Some actions (fitting a spectrum with a long file name, a larger font, a fit gone wrong)
+  widened the window, which then ran off the right edge of the screen. The window's minimum
+  width no longer depends on what it shows: long text is shortened with "…", the fit toolbar and
+  the top bar switch to icons when narrow, and a window that still grows is moved back on screen.
+- Opening a session did not offer to save unsaved changes first; they were lost.
+- The arrow keys moved the selection in the file list without loading the spectrum.
+- Moving a file up or down cleared the selection in the list.
+- After deleting the spectrum shown, or opening a session without a selected spectrum, the plots
+  still showed the previous spectrum and its fit.
+- Changing the calibration of the additional pressure toolbox changed the fit model of the main fit.
+- The T field of the pressure toolbox was highlighted above 298 K only; it is now highlighted below
+  too, as in the pressure log.
+- Spectrum files with non-UTF-8 characters in their header (e.g. µ or ° from some spectrometers on
+  Windows) could not be opened on some systems.
+
+### Development
+- The interface is built from shared widgets (`myPGM/ui/widgets.py`: cards, buttons, pills,
+  dashed frames), a theme module (`myPGM/ui/theme.py` and the `theme.qss` template, one set of
+  colour tokens for both themes) and Lucide icons (`myPGM/resources/icons/ui/`). Inter and
+  JetBrains Mono are bundled (SIL OFL); no new runtime dependency.
+- Messages use `myPGM/ui/dialogs.py` instead of the platform's message boxes.
+- The design mockups and the implementation plan of the redesign were removed once the app matched
+  them (about 6 MB; they remain in the git history); the spec is now `docs/DESIGN.md`. An unused
+  screenshot is no longer shipped in the package.
+- 409 tests (291 in 1.1), including layout, theme, dialog and window-size checks; they pass on Linux, macOS and
+  Windows.
+
+### Known limitations
+- Ruby temperature correction (under review): the Datchi 2007 polynomial for 296-900 K is used at
+  every temperature. Below room temperature it likely overestimates the ruby shift, hence the
+  pressure (by several GPa at cryogenic temperatures).
+- σx and σP are the statistical precision of the fit only, and are underestimated when the spectrum
+  is smoothed (smoothed points are not independent).
+- The Raman edge model needs a fit range around the edge: on the whole spectrum it can pick an
+  unrelated feature.
+- The "system" theme follows the operating system at startup and when the settings are saved, not
+  while the app is open.
+- Windows has not been tested by hand yet. No standalone executables yet.
+
 ## [1.1.0] - 2026-11-13
 
 Fixes found in a review of the whole code (fits that could corrupt table points, background

@@ -1,7 +1,10 @@
 <h1 align="center"> myPGM - Pressure Gauge Monitor </h1>
 
+<!-- The screenshot URL names the commit that last changed docs/myPGM_screenshot.png, so the
+     GitHub page of every branch and the PyPI page of each version show the matching picture:
+     update the commit after changing the screenshot. -->
 <div align="center">
-<img alt="myPGM main window with the PvPm table and plot (mypgm --demo)" src="docs/myPGM_screenshot.png">
+<img alt="myPGM main window with the pressure log and the P vs Pm plot (mypgm --demo)" src="https://raw.githubusercontent.com/AHilberer/myPGM/4799a8f7b0e16bb96ed81d22e764b56fbce6e377/docs/myPGM_screenshot.png">
 </div>
 
 <br>
@@ -26,8 +29,8 @@ It currently supports the following pressure scales:
 - Use an optional spectrometer calibration file to recalculate the spectral axis when needed.
 - Switch to a dark mode interface for light-sensitive environments, for example during low-light instrument operation.
 - Store fitted points in a dedicated pressure table, visualize pressure evolution in a P vs Pm plot, and export the table to CSV.
-  In the table, click a header to sort and right-click the headers to show or hide columns (T, x0, T0 and σx are hidden by default; T appears automatically, highlighted, when a point is not at 298 K). The CSV export always contains every column at full precision.
-- Show the fit uncertainty on the peak position (σx) and pressure (σP) in the plot title, the table and as error bars. This is the statistical precision of the fit only: it does not include the uncertainty on x0, T, the calibration itself or the choice of fit model. Raman edge positions have no fit uncertainty.
+  In the table, click a header to sort and right-click the headers to show or hide columns (σP, σx, T, x0 and T0 are hidden by default; T appears automatically, highlighted, when a point is not at 298 K). The CSV export always contains every column at full precision.
+- Show the fit uncertainty on the peak position (σx) and pressure (σP) in the pressure log (optional columns) and as error bars on the P vs Pm plot. This is the statistical precision of the fit only: it does not include the uncertainty on x0, T, the calibration itself or the choice of fit model. Raman edge positions have no fit uncertainty.
 - Save and reload complete working sessions, including loaded spectra, fit results, table entries and spectrometer calibration state.
 
 If you notice a bug or unexpected behavior, please [open an issue](https://github.com/AHilberer/myPGM/issues) (attaching the log file, see below) or contact the authors.
@@ -42,7 +45,25 @@ Once the application is running, a typical workflow is:
 4. Run the fit and inspect the extracted pressure.
 5. Add selected results to the table to follow pressure evolution during the experiment.
 
+# Installation
+
+### With pip
+
+myPGM requires Python 3.10 or newer:
+
+```bash
+python3 -m pip install mypgm
+```
+
+Then start it with `mypgm` (add `--demo` to open an example session, see below). Installing in a [virtual environment](https://docs.python.org/3/library/venv.html) keeps its dependencies (PyQt5, pyqtgraph, NumPy, SciPy) apart from your other Python projects.
+
+### Windows executable
+
+Each [release](https://github.com/AHilberer/myPGM/releases) comes with a Windows program, `myPGM-<version>-windows-x64.exe`, that needs no Python installation: download it, put it anywhere and double-click it (the first start takes a few seconds). It is not signed, so Windows SmartScreen may warn about an unknown publisher: click *More info*, then *Run anyway*.
+
 # Installation from source
+
+To work on the code, or to use the latest changes before a release:
 
 ### 1) Get a copy of the code:
 
@@ -97,11 +118,13 @@ It loads the bundled example spectra, fits the three ruby spectra and the H2 vib
 
 # Unsaved work and automatic backup
 
-When closing myPGM with unsaved changes (spectra, fits, processing or table points), it asks whether to save the session first. While you work, the session is also backed up automatically every 30 seconds in your user folder (next to the log file below). Each myPGM window has its own backup, so several windows can be open at the same time. If myPGM closes unexpectedly, it offers to recover that backup at the next start; a declined backup is kept aside with a `.discarded.json` extension.
+When closing myPGM with unsaved changes (spectra, fits, processing or table points), it asks whether to save the session first. While you work, the session is also backed up automatically every 30 seconds in your user folder (next to the log file below); the interval, or autosave itself, can be changed in Settings › Session. Each myPGM window has its own backup, so several windows can be open at the same time. If myPGM closes unexpectedly, a banner offers to recover that backup at the next start (this can be turned off in Settings › Session); a declined backup, or one left aside because you loaded something else, is kept with a `.discarded.json` extension.
 
 # Settings
 
-myPGM remembers the theme, the font size and the folders last used to open spectra, sessions, the acquisition directory and CSV exports. They are kept in `~/.config/myPGM/myPGM.ini` (Linux and macOS) or `%APPDATA%\myPGM\myPGM.ini` (Windows); delete this file to return to the defaults. The reference positions (λ0, ν0) are not remembered on purpose: they are measured for each experiment, and a value from a previous one would silently give wrong pressures.
+The gear button at the top right (or Files › Settings…, ⌘, on macOS) opens the Settings window: theme (light, dark or following the system), interface font size, the additional pressure toolbox, autosave, the pressure log columns, debug logging and the log folder.
+
+myPGM remembers these settings, the window layout and the folders last used to open spectra, sessions, the acquisition directory and CSV exports. They are kept in `~/.config/myPGM/myPGM.ini` (Linux and macOS) or `%APPDATA%\myPGM\myPGM.ini` (Windows); delete this file to return to the defaults. The reference positions (λ0, ν0) are not remembered on purpose: they are measured for each experiment, and a value from a previous one would silently give wrong pressures.
 
 # Log file
 
@@ -113,7 +136,7 @@ myPGM writes warnings and errors, including every error message shown in the app
 
 The exact path is printed at startup and shown in the dialog that appears if an unexpected error occurs. Please attach this file when reporting a bug.
 
-For more detailed messages (files loaded, fit results, sessions saved and loaded), start the app with `--debug`:
+For more detailed messages (files loaded, fit results, sessions saved and loaded), turn on Settings › Logging › Debug logging, or start the app with `--debug`:
 
 ```bash
 mypgm --debug
@@ -135,10 +158,6 @@ ruff check .
 ```
 
 A test marked `xfail` describes a known bug that is not fixed yet. The tests also run on GitHub for every push and pull request.
-
-# Executables
-
-Standalone executables are not provided yet: install from source as described above.
 
 # Contributors
 

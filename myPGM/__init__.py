@@ -3,14 +3,16 @@ import os
 import ctypes
 import logging
 import time
-from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QLocale, QLoggingCategory
 
-from myPGM.helpers import load_style, get_app_icon
+from myPGM.helpers import get_app_icon
 from myPGM.ui.main_ui import MainWindow
+from myPGM.ui import theme
 from myPGM.data_model import PressureGaugeDataManager
 from myPGM.presenter import Presenter
 from myPGM import log_setup
+from myPGM.settings import setting
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,8 @@ def _install_excepthook():
                 text += f"\n\nDetails were saved in the log file:\n{log_setup.log_file_path}"
             state["dialog_open"] = True
             try:
-                QMessageBox.critical(QApplication.activeWindow(), "Unexpected error", text)
+                from myPGM.ui import dialogs
+                dialogs.show_error(QApplication.activeWindow(), "Unexpected error", text)
             finally:
                 state["dialog_open"] = False
                 state["closed_at"][key] = time.monotonic()
@@ -67,11 +70,12 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setApplicationName("myPGM")
-    # after setApplicationName, which sets the log folder name
-    log_file = log_setup.setup_logging(debug="--debug" in sys.argv)
+    # after setApplicationName, which sets the log folder name; --debug or
+    # Settings › Logging › Debug logging
+    debug = "--debug" in sys.argv or setting("logging/debug")
+    log_file = log_setup.setup_logging(debug=debug)
     _install_excepthook()
-    logger.info("myPGM started%s, log file: %s",
-                " in debug mode" if "--debug" in sys.argv else "", log_file)
+    logger.info("myPGM started%s, log file: %s", " in debug mode" if debug else "", log_file)
     app_icon = get_app_icon()
     # decimal '.'
     QLocale.setDefault(QLocale(QLocale.C))
@@ -80,10 +84,10 @@ def main():
         app.setWindowIcon(app_icon)
 
     try:
-        style = load_style('light-mode.qss')
-        app.setStyleSheet(style)
+        # light theme and bundled fonts; MainWindow switches to a saved dark theme
+        theme.apply_theme(app, dark=False)
     except Exception as exc:
-        logger.warning("Could not load the light-mode stylesheet: %s", exc)
+        logger.warning("Could not load the theme stylesheet: %s", exc)
     model = PressureGaugeDataManager()
     view = MainWindow()
     if not app_icon.isNull():
@@ -94,7 +98,8 @@ def main():
     presenter = Presenter(model, view, demo=demo,
                           backup_dir=str(backup_dir) if backup_dir is not None else None)
     presenter.view.show()
-    if not demo:
+    # Settings › Session › Offer to recover an unsaved session at startup
+    if not demo and setting("session/offer_recovery"):
         presenter.offer_recovery()
 
     sys.exit(app.exec_())

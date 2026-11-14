@@ -12,12 +12,12 @@ from conftest import dispose
 def app(qapp, tmp_path, monkeypatch):
     """Main window + presenter with the example files and a backup folder.
     app.answers: what the 'Save changes?' question returns, in order."""
-    from myPGM.helpers import load_style
+    from myPGM.ui import theme
     from myPGM.ui.main_ui import MainWindow
     from myPGM.data_model import PressureGaugeDataManager
     from myPGM.presenter import Presenter
 
-    qapp.setStyleSheet(load_style("light-mode.qss"))
+    qapp.setStyleSheet(theme.stylesheet(dark=False))
     view = MainWindow()
     backup_dir = tmp_path / "appdata"
     backup_dir.mkdir()
@@ -31,7 +31,7 @@ def app(qapp, tmp_path, monkeypatch):
     a.backup_dir = backup_dir
     a.session_file = tmp_path / "saved.json"
     monkeypatch.setattr(view, "ask_save_changes",
-                        lambda: a.asked.append("save?") or (a.answers.pop(0) if a.answers else "discard"))
+                        lambda *args: a.asked.append("save?") or (a.answers.pop(0) if a.answers else "discard"))
     monkeypatch.setattr(view, "get_save_session_filename_dialog", lambda: str(a.session_file))
     monkeypatch.setattr(view, "get_open_session_filename_dialog", lambda: str(a.session_file))
     presenter._error_dialog = lambda text, title="": a.asked.append(title)
@@ -146,7 +146,7 @@ def test_opened_session_is_saved_in_place(app, monkeypatch):
 def test_recovered_session_is_not_saved_into_the_backup(app):
     _crashed_session(app)
     view, presenter, _ = _new_app(app, answer=True)
-    assert presenter.offer_recovery()
+    assert presenter.offer()
     assert presenter.session_path is None              # "Save" asks for a file
     assert view.windowTitle().startswith("myPGM") and " - autosave" not in view.windowTitle()
     dispose(view)
@@ -211,14 +211,30 @@ def _crashed_session(app):
 
 
 def _new_app(app, answer):
+    """A new window on the same backup folder. Its recovery banner is answered with
+    `answer` (Recover session / Discard) when offer() shows it; `asked` records the
+    times it was shown. (Step 5: the banner replaced the blocking message box.)"""
     from myPGM.ui.main_ui import MainWindow
     from myPGM.data_model import PressureGaugeDataManager
     from myPGM.presenter import Presenter
     view = MainWindow()
     asked = []
-    view.ask_recover_session = lambda when: asked.append(when) or answer
+    show = view.show_recovery_banner
+    view.show_recovery_banner = lambda when: (asked.append(when), show(when))
     presenter = Presenter(PressureGaugeDataManager(), view, backup_dir=str(app.backup_dir))
     presenter._error_dialog = lambda *args: None
+
+    def offer():
+        """True if a backup was offered and recovered."""
+        if not presenter.offer_recovery():
+            return False
+        assert not view.recovery_banner.isHidden()
+        banner = view.recovery_banner
+        (banner.recover_button if answer else banner.discard_button).click()
+        assert view.recovery_banner.isHidden()
+        return presenter.has_unsaved_changes() if answer else False
+
+    presenter.offer = offer
     return view, presenter, asked
 
 
@@ -232,7 +248,7 @@ def test_recover_backup_at_next_start(app):
     P = _crashed_session(app)
     crashed_backup = app.presenter.backup_path
     view, presenter, asked = _new_app(app, answer=True)
-    assert presenter.offer_recovery() and len(asked) == 1
+    assert presenter.offer() and len(asked) == 1
     fitted = [o for o in presenter.model.values() if o.fit_result is not None]
     assert len(presenter.model) == 5 and fitted[0].P == pytest.approx(P)
     assert presenter.has_unsaved_changes()          # recovered work still has to be saved
@@ -244,7 +260,7 @@ def test_declined_backup_is_kept_aside(app):
     _crashed_session(app)
     crashed_backup = app.presenter.backup_path
     view, presenter, _ = _new_app(app, answer=False)
-    assert not presenter.offer_recovery()
+    assert not presenter.offer()
     assert len(presenter.model) == 0
     assert not os.path.exists(crashed_backup)
     assert os.path.exists(os.path.splitext(crashed_backup)[0] + ".discarded.json")
@@ -259,7 +275,7 @@ def test_backup_that_cannot_be_loaded_is_offered_once(app, content):
     with open(crashed_backup, "w") as f:       # e.g. damaged on disk
         f.write(content)
     view, presenter, asked = _new_app(app, answer=True)
-    assert not presenter.offer_recovery() and len(asked) == 1
+    assert not presenter.offer() and len(asked) == 1
     assert not os.path.exists(crashed_backup)
     assert os.path.exists(os.path.splitext(crashed_backup)[0] + ".discarded.json")
     assert not presenter.offer_recovery() and len(asked) == 1      # not offered at every start
@@ -298,7 +314,7 @@ def test_backup_from_the_previous_version_is_offered(app):
     with open(legacy, "w", encoding="utf-8") as f:
         json.dump({"files": []}, f)
     view, presenter, asked = _new_app(app, answer=False)
-    assert presenter.offer_recovery() is False and len(asked) == 1
+    assert presenter.offer() is False and len(asked) == 1
     assert os.path.exists(os.path.join(str(app.backup_dir), "autosave_session.discarded.json"))
     dispose(view)
 
@@ -346,3 +362,20 @@ def test_unwritable_backup_folder_warns_once(app, caplog, monkeypatch):
             app.presenter.flush_backup()
     failures = [r for r in caplog.records if "Could not write the session backup" in r.getMessage()]
     assert [r.levelname for r in failures] == ["WARNING", "DEBUG", "DEBUG"]
+
+
+def test_opening_a_session_offers_to_save_first(app, monkeypatch):
+    app.fit()
+    app.presenter.save_session()
+    app.fit("Example_Ruby_2.asc")
+    opened = []
+    monkeypatch.setattr(app.view, "get_open_session_filename_dialog",
+                        lambda: opened.append(1) or str(app.session_file))
+    app.answers = ["cancel"]
+    assert not app.presenter.load_session()             # Cancel: nothing opened
+    assert app.asked == ["save?"] and opened == []
+    assert app.presenter.has_unsaved_changes()
+    app.answers = ["save"]
+    assert app.presenter.load_session()                 # saved, then opened
+    assert len(json.loads(app.session_file.read_text())["files"]) == 5
+    assert app.presenter.load_session() and app.asked == ["save?", "save?"]  # no changes: no question

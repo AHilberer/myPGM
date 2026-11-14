@@ -1,16 +1,7 @@
 import numpy as np
-from PyQt5.QtWidgets import (QFrame,
-                             QDoubleSpinBox,
-                             QDialog,
-                             QVBoxLayout,
-                             QHBoxLayout,
-                             QLabel,
-                             QPushButton,
-                             QWidget,
-                             QSlider,
-                             QApplication)
-from PyQt5.QtCore import Qt, pyqtSignal, QLocale
-from PyQt5.QtGui import QIcon, QFontInfo
+from PyQt5.QtWidgets import QApplication, QDoubleSpinBox
+from PyQt5.QtCore import QLocale
+from PyQt5.QtGui import QIcon
 from functools import wraps
 from importlib.resources import files
 
@@ -22,57 +13,11 @@ def set_app_theme(style):
     _, marker, font_rule = app.styleSheet().partition(FONT_RULE_MARKER)
     app.setStyleSheet(style + marker + font_rule)
 
-DEFAULT_FONT_PX = 15
-
-def current_app_font_px():
-    """Pixel size of the font currently used by the application widgets. Qt gives
-    -1 when it cannot resolve one (seen on Windows): the point size is then
-    converted, and DEFAULT_FONT_PX used as a last resort (-1 px fonts were set)."""
-    font = QApplication.font()
-    size = QFontInfo(font).pixelSize()
-    if size <= 0 and font.pointSizeF() > 0:
-        size = round(font.pointSizeF() * QApplication.primaryScreen().logicalDotsPerInch() / 72)
-    return size if size > 0 else DEFAULT_FONT_PX
-
 def set_app_font_size(size):
     """Set the global font size, keeping the current theme stylesheet."""
     app = QApplication.instance()
     base_style = app.styleSheet().split(FONT_RULE_MARKER)[0]
     app.setStyleSheet(f"{base_style}{FONT_RULE_MARKER}\n* {{ font-size: {size}px; }}\n")
-
-class FontSizeWindow(QWidget):
-
-    # widgets drawn outside of Qt stylesheets (plots, table) listen to this
-    font_size_changed = pyqtSignal(int)
-
-    def __init__(self, current_size=DEFAULT_FONT_PX):
-        super().__init__()
-
-        self.setObjectName("FontSizeWindow")
-        self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setWindowTitle("Font size control")
-
-        layout = QVBoxLayout(self)
-
-        self.label = QLabel("Adjust global font size")
-        layout.addWidget(self.label)
-
-        self.slider = QSlider(Qt.Horizontal)
-        self.slider.setMinimum(8)
-        self.slider.setMaximum(30)
-        # start from the size in use: nothing changes until the slider is moved
-        self.slider.setValue(current_size)
-        layout.addWidget(self.slider)
-
-        self.value_label = QLabel(f"{self.slider.value()}px")
-        layout.addWidget(self.value_label)
-
-        self.slider.valueChanged.connect(self.set_font_size)
-
-    def set_font_size(self, size):
-        set_app_font_size(size)
-        self.value_label.setText(f"{size}px")
-        self.font_size_changed.emit(size)
 
 class SmartDoubleSpinBox(QDoubleSpinBox):
     def __init__(self, *args, **kwargs):
@@ -84,52 +29,6 @@ class SmartDoubleSpinBox(QDoubleSpinBox):
     def validate(self, text, pos):
         text = text.replace(",", ".")
         return super().validate(text, pos)
-
-class SmartDoubleDialog(QDialog):
-    def __init__(self, valuename='Value:', parent=None):
-        super().__init__(parent)
-        
-        self.setObjectName("SmartDoubleDialog")
-        self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setAutoFillBackground(True)
-        
-        self.spinbox = SmartDoubleSpinBox()
-        self.spinbox.setDecimals(2)
-        self.spinbox.setRange(-np.inf, np.inf)
-        self.spinbox.setSingleStep(0.1)
-        
-        layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(valuename))
-        layout.addWidget(self.spinbox)
-
-        # Buttons
-        btn_layout = QHBoxLayout()
-
-        ok_btn = QPushButton("OK")
-        cancel_btn = QPushButton("Cancel")
-
-        ok_btn.clicked.connect(self.accept)
-        cancel_btn.clicked.connect(self.reject)
-
-        btn_layout.addWidget(ok_btn)
-        btn_layout.addWidget(cancel_btn)
-
-        layout.addLayout(btn_layout)
-
-    def value(self):
-        return self.spinbox.value()
-
-class MyHSeparator(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setFrameShape(QFrame.HLine)
-        self.setFrameShadow(QFrame.Sunken)
-
-class MyVSeparator(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setFrameShape(QFrame.VLine)
-        self.setFrameShadow(QFrame.Sunken)
 
 class PressureCalculationFailed(Exception):
     pass
@@ -194,7 +93,7 @@ def customparse_file2data(f):
     def _to_float(token):
         return float(token.strip().replace(',', '.'))
 
-    with open(f, 'r') as file:
+    with open(f, encoding="utf-8", errors="replace") as file:
         lines = file.readlines()
 
     # Evaluate candidate delimiters by counting how many lines can be parsed
@@ -241,7 +140,7 @@ def customparse_file2data(f):
 
 def _single_column_values(f):
     """Values of a one-number-per-line file (header/footer lines skipped), or None."""
-    with open(f, 'r') as file:
+    with open(f, encoding="utf-8", errors="replace") as file:
         data_lines = []
         for line in file:
             try:

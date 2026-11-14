@@ -1,0 +1,839 @@
+/* myPGM theme: template filled by myPGM/ui/theme.py from the light or dark tokens
+   (dollar-sign placeholders, see DESIGN.md §2). The font size rule is appended at run time. */
+
+QWidget {
+  font-family: $ui_font;
+  color: $tx;
+}
+
+/* --- windows and panels --------------------------------------------------------- */
+
+QMainWindow, QDialog,
+HPTableWindow, PvPmPlotWindow {
+  background-color: $bg;
+}
+
+PressureToolbox {
+  background-color: $bg;
+}
+
+QGroupBox {
+  background-color: $sf;
+  border: 1px solid $bd;
+  border-radius: 12px;
+  margin-top: 0px;
+  padding: 30px 10px 10px 10px;
+}
+QGroupBox::title {
+  subcontrol-origin: padding;
+  subcontrol-position: top left;
+  left: 14px;
+  top: 9px;
+  color: $mu;
+  font-weight: 600;
+}
+
+QLabel {
+  color: $tx;
+  background: transparent;
+}
+QLabel:disabled {
+  color: $mu;
+}
+
+QCheckBox {
+  color: $tx;
+  background: transparent;
+  spacing: 8px;
+}
+QCheckBox::indicator {
+  width: 16px;
+  height: 16px;
+  border: 1px solid $mu;
+  border-radius: 4px;
+  background-color: $sf;
+}
+QCheckBox::indicator:hover {
+  border-color: $ac;
+}
+QCheckBox::indicator:checked {
+  background-color: $ac;
+  border-color: $ac;
+  image: url($check_icon);
+}
+QCheckBox::indicator:disabled {
+  background-color: $sf2;
+  border-color: $bd;
+}
+
+QToolTip {
+  background-color: $sf;
+  color: $tx;
+  border: 1px solid $bd;
+  padding: 4px 6px;
+}
+
+/* --- buttons -------------------------------------------------------------------- */
+
+QPushButton {
+  background-color: $sf;
+  color: $tx;
+  border: 1px solid $bd;
+  border-radius: 7px;
+  padding: 5px 12px;
+  min-height: 20px;
+}
+QPushButton:hover {
+  background-color: $hd;
+  border-color: $mu;
+}
+QPushButton:pressed {
+  background-color: $sf2;
+}
+QPushButton:checked {
+  background-color: $acs;
+  border-color: $ac;
+  color: $act;
+}
+QPushButton:disabled {
+  color: $mu;
+  background-color: $sf2;
+  border-color: $bd;
+}
+QPushButton:focus {
+  border-color: $ac;
+}
+
+QPushButton[primary="true"] {
+  background-color: $ac;
+  color: $onac;
+  border: 1px solid $ac;
+  font-weight: 600;
+}
+QPushButton[primary="true"]:hover {
+  background-color: $act;
+  border-color: $act;
+}
+QPushButton[primary="true"]:disabled {
+  background-color: $sf2;
+  border-color: $bd;
+  color: $mu;
+}
+
+/* --- inputs --------------------------------------------------------------------- */
+
+QAbstractSpinBox, QLineEdit, QComboBox {
+  background-color: $sf2;
+  color: $tx;
+  border: 1px solid $bd;
+  border-radius: 7px;
+  padding: 4px 8px;
+  selection-background-color: $ac;
+  selection-color: $onac;
+}
+QAbstractSpinBox {
+  font-family: $mono_font;
+  padding: 4px 6px;
+}
+QAbstractSpinBox:focus, QLineEdit:focus, QComboBox:focus {
+  border-color: $ac;
+}
+QAbstractSpinBox:disabled, QLineEdit:disabled, QComboBox:disabled {
+  color: $mu;
+}
+QComboBox {
+  padding-left: 10px;
+}
+QComboBox::drop-down {
+  subcontrol-origin: padding;
+  subcontrol-position: center right;
+  border: none;
+  width: 28px;
+}
+QComboBox::down-arrow {
+  image: url($chevron_icon);
+  width: 14px;
+  height: 14px;
+}
+QComboBox QAbstractItemView {
+  background-color: $sf;
+  color: $tx;
+  border: 1px solid $bd;
+  selection-background-color: $acs;
+  selection-color: $act;
+  outline: 0;
+}
+
+/* --- lists and tables ------------------------------------------------------------- */
+
+QListView, QListWidget {
+  background-color: $sf;
+  color: $tx;
+  border: 1px solid $bd;
+  border-radius: 7px;
+  outline: 0;
+  padding: 2px;
+}
+QListView::item, QListWidget::item {
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+QListView::item:hover, QListWidget::item:hover {
+  background-color: $hd;
+}
+QListView::item:selected, QListWidget::item:selected {
+  background-color: $acs;
+  border: 1px solid $ac;
+  color: $tx;
+}
+
+QTableWidget, QTableView {
+  background-color: $sf;
+  alternate-background-color: $hd;
+  color: $tx;
+  gridline-color: $bd;
+  border: 1px solid $bd;
+  border-radius: 7px;
+  selection-background-color: $sel;
+  selection-color: $tx;
+  outline: 0;
+}
+QHeaderView {
+  background-color: $hd;
+  border: none;
+}
+QHeaderView::section {
+  background-color: $hd;
+  color: $mu;
+  border: none;
+  border-bottom: 1px solid $bd;
+  font-weight: 600;
+}
+QTableCornerButton::section {
+  background-color: $hd;
+  border: none;
+}
+
+/* --- menus, scroll bars, splitters, sliders ------------------------------------------- */
+
+QMenuBar {
+  background-color: $sf;
+  color: $tx;
+  border-bottom: 1px solid $bd;
+}
+QMenuBar::item {
+  background: transparent;
+  padding: 4px 10px;
+}
+QMenuBar::item:selected {
+  background-color: $acs;
+  color: $act;
+  border-radius: 6px;
+}
+QMenu {
+  background-color: $sf;
+  color: $tx;
+  border: 1px solid $bd;
+  padding: 4px;
+}
+QMenu::item {
+  padding: 5px 22px 5px 22px;
+  border-radius: 6px;
+}
+QMenu::item:selected {
+  background-color: $acs;
+  color: $act;
+}
+QMenu::separator {
+  height: 1px;
+  background: $bd;
+  margin: 4px 6px;
+}
+
+QScrollBar:vertical {
+  background: transparent;
+  width: 10px;
+  margin: 0px;
+}
+QScrollBar:horizontal {
+  background: transparent;
+  height: 10px;
+  margin: 0px;
+}
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
+  background: $bd;
+  border-radius: 4px;
+  min-height: 24px;
+  min-width: 24px;
+  margin: 2px;
+}
+QScrollBar::handle:hover {
+  background: $mu;
+}
+QScrollBar::add-line, QScrollBar::sub-line {
+  width: 0px;
+  height: 0px;
+}
+QScrollBar::add-page, QScrollBar::sub-page {
+  background: transparent;
+}
+
+QSplitter::handle {
+  background-color: transparent;
+}
+/* gaps between the workspace and the bottom panels, and between the panels */
+QMainWindow::separator {
+  background-color: transparent;
+  width: $gap;
+  height: $gap;
+}
+QMainWindow::separator:hover {
+  background-color: $bd;
+}
+QSplitter::handle:hover {
+  background-color: $bd;
+}
+
+QSlider::groove:horizontal {
+  height: 4px;
+  background: $bd;
+  border-radius: 2px;
+}
+QSlider::sub-page:horizontal {
+  background: $ac;
+  border-radius: 2px;
+}
+QSlider::handle:horizontal {
+  background: $sf;
+  border: 1px solid $ac;
+  width: 14px;
+  height: 14px;
+  margin: -6px 0px;
+  border-radius: 7px;
+}
+
+/* --- main window layout (DESIGN.md section 1) -------------------------------------------- */
+
+#TopBar {
+  background-color: $sf;
+  border-bottom: 1px solid $bd;
+}
+QLabel#AppName {
+  font-size: 15px;
+  font-weight: 700;
+}
+QLabel#AppSubtitle {
+  font-size: 11px;
+  color: $mu;
+}
+QLabel#SessionName {
+  font-weight: 600;
+}
+QLabel#SavePill {
+  background-color: $hd;
+  color: $mu;
+  border-radius: 11px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+#Card {
+  background-color: $sf;
+  border: 1px solid $bd;
+  border-radius: 12px;
+}
+#Divider {
+  background-color: $bd;
+  border: none;
+}
+#FolderBox {
+  background-color: $hd;
+  border-radius: 9px;
+}
+#InspectorScroll, #Inspector {
+  background: transparent;
+  border: none;
+}
+QListWidget#FileList {
+  background: transparent;
+  border: none;
+  padding: 0px;
+}
+QListWidget#FileList::item {
+  padding: 6px 8px;
+  border-radius: 7px;
+}
+
+QLabel[role="section"] {
+  color: $mu;
+  font-size: 12px;
+  font-weight: 600;
+}
+QLabel[role="field"] {
+  color: $mu;
+  font-size: 13px;
+}
+QLabel[role="caption"], QLabel[role="caption-12"] {
+  color: $mu;
+  font-size: 12px;
+}
+QLabel[role="muted"] {
+  color: $mu;
+}
+QLabel[role="muted-13"] {
+  color: $mu;
+  font-size: 13px;
+}
+QLabel[role="folder"] {
+  color: $tx;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* highlighted pressure row of the Parameters card */
+#PressureRow {
+  background-color: $acs;
+  border-radius: 9px;
+}
+QLabel#PressureLabel {
+  color: $act;
+  font-weight: 600;
+}
+QAbstractSpinBox#P_spinbox {
+  background: transparent;
+  border: 1px solid transparent;
+  color: $act;
+  font-size: 18px;
+  font-weight: 600;
+}
+QAbstractSpinBox#P_spinbox:focus {
+  border-color: $ac;
+}
+
+QPushButton[role="link"] {
+  background: transparent;
+  border: none;
+  color: $act;
+  padding: 0px 2px;
+  min-height: 0px;
+  font-size: 13px;
+  font-weight: 500;
+}
+QPushButton[role="link"]:hover {
+  text-decoration: underline;
+}
+QPushButton[role="icon"], QPushButton[role="quiet-icon"] {
+  padding: 0px;
+  min-height: 0px;
+}
+QPushButton[role="quiet-icon"] {
+  background-color: $hd;
+}
+QPushButton[role="toolbar"] {
+  padding: 0px 14px;
+  min-height: 0px;
+  font-weight: 500;
+}
+QPushButton[role="accent"] {
+  background-color: $sf;
+  border: 1px solid $ac;
+  color: $act;
+  font-weight: 600;
+}
+QPushButton[role="accent"]:hover {
+  background-color: $acs;
+}
+
+/* --- bottom panels (docks) ------------------------------------------------------------- */
+
+QDockWidget {
+  background: transparent;
+}
+#DockHeader {
+  background-color: $sf;
+  border: 1px solid $bd;
+  border-bottom: none;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+#DockHeader[floating="true"] {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+#DockBody {
+  background-color: $sf;
+  border: 1px solid $bd;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+#DockBody[floating="true"] {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+QTableWidget#PressureLogTable {
+  border: none;
+  border-radius: 0px;
+}
+QLabel#CountPill {
+  background-color: $hd;
+  color: $mu;
+  border-radius: 10px;
+  padding: 2px 9px;
+  font-size: 12px;
+}
+QLabel#PlotLegend {
+  color: $tx;
+  font-size: 13px;
+}
+QLabel[role="window-title"] {
+  font-size: 14px;
+  font-weight: 600;
+}
+QPushButton[role="close"] {
+  background: transparent;
+  border: none;
+  padding: 0px;
+  min-height: 0px;
+}
+QPushButton[role="close"]:hover {
+  background-color: $hd;
+}
+
+/* --- center column: fitted pressure card and spectrum card (DESIGN.md section 1) ------- */
+
+QLabel#PressureValue {
+  font-family: $mono_font;
+  font-size: 40px;
+  font-weight: 600;
+}
+QLabel#PressureUnit {
+  font-size: 16px;
+  font-weight: 600;
+  padding-bottom: 4px;
+}
+QLabel#Pill {
+  background-color: $sf2;
+  color: $tx;
+  border-radius: 10px;
+  padding: 3px 9px;
+  font-size: 12px;
+}
+QLabel#Pill[mono="true"] {
+  font-family: $mono_font;
+}
+QLabel#Pill[muted="true"] {
+  color: $mu;
+}
+#PmField {
+  background-color: $sf2;
+  border: 1px solid $bd;
+  border-radius: 8px;
+}
+#PmField[focused="true"] {
+  border: 2px solid $ac;
+}
+#PmField QAbstractSpinBox {
+  background: transparent;
+  border: none;
+  padding: 0px;
+  font-size: 15px;
+}
+QLabel[role="dialog-title"] {
+  font-size: 15px;
+  font-weight: 600;
+}
+QLabel[role="muted-12"] {
+  color: $mu;
+  font-size: 12px;
+}
+QLabel[role="accent-12"] {
+  color: $act;
+  font-size: 12px;
+}
+
+#CardToolbar {
+  background-color: $hd;
+  border-bottom: 1px solid $bd;
+  border-top-left-radius: 11px;
+  border-top-right-radius: 11px;
+}
+QPushButton[role="soft-primary"] {
+  background-color: $acs;
+  color: $act;
+  border: 1px solid transparent;
+  font-weight: 600;
+  padding: 0px 12px;
+  min-height: 0px;
+}
+QPushButton[role="soft-primary"]:hover {
+  border-color: $ac;
+}
+QPushButton[role="split-left"] {
+  border-top-right-radius: 0px;
+  border-bottom-right-radius: 0px;
+  padding: 0px 12px;
+  min-height: 0px;
+}
+QPushButton[role="split-left"]:checked {
+  background-color: $sf;
+  border-color: $ac;
+  color: $act;
+}
+QPushButton[role="split-right"] {
+  border-top-left-radius: 0px;
+  border-bottom-left-radius: 0px;
+  border-left: none;
+  padding: 0px;
+  min-height: 0px;
+}
+QPushButton[role="split-right"]:enabled {
+  border-color: $ac;
+}
+QPushButton[role="split-right"]:checked {
+  background-color: $ac;
+  border-color: $ac;
+}
+QPushButton[role="split-right"]:disabled {
+  background-color: $sf;
+}
+#Segmented {
+  background-color: $sf2;
+  border-radius: 8px;
+}
+QPushButton[role="segment"] {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: $mu;
+  padding: 0px 12px;
+  min-height: 0px;
+}
+QPushButton[role="segment"]:hover {
+  color: $tx;
+}
+QPushButton[role="segment"]:checked {
+  background-color: $sf;
+  color: $tx;
+  font-weight: 500;
+}
+#Stepper {
+  background: transparent;
+  border: 1px solid $bd;
+  border-radius: 7px;
+}
+QPushButton[role="step"] {
+  background-color: $sf2;
+  border: none;
+  border-radius: 0px;
+  color: $tx;
+  padding: 0px;
+  min-height: 0px;
+}
+QPushButton[role="step"][side="left"] {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+QPushButton[role="step"][side="right"] {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+QPushButton[role="step"]:hover {
+  background-color: $bd;
+}
+QAbstractSpinBox#StepperValue {
+  background: transparent;
+  border: none;
+  border-radius: 0px;
+  padding: 0px;
+}
+QPushButton[role="pill"] {
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0px 10px;
+  min-height: 0px;
+}
+QPushButton[role="pill"]:checked {
+  background-color: $acs;
+  border-color: $ac;
+  color: $act;
+}
+QSplitter#PlotSplitter::handle {
+  background: transparent;       /* dashed line painted by widgets.DashedSplitter */
+}
+QDialog#AddPointDialog {
+  background-color: $sf;
+}
+QDialog#AddPointDialog QLabel[role="field"] {
+  font-size: 12px;
+}
+
+/* messages (dialogs.MessageDialog, instead of QMessageBox) */
+QDialog#MessageDialog {
+  background-color: $sf;
+}
+QLabel#MessageText {
+  color: $tx;
+}
+
+/* pyqtgraph's Export… dialog (P vs Pm plot menu, PvPmPlotWindow.show_export_dialog) */
+QWidget#ExportDialog {
+  background-color: $sf;
+}
+QWidget#ExportDialog QTreeView {
+  background-color: $sf;
+  color: $tx;
+  selection-background-color: $acs;
+  selection-color: $tx;
+  border: 1px solid $bd;
+  border-radius: 7px;
+  outline: 0;
+}
+QWidget#ExportDialog QTreeView::item:selected {
+  background-color: $acs;
+  color: $tx;
+}
+
+/* --- density and empty states (DESIGN.md sections 4b and 5) ------------------------- */
+
+QLabel#EmptyHint {
+  color: $mu;
+  font-size: 13px;
+}
+#EmptyBox {
+  background: transparent;     /* dashed border painted by widgets.DashedFrame */
+}
+#DropZone {
+  background-color: $hd;       /* dashed border painted by widgets.DashedFrame */
+  border-radius: 12px;
+}
+QLabel[role="empty-title"] {
+  font-size: 20px;
+  font-weight: 600;
+}
+#RecoveryBanner {
+  background-color: $acs;
+  border: 1px solid $ac;
+  border-radius: 12px;
+}
+#RecoveryBanner QLabel {
+  color: $tx;
+}
+
+/* --- Settings window (DESIGN.md section 4) ------------------------------------------- */
+
+QDialog#SettingsDialog, #SettingsContent, QScrollArea#SettingsPage {
+  background-color: $sf;
+}
+#SettingsHeader {
+  background-color: $hd;
+  border-bottom: 1px solid $bd;
+}
+#SettingsFooter {
+  background-color: $hd;
+  border-top: 1px solid $bd;
+}
+#SettingsNav {
+  background-color: $hd;
+  border-right: 1px solid $bd;
+}
+QLabel#SettingsTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+QPushButton[role="nav"] {
+  text-align: left;
+  padding: 0px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: $tx;
+  font-weight: 500;
+  min-height: 0px;
+}
+QPushButton[role="nav"]:hover {
+  background-color: $sf2;
+}
+QPushButton[role="nav"]:checked {
+  background-color: $acs;
+  color: $act;
+}
+QPushButton[role="nav"][current="true"] {
+  font-weight: 600;
+}
+QLabel[role="settings-title"] {
+  font-size: 16px;
+  font-weight: 600;
+}
+QLabel[role="row-title"] {
+  font-weight: 500;
+}
+#ColumnTile {
+  border: 1px solid $bd;
+  border-radius: 8px;
+}
+#ColumnTile QCheckBox {
+  font-family: $mono_font;
+  font-size: 12px;
+}
+QAbstractSpinBox#IntervalSpin {
+  font-size: 14px;
+}
+QPushButton[role="text"] {
+  background: transparent;
+  border: none;
+  color: $mu;
+  padding: 0px 12px;
+}
+QPushButton[role="text"]:hover {
+  color: $tx;
+}
+QLabel#AboutName {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* λ from the fit (Parameters card) */
+QAbstractSpinBox[fitted="true"] {
+  border-color: $ac;
+  padding-right: 30px;
+}
+QLabel#FitTag {
+  color: $mu;
+  font-size: 11px;
+}
+
+/* --- keyboard focus (buttons take focus from Tab only: widgets.Button) ------------- */
+
+QCheckBox::indicator:focus {
+  border-color: $ac;
+}
+/* borderless buttons: a 1 px accent border, the padding 1 px smaller so the text stays */
+QPushButton[role="segment"]:focus {
+  border: 1px solid $ac;
+  padding: 0px 11px;
+}
+QPushButton[role="nav"]:focus {
+  border: 1px solid $ac;
+  padding: 0px 9px;
+}
+QPushButton[role="text"]:focus {
+  border: 1px solid $ac;
+  border-radius: 7px;
+  padding: 0px 11px;
+}
+QPushButton[role="link"]:focus {
+  border: 1px solid $ac;
+  border-radius: 4px;
+  padding: 0px 1px;
+}
+QPushButton[role="step"]:focus, QPushButton[role="close"]:focus {
+  border: 1px solid $ac;
+}
+
+/* acquisition folder box: the link at the caption size, so that the folder name fits */
+#FolderBox QPushButton[role="link"] {
+  font-size: 12px;
+  padding: 0px;
+}

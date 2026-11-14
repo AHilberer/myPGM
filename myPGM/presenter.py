@@ -6,13 +6,15 @@ import time
 import numpy as np
 from copy import deepcopy
 from importlib.metadata import PackageNotFoundError, version
-from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
+from PyQt5.QtWidgets import QListWidgetItem
 from PyQt5.QtCore import Qt, QFileInfo, QObject, QTimer
 from myPGM.data_model import PressureGaugeDataObject
 from myPGM.session_backup import SessionBackup, write_json
+from myPGM.settings import setting
 import myPGM.calibrations
 import myPGM.fit_models
 from myPGM.helpers import pressure_valid, spectro_calibration_reader, PressureCalculationFailed
+from myPGM.ui import dialogs
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,10 @@ def _fmt_err(value):
     return "n/a" if value is None else f"{value:.2g}"
 
 
+# spectrometer calibration label when no file is loaded (DESIGN.md §1, Spectrometer card)
+NO_SPECTRO_CALIBRATION = "No calibration file"
+
+
 def get_app_version():
     try:
         return version("myPGM")
@@ -31,7 +37,6 @@ def get_app_version():
         return "dev"
 
 class Presenter(QObject):
-    AUTOSAVE_INTERVAL_MS = 30_000
 
     def __init__(self, model, view, test_mode=False, demo=False, backup_dir=None):
         """test_mode: load the example spectra (used by the tests).
@@ -68,7 +73,6 @@ class Presenter(QObject):
         self._update_window_title()
 
         self.initialize_calibrations_menu()
-        self.view.PvPmPlotWindow.calib_colors = {calib.name: calib.color for calib in myPGM.calibrations.calib_list}
         self.initialize_fit_models_menu()
         self.initialize_buffer()
         self.view.PvPmTableWindow.set_data_manager(self.model)
@@ -80,6 +84,7 @@ class Presenter(QObject):
         self.view.fit_model_combo.currentIndexChanged.connect(self.update_fit_model)
 
         self.view.file_list_widget.object_selected.connect(self.file_selected_from_file_list)
+        self.view.file_list_widget.set_object_lookup(self.model.get)
         self.view.file_list_widget.add_button.clicked.connect(self.add_new_file)
         self.view.file_list_widget.delete_button.clicked.connect(self.delete_current_file)
         self.view.file_list_widget.selectdir_button.clicked.connect(self.set_current_directory)
@@ -106,7 +111,9 @@ class Presenter(QObject):
         self.view.save_session_as_signal.connect(lambda: self.save_session(save_as=True))
         self.view.theme_switched.connect(self.on_theme_switched)
 
-        self.view.PToolbox_toTable_button.clicked.connect(self.add_current_PToolbox_to_table)
+        self.view.add_point_requested.connect(self.add_current_PToolbox_to_table)
+        self.view.files_dropped.connect(self._add_files)
+        self.view.demo_requested.connect(self.load_demo)
 
         if self.test_mode or demo:
             self.initialize_example()
@@ -120,11 +127,15 @@ class Presenter(QObject):
         # automatic backup of the session, recovered after a crash (offer_recovery)
         self.backup_dir = backup_dir
         self.backup = SessionBackup(backup_dir) if backup_dir is not None else None
+        self._recovery_path = None              # backup offered in the recovery banner
+        self.view.recovery_banner.recover_clicked.connect(self.recover_session)
+        self.view.recovery_banner.discard_clicked.connect(self.discard_recovery)
         self.autosave_timer = None
         if self.backup is not None:
             self.autosave_timer = QTimer(self)
             self.autosave_timer.timeout.connect(self.autosave)
-            self.autosave_timer.start(self.AUTOSAVE_INTERVAL_MS)
+        self.apply_autosave_settings()
+        self.view.settings_saved.connect(self.apply_autosave_settings)
 
     ##################################################################################""
         #? Methods 
@@ -144,11 +155,7 @@ class Presenter(QObject):
 
     def _error_dialog(self, text, title):
         # over the main window (without a parent it could open behind it)
-        msg = QMessageBox(self.view)
-        msg.setIcon(QMessageBox.Critical)
-        msg.setText(text)
-        msg.setWindowTitle(title)
-        msg.exec_()
+        dialogs.show_error(self.view, title, text)
 
     def _get_spectro_reference_object(self):
         if self.current_selected_file is not None:
@@ -284,12 +291,11 @@ class Presenter(QObject):
         # data model method!
         buffer.set_calibration(newcalib)
 
-        self._select_fit_model(getattr(newcalib, "default_fit_model", None))
-
-        if toolbox == self.view.ptoolbox and buffer.calib is not None:
-            xlabel = f"{buffer.calib.xname} ({buffer.calib.xunit})"
-            self.view.data_widget.setLabel("bottom", xlabel)
-            self.view.deriv_widget.setLabel("bottom", xlabel)
+        if toolbox == self.view.ptoolbox:
+            # the fit model goes with the main toolbox: the additional one is a calculator
+            self._select_fit_model(getattr(newcalib, "default_fit_model", None))
+            if buffer.calib is not None:
+                self.view.set_x_axis(buffer.calib)
 
         # view method
         toolbox.set_state_from_buffer(buffer)
@@ -301,6 +307,7 @@ class Presenter(QObject):
 
         self.current_selected_file = obj_id
         self.view.current_file_label.setText(f"{obj.filename}")
+        self.view.set_current_point(obj_id)
 
         # show this file's own smoothing, without re-applying it
         was_blocked = self.view.smoothing_factor.blockSignals(True)
@@ -325,8 +332,7 @@ class Presenter(QObject):
 
         self.update_data_plots(obj_id)
         
-        # toolbox is updated (is it what we want?)
-        obj = self.model.get(obj_id, None)
+        # a fitted file shows its fit in the pressure toolbox
         if obj.fit_result is not None:
             self.buffer = deepcopy(obj)
             self.view.ptoolbox.set_state_from_buffer(self.buffer)
@@ -346,6 +352,7 @@ class Presenter(QObject):
         logger.debug("Loaded %s (%d points)", file_path, len(a.original_data))
 
     def _add_files(self, file_paths):
+        self.discard_recovery()                 # the banner goes once something is loaded
         failed = []
         for file in file_paths:
             try:
@@ -422,6 +429,7 @@ class Presenter(QObject):
             self.current_selected_file = None
             self.populate_file_list()
             self.update_PvPm_table()
+            self.view.clear_spectrum()
             self.view.current_file_label.setText(message)
         else:
             self._show_error("No file selected to delete.")
@@ -453,6 +461,7 @@ class Presenter(QObject):
             self.view.plot_data(x, y, units_source, preserve_view=preserve_view)
             if obj.fit_result is not None:
                 self.view.plot_fit(obj.P, obj.fit_model, obj.fit_result, x, y, P_err=obj.P_err)
+            self.view.show_background(obj.id, obj.bg is not None)
 
             self.view.fit_range_selector.setBounds((x_min, x_max))
 
@@ -598,7 +607,7 @@ class Presenter(QObject):
         except Exception as exc:
             self.corrected_spectro_x = None
             self.corrected_spectro_name = None
-            self.view.Spectro_filename_label.setText("None")
+            self.view.Spectro_filename_label.setText(NO_SPECTRO_CALIBRATION)
             self.view.Spectro_use_button.setChecked(False)
             self._show_error(
                 f"Failed to load spectrometer calibration file: {exc}",
@@ -645,8 +654,11 @@ class Presenter(QObject):
         obj.reset_spectro_recalib()
         self.update_data_plots(self.current_selected_file)
 
-    def populate_file_list(self): 
-        self.view.file_list_widget.list_widget.clear()
+    def populate_file_list(self):
+        """Rebuild the file list in display order, the current file still selected."""
+        list_widget = self.view.file_list_widget.list_widget
+        was_blocked = list_widget.blockSignals(True)       # not a selection by the user
+        list_widget.clear()
 
         self.ordered_files_to_display = [
             obj_id
@@ -663,15 +675,21 @@ class Presenter(QObject):
             obj = self.model.get(obj_id)
             text = f"{obj.filename}"
             item = QListWidgetItem(text)
-            item.setData(Qt.UserRole, obj.id)  # Store only object ID 
-            self.view.file_list_widget.list_widget.addItem(item)
+            item.setData(Qt.UserRole, obj.id)  # Store only object ID
+            list_widget.addItem(item)
+        list_widget.blockSignals(was_blocked)
+        if self.current_selected_file is not None:
+            self.select_file_in_list(self.current_selected_file)
 
     def select_file_in_list(self, obj_id):
+        """Highlight a file in the list, without loading it (the caller does)."""
         list_widget = self.view.file_list_widget.list_widget
         for i in range(list_widget.count()):
             item = list_widget.item(i)
             if item.data(Qt.UserRole) == obj_id:
+                was_blocked = list_widget.blockSignals(True)
                 list_widget.setCurrentItem(item)
+                list_widget.blockSignals(was_blocked)
                 return
 
     def recall_from_table(self, obj_id):
@@ -693,6 +711,7 @@ class Presenter(QObject):
         # For table-only entries, restore toolbox state from the recalled object.
         self.current_selected_file = None
         self.view.current_file_label.setText("No file selected")
+        self.view.set_current_point(obj_id)
         self.buffer = deepcopy(obj)
         self.view.ptoolbox.set_state_from_buffer(self.buffer)
 
@@ -722,12 +741,8 @@ class Presenter(QObject):
                 self.populate_file_list()
 
     def update_fit_model(self, newind):
+        # its tint follows the model kind (view: MainWindow._style_fit_model_combo)
         self.fit_mode = self.fit_models[self.view.fit_model_combo.currentText()]
-
-        tmp_color = self.view.fit_model_combo.model().item(newind).background().color().getRgb()
-        self.view.fit_model_combo.setStyleSheet(
-            "background-color: rgba{};".format(tmp_color)
-        )
 
     def fit_current_file(self, guess=None): 
         if self.current_selected_file is not None:
@@ -830,10 +845,18 @@ class Presenter(QObject):
 
     def initialize_example(self):
         for current_file in self.example_files:
-            current_file_path = os.path.dirname(__file__) + "/resources/" + current_file
+            current_file_path = os.path.join(os.path.dirname(__file__), "resources", current_file)
             self.add_instance_from_path(current_file_path)
 
         self.populate_file_list()
+
+    def load_demo(self):
+        """"Explore the demo session" (empty state): the example spectra, fitted and
+        logged, as with --demo; nothing to save."""
+        self.discard_recovery()
+        self.initialize_example()
+        self.fit_examples()
+        self._saved_fingerprint = self._content_fingerprint()
 
     def fit_examples(self):
         """Fit the example spectra and add them to the PvPm table (demo session)."""
@@ -900,6 +923,10 @@ class Presenter(QObject):
         if self.session_path:
             title += f" - {os.path.basename(self.session_path)}"
         self.view.setWindowTitle(title)
+        # top bar: version, and the session file name without its extension
+        self.view.set_version(self.app_version)
+        name = os.path.splitext(os.path.basename(self.session_path))[0] if self.session_path else None
+        self.view.set_session_name(name)
 
     def save_session(self, save_as=False):
         """Save the session to its file, asked for if it has none yet or with
@@ -917,13 +944,17 @@ class Presenter(QObject):
         self._saved_fingerprint = self._content_fingerprint()
         self.session_path = file_path
         self._update_window_title()
+        self.view.set_save_status("saved")
         self._remove_backup()
         logger.debug("Session saved to %s (%d spectra)", file_path, len(self.model))
         return True
 
     def load_session(self, file_path=None):
-        """Load a session file (asked for if not given). Returns True if loaded."""
+        """Load a session file (asked for if not given). Returns True if loaded.
+        Opened from the menu: unsaved changes are offered for saving first."""
         if file_path is None:
+            if not self._resolve_unsaved_changes("opening another session"):
+                return False
             file_path = self.view.get_open_session_filename_dialog()
         if not file_path:
             return False
@@ -980,7 +1011,7 @@ class Presenter(QObject):
             self.corrected_spectro_name = session.get("corrected_spectro_name") or "from session"
         else:
             self.corrected_spectro_name = None
-        self.view.Spectro_filename_label.setText(self.corrected_spectro_name or "None")
+        self.view.Spectro_filename_label.setText(self.corrected_spectro_name or NO_SPECTRO_CALIBRATION)
 
         self.view.Spectro_use_button.setChecked(
             session.get("spectro_use_enabled", False)
@@ -991,12 +1022,18 @@ class Presenter(QObject):
             self.current_selected_file = selected_id
             self.select_file_in_list(selected_id)
             self.file_selected_from_file_list(selected_id)
+        else:
+            self.view.clear_spectrum()
+            self.view.current_file_label.setText("No file selected")
 
         self.update_PvPm_table()
         self._saved_fingerprint = self._content_fingerprint()
         self.session_path = file_path
         self._update_window_title()
+        self.view.set_save_status("saved", os.path.getmtime(file_path))
         logger.debug("Session loaded from %s (%d spectra)", file_path, len(self.model))
+        if file_path != self._recovery_path:
+            self.discard_recovery()             # another session opened: banner gone
         return True
 
     # --- unsaved changes, automatic backup and recovery ----------------------------------------
@@ -1016,14 +1053,20 @@ class Presenter(QObject):
     def has_unsaved_changes(self):
         return self._content_fingerprint() != self._saved_fingerprint
 
+    def _resolve_unsaved_changes(self, action):
+        """Ask 'Save changes before <action>?' if needed. False to stop the action
+        (Cancel, or the save dialog cancelled or failed)."""
+        if not self.has_unsaved_changes():
+            return True
+        choice = self.view.ask_save_changes(action)
+        if choice == "cancel":
+            return False
+        return choice != "save" or self.save_session()
+
     def confirm_close(self):
         """Called when the main window is closed: True to let it close."""
-        if self.has_unsaved_changes():
-            choice = self.view.ask_save_changes()
-            if choice == "cancel":
-                return False
-            if choice == "save" and not self.save_session():
-                return False            # save dialog cancelled or failed: keep the app open
+        if not self._resolve_unsaved_changes("closing"):
+            return False                # keep the app open
         if self.backup is not None:
             self.backup.close()         # closed normally: no recovery needed next time
         return True
@@ -1043,6 +1086,17 @@ class Presenter(QObject):
         fingerprint = self._content_fingerprint()
         if not self.backup.is_up_to_date(fingerprint):
             self.backup.write(self._session_dict(), fingerprint)
+            self.view.set_save_status("autosaved")
+
+    def apply_autosave_settings(self):
+        """Autosave on or off and its interval (Settings › Session), applied without
+        restarting. A backup already written is kept."""
+        if self.autosave_timer is None:
+            return
+        if setting("session/autosave"):
+            self.autosave_timer.start(setting("session/autosave_interval_s") * 1000)
+        else:
+            self.autosave_timer.stop()
 
     def flush_backup(self):
         """Wait for a backup being written, if any."""
@@ -1055,24 +1109,43 @@ class Presenter(QObject):
 
     def offer_recovery(self):
         """At startup: offer to recover the newest backup left by a window that did
-        not close normally. Declined backups, and backups that cannot be loaded
-        (offered again at every start otherwise), are kept as *.discarded.json."""
+        not close normally, in the recovery banner (recover_session / discard_recovery
+        answer it). Returns True if a backup is offered. Declined backups, and backups
+        that cannot be loaded (offered again at every start otherwise), are kept as
+        *.discarded.json."""
         orphans = self.backup.orphans() if self.backup is not None else []
         if not orphans:
             return False
-        path = orphans[0]
-        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(path)))
-        if self.view.ask_recover_session(when):
-            if self.load_session(path):
-                self._saved_fingerprint = None      # recovered work is not saved yet
-                self.session_path = None            # "Save" asks: never into the backup
-                self._update_window_title()
-                os.remove(path)                     # now backed up by this window
-                logger.info("Session recovered from %s", path)
-                return True
-            discarded = SessionBackup.set_aside(path)   # load_session showed the error
-            logger.warning("Session backup could not be loaded, kept as %s", discarded)
+        self._recovery_path = orphans[0]
+        when = time.strftime("%d %b, %H:%M",
+                             time.localtime(os.path.getmtime(self._recovery_path)))
+        self.view.show_recovery_banner(when)
+        return True
+
+    def recover_session(self):
+        """"Recover session" in the banner: load the offered backup. True if loaded."""
+        path, self._recovery_path = self._recovery_path, None
+        self.view.hide_recovery_banner()
+        if path is None:
             return False
-        discarded = SessionBackup.set_aside(path)
-        logger.info("Session backup declined, kept as %s", discarded)
+        if self.load_session(path):
+            self._saved_fingerprint = None      # recovered work is not saved yet
+            self.session_path = None            # "Save" asks: never into the backup
+            self._update_window_title()
+            self.view.set_save_status(None)
+            os.remove(path)                     # now backed up by this window
+            logger.info("Session recovered from %s", path)
+            return True
+        discarded = SessionBackup.set_aside(path)   # load_session showed the error
+        logger.warning("Session backup could not be loaded, kept as %s", discarded)
+        return False
+
+    def discard_recovery(self):
+        """"Discard" in the banner, or something else loaded while it is shown: the
+        backup is not offered again (kept aside on disk). Always False."""
+        path, self._recovery_path = self._recovery_path, None
+        self.view.hide_recovery_banner()
+        if path is not None:
+            discarded = SessionBackup.set_aside(path)
+            logger.info("Session backup declined, kept as %s", discarded)
         return False
