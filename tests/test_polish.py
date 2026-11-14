@@ -47,23 +47,44 @@ def test_fit_tag_for_an_edge_and_back_on_reselect(gui):
 
 # --- pressure log columns -------------------------------------------------------------------
 
+def _column_widths(table):
+    """(sum of the shown sections, sum of their content widths, viewport width)."""
+    header = table.horizontalHeader()
+    shown = [c for c in range(table.columnCount()) if not table.isColumnHidden(c)]
+    total = sum(header.sectionSize(c) for c in shown)
+    contents = sum(max(header.sectionSizeFromContents(c).width(), table.sizeHintForColumn(c))
+                   for c in shown)
+    return shown, total, contents, table.viewport().width()
+
+
 def test_log_columns_fill_the_table_width(gui):
     view = gui.view
     view.resize(1440, 1010)
     view.show()
     _settle(gui.app)
     table = view.PvPmTableWindow.table_widget
-    shown = [c for c in range(table.columnCount()) if not table.isColumnHidden(c)]
-    total = sum(table.horizontalHeader().sectionSize(c) for c in shown)
-    assert total == table.viewport().width()            # empty log: spread, no scrolling
+    # spread over the table when the contents fit, else as wide as the contents (and the
+    # table scrolls); which case applies depends on the platform's default font
+    shown, total, contents, viewport = _column_widths(table)
+    assert total == max(contents, viewport)             # empty log
     _fit(gui)
     gui.view.prompt_fit_pm = lambda current: 8.0
     gui.presenter.add_current_fit_to_table()
     _settle(gui.app)
     for col in shown:                                   # never narrower than the contents
         assert table.horizontalHeader().sectionSize(col) >= table.sizeHintForColumn(col)
-    total = sum(table.horizontalHeader().sectionSize(c) for c in shown)
-    assert total == table.viewport().width()
+    shown, total, contents, viewport = _column_widths(table)
+    assert total == max(contents, viewport)
+
+
+def test_log_columns_spread_when_they_fit(gui):
+    view = gui.view
+    view.resize(2400, 1010)                             # wide enough on every platform
+    view.show()
+    _settle(gui.app)
+    table = view.PvPmTableWindow.table_widget
+    _, total, contents, viewport = _column_widths(table)
+    assert contents < viewport and total == viewport
 
 
 # --- keyboard -----------------------------------------------------------------------------------
