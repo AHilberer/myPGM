@@ -1,0 +1,163 @@
+name: release
+
+# On every pull request: build the wheel and the Windows exe, check them, and upload the
+# wheel to TestPyPI (a dry run of the real upload; a version already there is skipped).
+# On a published GitHub release: the same builds, then the upload to PyPI and the Windows
+# exe attached to the release. Uploads use PyPI Trusted Publishing (no token stored here).
+
+on:
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Version
+        id: version
+        run: |
+          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "pyproject version: $version"
+
+      - name: The release tag matches the version
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::release tag $TAG does not match the pyproject version $VERSION (expected v$VERSION)"
+            exit 1
+          fi
+
+      - name: Build the sdist and the wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check --strict dist/*
+          python .github/scripts/check_wheel.py dist/*.whl
+
+      - name: Install Qt system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+
+      - name: Smoke test of the installed wheel
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/venv/bin/python" -I "$GITHUB_WORKSPACE/.github/scripts/smoke_installed.py"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: python-package
+          path: dist/
+          if-no-files-found: error
+
+  windows:
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write          # to attach the exe to the release
+    env:
+      EXE: myPGM-${{ needs.build.outputs.version }}-windows-x64.exe
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Build the exe
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install . pyinstaller pillow
+          pyinstaller --noconfirm --onefile --windowed --name myPGM \
+            --icon myPGM/resources/icons/AppIcon256.png --collect-data myPGM run.py
+          mv dist/myPGM.exe "dist/$EXE"
+          ls -la dist
+
+      # the exe is started for real (Windows platform plugin, demo session) and must still be
+      # running after 45 s with nothing above INFO in its log
+      - name: Smoke test of the exe
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist\$env:EXE" -ArgumentList "--demo" -PassThru
+          Start-Sleep -Seconds 45
+          $alive = -not $p.HasExited
+          if ($alive) { taskkill /F /T /PID $p.Id | Out-Null }
+          $log = Join-Path $env:APPDATA "myPGM\mypgm.log"
+          if (-not (Test-Path $log)) { throw "no log file at $log: the app did not start" }
+          Get-Content $log
+          if (-not $alive) { throw "the exe exited after less than 45 s (exit code $($p.ExitCode))" }
+          if (Select-String -Path $log -Pattern " (WARNING|ERROR|CRITICAL) " -Quiet) {
+            throw "warnings or errors in the log"
+          }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-exe
+          path: dist/${{ env.EXE }}
+          if-no-files-found: error
+
+      - name: Attach the exe to the release
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" "dist/$EXE" --clobber
+
+  publish-testpypi:
+    needs: build
+    # pull requests from this repository only (forks get no publishing token)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/mypgm/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-package
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  publish-pypi:
+    needs: [build, windows]
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/mypgm/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-package
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

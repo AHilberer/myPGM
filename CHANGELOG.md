@@ -40,6 +40,10 @@ open both ways with 1.1.
   interval, the offer to recover a session, the pressure log columns, debug logging, the log folder,
   and an About section.
 - The λ field shows a "fit" tag while it holds the fitted position.
+- myPGM is published on PyPI (`pip install mypgm`), and each GitHub release comes with a Windows
+  program (`myPGM-<version>-windows-x64.exe`) that needs no Python installation. Both are built
+  and checked by `.github/workflows/release.yml` (the Windows build is started for real on GitHub,
+  but has not been tried by hand yet).
 
 ### Changed
 - The fit model selector is coloured by kind of model (Double red, Single green, Raman edge grey).

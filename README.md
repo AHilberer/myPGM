@@ -1,7 +1,7 @@
 <h1 align="center"> myPGM - Pressure Gauge Monitor </h1>
 
 <div align="center">
-<img alt="myPGM main window with the pressure log and the P vs Pm plot (mypgm --demo)" src="docs/myPGM_screenshot.png">
+<img alt="myPGM main window with the pressure log and the P vs Pm plot (mypgm --demo)" src="https://raw.githubusercontent.com/AHilberer/myPGM/main/docs/myPGM_screenshot.png">
 </div>
 
 <br>
@@ -42,7 +42,25 @@ Once the application is running, a typical workflow is:
 4. Run the fit and inspect the extracted pressure.
 5. Add selected results to the table to follow pressure evolution during the experiment.
 
+# Installation
+
+### With pip
+
+myPGM requires Python 3.10 or newer:
+
+```bash
+python3 -m pip install mypgm
+```
+
+Then start it with `mypgm` (add `--demo` to open an example session, see below). Installing in a [virtual environment](https://docs.python.org/3/library/venv.html) keeps its dependencies (PyQt5, pyqtgraph, NumPy, SciPy) apart from your other Python projects.
+
+### Windows executable
+
+Each [release](https://github.com/AHilberer/myPGM/releases) comes with a Windows program, `myPGM-<version>-windows-x64.exe`, that needs no Python installation: download it, put it anywhere and double-click it (the first start takes a few seconds). It is not signed, so Windows SmartScreen may warn about an unknown publisher: click *More info*, then *Run anyway*.
+
 # Installation from source
+
+To work on the code, or to use the latest changes before a release:
 
 ### 1) Get a copy of the code:
 
@@ -137,10 +155,6 @@ ruff check .
 ```
 
 A test marked `xfail` describes a known bug that is not fixed yet. The tests also run on GitHub for every push and pull request.
-
-# Executables
-
-Standalone executables are not provided yet: install from source as described above.
 
 # Contributors
 
