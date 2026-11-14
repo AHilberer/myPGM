@@ -68,14 +68,17 @@ def test_window_fits_a_1280_px_screen_with_a_fitted_spectrum(gui):
 def test_fit_toolbar_collapses_to_icons_and_back(gui):
     view, app = gui.view, gui.app
     view.show()
+    view.resize(1900, 800)
     _fit(gui, "Example_Ruby_1.asc")
-    toolbar = view.fit_toolbar
-    view.resize(view.minimumSizeHint().width(), 800)
+    toolbar, splitter = view.fit_toolbar, view.workspace_splitter
+    # the center column at its minimum width (wide side panels): whatever sets the
+    # window's minimum width on this platform, the toolbar is then the tightest part
+    splitter.setSizes([900, 1, 900])
     _settle(app)
     assert view.click_fit_button.text() == "" and view.click_fit_button.toolTip()
     assert view.background_label.isHidden() and view.smoothing_label.isHidden()
     assert toolbar.width() >= toolbar.minimumSizeHint().width()
-    view.resize(1900, 800)
+    splitter.setSizes([200, 1400, 270])
     _settle(app)
     assert view.click_fit_button.text().strip() == "Click-to-fit"
     assert view.fit_range_enable_button.text().strip() == "Fit range"
