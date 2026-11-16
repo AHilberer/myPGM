@@ -2,7 +2,7 @@
 
 All notable changes to myPGM are listed here. Versions follow [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [2.0.1] - 2026-11-16
 
 ### Fixed
 - Linux (Wayland session): an undocked pressure log or P vs Pm window can be moved again. Qt 5's
