@@ -1,7 +1,7 @@
 """Bottom panels (DESIGN.md §1 "Bottom dock area"): the
 pressure log and the P vs Pm plot in docks, undockable, closable, sized and saved."""
 import pytest
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QPoint, QRect, Qt
 
 from conftest import dispose
 from myPGM.ui.docks import MIN_HEIGHT
@@ -153,3 +153,83 @@ def test_xcb_is_preferred_on_wayland(environ, platform, expected):
     from myPGM import _prefer_xcb_on_wayland
     _prefer_xcb_on_wayland(environ, platform)
     assert environ.get("QT_QPA_PLATFORM") == expected
+
+
+def _send_mouse(widget, kind, global_pos, button=Qt.LeftButton):
+    from PyQt5.QtCore import QEvent
+    from PyQt5.QtGui import QMouseEvent
+    from PyQt5.QtWidgets import QApplication
+    event_type = {"press": QEvent.MouseButtonPress, "move": QEvent.MouseMove,
+                  "release": QEvent.MouseButtonRelease}[kind]
+    QApplication.sendEvent(widget, QMouseEvent(
+        event_type, widget.mapFromGlobal(global_pos), global_pos,
+        Qt.NoButton if kind == "move" else button,
+        Qt.NoButton if kind == "release" else button, Qt.NoModifier))
+
+
+def test_floating_panel_has_wide_resize_edges(shown):
+    from myPGM.ui.docks import CORNER, EDGE
+    dock = shown.view.log_dock
+    assert all(grip.isHidden() for grip in dock.grips)      # docked: separators resize it
+    dock.header.float_button.click()
+    _settle(shown.app)
+    width, height = dock.width(), dock.height()
+    by_edges = {int(grip.edges): grip for grip in dock.grips}
+    assert len(by_edges) == 8 and not any(grip.isHidden() for grip in dock.grips)
+    right = by_edges[int(Qt.RightEdge)]
+    assert right.geometry().getRect() == (width - EDGE, CORNER, EDGE, height - 2 * CORNER)
+    assert right.cursor().shape() == Qt.SizeHorCursor
+    corner = by_edges[int(Qt.BottomEdge | Qt.RightEdge)]
+    assert corner.geometry().getRect() == (width - CORNER, height - CORNER, CORNER, CORNER)
+    assert corner.cursor().shape() == Qt.SizeFDiagCursor
+    # the grips are on top: the header and the body do not take the edge clicks
+    assert dock.childAt(width - 2, height // 2) is right
+    assert dock.childAt(2, 2) is by_edges[int(Qt.TopEdge | Qt.LeftEdge)]
+    # the header buttons stay clear of the grips
+    close = dock.header.close_button
+    close_rect = QRect(close.mapTo(dock, QPoint(0, 0)), close.size())
+    assert not any(grip.geometry().intersects(close_rect) for grip in dock.grips)
+    dock.header.float_button.click()
+    _settle(shown.app)
+    assert all(grip.isHidden() for grip in dock.grips)
+
+
+def test_dragging_a_grip_resizes_the_floating_panel(shown, monkeypatch):
+    from PyQt5.QtGui import QWindow
+    dock = shown.view.plot_dock
+    dock.header.float_button.click()
+    _settle(shown.app)
+    dock.setGeometry(300, 200, 600, 400)
+    _settle(shown.app)
+    # no window manager resize (macOS with Qt 5): the grip moves the edges itself
+    monkeypatch.setattr(QWindow, "startSystemResize", lambda self, edges: False)
+    grip = next(g for g in dock.grips if int(g.edges) == int(Qt.BottomEdge | Qt.RightEdge))
+    start = grip.mapToGlobal(grip.rect().center())
+    _send_mouse(grip, "press", start)
+    _send_mouse(grip, "move", start + QPoint(120, 80))
+    _send_mouse(grip, "release", start + QPoint(120, 80))
+    assert dock.geometry().getRect() == (300, 200, 720, 480)
+    # the left edge: the right edge stays, and the panel keeps its minimum size
+    grip = next(g for g in dock.grips if int(g.edges) == int(Qt.LeftEdge))
+    start = grip.mapToGlobal(grip.rect().center())
+    _send_mouse(grip, "press", start)
+    _send_mouse(grip, "move", start + QPoint(5000, 0))
+    _send_mouse(grip, "release", start + QPoint(5000, 0))
+    minimum = dock.minimumSize().expandedTo(dock.minimumSizeHint()).width()
+    assert dock.width() == minimum and dock.geometry().right() == 300 + 720 - 1
+
+
+def test_grip_uses_the_window_manager_resize_when_available(shown, monkeypatch):
+    from PyQt5.QtGui import QWindow
+    dock = shown.view.plot_dock
+    dock.header.float_button.click()
+    _settle(shown.app)
+    asked = []
+    monkeypatch.setattr(QWindow, "startSystemResize",
+                        lambda self, edges: asked.append(int(edges)) or True)
+    grip = next(g for g in dock.grips if int(g.edges) == int(Qt.TopEdge))
+    geometry = dock.geometry()
+    start = grip.mapToGlobal(grip.rect().center())
+    _send_mouse(grip, "press", start)
+    _send_mouse(grip, "move", start + QPoint(0, -50))
+    assert asked == [int(Qt.TopEdge)] and dock.geometry() == geometry
