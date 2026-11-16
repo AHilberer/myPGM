@@ -135,3 +135,21 @@ def test_new_point_is_scrolled_into_view(gui, monkeypatch):
     assert scrolled == [1]
     table.updatetable()                       # no new point: no scroll
     assert scrolled == [1]
+
+
+@pytest.mark.parametrize("environ, platform, expected", [
+    # Wayland session with XWayland: xcb, so floating docks can be dragged
+    ({"WAYLAND_DISPLAY": "wayland-0", "DISPLAY": ":0"}, "linux", "xcb"),
+    ({"XDG_SESSION_TYPE": "wayland", "DISPLAY": ":0"}, "linux", "xcb"),
+    # the user's choice is kept
+    ({"WAYLAND_DISPLAY": "wayland-0", "DISPLAY": ":0", "QT_QPA_PLATFORM": "wayland"},
+     "linux", "wayland"),
+    # no XWayland, X11 session, other systems: untouched
+    ({"WAYLAND_DISPLAY": "wayland-0"}, "linux", None),
+    ({"XDG_SESSION_TYPE": "x11", "DISPLAY": ":0"}, "linux", None),
+    ({"WAYLAND_DISPLAY": "wayland-0", "DISPLAY": ":0"}, "darwin", None),
+])
+def test_xcb_is_preferred_on_wayland(environ, platform, expected):
+    from myPGM import _prefer_xcb_on_wayland
+    _prefer_xcb_on_wayland(environ, platform)
+    assert environ.get("QT_QPA_PLATFORM") == expected

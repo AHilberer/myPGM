@@ -2,6 +2,14 @@
 
 All notable changes to myPGM are listed here. Versions follow [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+- Linux (Wayland session): an undocked pressure log or P vs Pm window can be moved again. Qt 5's
+  Wayland backend refused the drag ("This plugin supports grabbing the mouse only for popup
+  windows"); myPGM now runs through XWayland when it is available. Setting `QT_QPA_PLATFORM`
+  still chooses the backend.
+
 ## [2.0.0] - 2026-11-14
 
 A redesigned interface (docs/DESIGN.md): one window with the spectra on the left, the
