@@ -27,6 +27,17 @@ def _set_windows_appusermodelid():
     except Exception:
         pass
 
+def _prefer_xcb_on_wayland(environ=os.environ, platform=sys.platform):
+    """Run through XWayland in a Linux Wayland session. Qt 5's Wayland backend cannot
+    move a floating dock dragged by its header (it needs a mouse grab, refused with
+    "This plugin supports grabbing the mouse only for popup windows") nor place
+    windows. Only when XWayland is there (DISPLAY set) and the user has not chosen
+    a platform with QT_QPA_PLATFORM."""
+    if (platform.startswith("linux") and not environ.get("QT_QPA_PLATFORM")
+            and (environ.get("WAYLAND_DISPLAY") or environ.get("XDG_SESSION_TYPE") == "wayland")
+            and environ.get("DISPLAY")):
+        environ["QT_QPA_PLATFORM"] = "xcb"
+
 REPEATED_ERROR_WINDOW_S = 10
 
 
@@ -63,7 +74,8 @@ def _install_excepthook():
 
 def main():
     _set_windows_appusermodelid()
-    # Qt 5's Wayland backend warns on every window activation it cannot perform
+    _prefer_xcb_on_wayland()
+    # With QT_QPA_PLATFORM=wayland, Qt 5's Wayland backend warns on every window activation it cannot perform
     # ("Wayland does not support QWindow::requestActivate()"); harmless, so muted.
     # A QT_LOGGING_RULES environment variable still overrides this.
     QLoggingCategory.setFilterRules("qt.qpa.wayland.warning=false")
